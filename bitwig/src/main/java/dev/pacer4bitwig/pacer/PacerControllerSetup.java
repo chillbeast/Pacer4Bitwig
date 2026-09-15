@@ -107,6 +107,8 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         ms.setHasFlatTrackList (true);
         ms.enableMainDrumDevice (false);
         this.model = this.factory.createModel (this.configuration, this.colorManager, this.valueChanger, this.scales, ms);
+        // The launcher cursor clip (follows the selected slot) for doubling and halving loops
+        this.model.ensureClip ();
 
         this.looper = new LooperController (this.host, this.model, this.configuration, this.clockFactory.get ());
     }
@@ -159,7 +161,7 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         {
             final int index = i;
             final IHwButton button = surface.createButton (ButtonID.get (ButtonID.ROW1_1, i), PacerMap.SWITCH_NAMES[i]);
-            button.bind (new TapHoldCommand ( () -> this.looper.isTapOnPress (index), () -> this.looper.tap (index), () -> this.looper.hold (index), () -> this.scheduleRepaint (index)));
+            button.bind (new TapHoldCommand ( () -> this.looper.isTapOnPress (index), () -> this.looper.tap (index), () -> this.looper.hold (index), () -> this.scheduleRepaint (index), () -> this.looper.getExtraHoldMillis (index), this.host::scheduleTask));
             button.bind (input, BindType.CC, PacerMap.MIDI_CHANNEL, PacerMap.switchCC (i));
 
             final SwitchLedWriter writer = new SwitchLedWriter (i, this.configuration::getLedMode, (cc, value) -> output.sendCCEx (PacerMap.MIDI_CHANNEL, cc, value));
@@ -173,7 +175,7 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         {
             final int index = i;
             final IHwButton button = surface.createButton (ButtonID.get (ButtonID.FOOTSWITCH1, i), "FS " + (i + 1));
-            button.bind (new TapHoldCommand ( () -> this.looper.isFootswitchTapOnPress (index), () -> this.looper.footswitchTap (index), () -> this.looper.footswitchHold (index), null));
+            button.bind (new TapHoldCommand ( () -> this.looper.isFootswitchTapOnPress (index), () -> this.looper.footswitchTap (index), () -> this.looper.footswitchHold (index), null, () -> this.looper.getFootswitchExtraHoldMillis (index), this.host::scheduleTask));
             button.bind (input, BindType.CC, PacerMap.MIDI_CHANNEL, PacerMap.FOOTSWITCH_CC_BASE + i);
         }
 
@@ -196,7 +198,7 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
             final int index = i;
             final IHwFader pedal = surface.createFader (ContinuousID.get (ContinuousID.FADER1, i), "EXP " + (i + 1), true);
             pedal.bind (surface.getMidiInput (), BindType.CC, PacerMap.MIDI_CHANNEL, i == 0 ? PacerMap.EXP1_CC : PacerMap.EXP2_CC);
-            // Used whenever no parameter is bound, i.e. for the MIDI targets
+            // Used whenever no parameter is bound directly: MIDI targets and response curves
             pedal.bind ((ContinuousCommand) value -> this.looper.pedalMoved (index, value));
             this.pedals[i] = pedal;
             this.bindPedal (i);
@@ -259,8 +261,8 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     {
         final IHwFader pedal = this.pedals[index];
         if (pedal != null)
-            // Null (no parameter) routes the pedal to its command, which sends the MIDI targets
-            pedal.bind (this.looper.getExpressionParameter (this.configuration.getExpressionTarget (index)));
+            // Null (no parameter) routes the pedal to its command
+            pedal.bind (this.looper.getPedalBinding (index));
     }
 
 

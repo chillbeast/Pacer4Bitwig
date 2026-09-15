@@ -1,0 +1,8 @@
+# Normalise line endings in the repository; check out with the platform default
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Pacer dumps and generated presets are raw MIDI bytes
+*.syx binary
+*.bin binary

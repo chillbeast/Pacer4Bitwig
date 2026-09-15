@@ -12,10 +12,13 @@ import de.mossgrabers.framework.daw.midi.ArpeggiatorMode;
 import dev.pacer4bitwig.pacer.controller.PacerMap;
 import dev.pacer4bitwig.pacer.led.LedMode;
 import dev.pacer4bitwig.pacer.looper.Action;
+import dev.pacer4bitwig.pacer.looper.ClearHoldTime;
 import dev.pacer4bitwig.pacer.looper.CountIn;
 import dev.pacer4bitwig.pacer.looper.ExpressionTarget;
+import dev.pacer4bitwig.pacer.looper.FadeLength;
 import dev.pacer4bitwig.pacer.looper.HoldAction;
 import dev.pacer4bitwig.pacer.looper.LoopLength;
+import dev.pacer4bitwig.pacer.looper.PedalCurve;
 import dev.pacer4bitwig.pacer.looper.PlayingTapAction;
 import dev.pacer4bitwig.pacer.looper.QuantizationChoice;
 import dev.pacer4bitwig.pacer.looper.SwitchLayout;
@@ -37,9 +40,9 @@ public class PacerConfiguration extends AbstractConfiguration
     public static final Integer              LAUNCH_QUANTIZATION = Integer.valueOf (1001);
     /** Setting ID: loop length. */
     public static final Integer              LOOP_LENGTH         = Integer.valueOf (1002);
-    /** Setting ID: expression pedal 1 target. */
+    /** Setting ID: expression pedal 1 target or response. */
     public static final Integer              EXPRESSION_1        = Integer.valueOf (1003);
-    /** Setting ID: expression pedal 2 target. */
+    /** Setting ID: expression pedal 2 target or response. */
     public static final Integer              EXPRESSION_2        = Integer.valueOf (1004);
     /** Setting ID: the LED test button was clicked. */
     public static final Integer              LED_TEST            = Integer.valueOf (1005);
@@ -126,15 +129,22 @@ public class PacerConfiguration extends AbstractConfiguration
     private volatile boolean                 loopOnPress         = true;
     private volatile PlayingTapAction        playingTapAction    = PlayingTapAction.STOP;
     private volatile HoldAction              loopHoldAction      = HoldAction.DELETE;
+    private volatile ClearHoldTime           clearHoldTime       = ClearHoldTime.NORMAL;
     private volatile boolean                 armOnRecord         = true;
     private volatile boolean                 exclusiveArm        = true;
     private volatile boolean                 selectOnPress       = true;
     private volatile CountIn                 countIn             = CountIn.OFF;
+    private volatile FadeLength              fadeLength          = FadeLength.BARS_2;
     private final Action []                  switchTap           = new Action [PacerMap.NUM_SWITCHES];
     private final Action []                  switchHold          = new Action [PacerMap.NUM_SWITCHES];
     private final Action []                  footswitchTap       = new Action [PacerMap.NUM_FOOTSWITCHES];
     private final Action []                  footswitchHold      = new Action [PacerMap.NUM_FOOTSWITCHES];
     private final ExpressionTarget []        expressionTargets   = EXPRESSION_DEFAULTS.clone ();
+    private final PedalCurve []              pedalCurves         =
+    {
+        PedalCurve.LINEAR,
+        PedalCurve.LINEAR
+    };
     private volatile int                     pedalMidiChannel    = 0;
     private volatile LedMode                 ledMode             = LedMode.TWO_COLOUR;
     private volatile boolean                 beatSyncedLeds      = true;
@@ -177,10 +187,12 @@ public class PacerConfiguration extends AbstractConfiguration
         onOffSetting (globalSettings, "Loop switch fires on press (off: on release)", CATEGORY_LOOPER, true, value -> this.loopOnPress = value);
         enumSetting (globalSettings, "Tap on a playing loop", CATEGORY_LOOPER, PlayingTapAction.values (), PlayingTapAction.STOP, value -> this.playingTapAction = value);
         enumSetting (globalSettings, "Hold a loop switch", CATEGORY_LOOPER, HoldAction.values (), HoldAction.DELETE, value -> this.loopHoldAction = value);
+        enumSetting (globalSettings, "Hold time for clearing actions", CATEGORY_LOOPER, ClearHoldTime.values (), ClearHoldTime.NORMAL, value -> this.clearHoldTime = value);
         onOffSetting (globalSettings, "Arm the track when recording", CATEGORY_LOOPER, true, value -> this.armOnRecord = value);
         onOffSetting (globalSettings, "Exclusive arm (disarm finished loops)", CATEGORY_LOOPER, true, value -> this.exclusiveArm = value);
         onOffSetting (globalSettings, "Select the track on press", CATEGORY_LOOPER, true, value -> this.selectOnPress = value);
         enumSetting (globalSettings, "Count-in from a stopped transport", CATEGORY_LOOPER, CountIn.values (), CountIn.OFF, value -> this.countIn = value);
+        enumSetting (globalSettings, "Fade length", CATEGORY_LOOPER, FadeLength.values (), FadeLength.BARS_2, value -> this.fadeLength = value);
 
         for (int i = 0; i < SWITCH_DEFAULTS.length; i++)
         {
@@ -202,6 +214,10 @@ public class PacerConfiguration extends AbstractConfiguration
             final Integer settingID = i == 0 ? EXPRESSION_1 : EXPRESSION_2;
             enumSetting (globalSettings, "EXP " + (i + 1), CATEGORY_JACKS, ExpressionTarget.values (), EXPRESSION_DEFAULTS[i], value -> {
                 this.expressionTargets[index] = value;
+                this.notifyObservers (settingID);
+            });
+            enumSetting (globalSettings, "EXP " + (i + 1) + " response", CATEGORY_JACKS, PedalCurve.values (), PedalCurve.LINEAR, value -> {
+                this.pedalCurves[index] = value;
                 this.notifyObservers (settingID);
             });
         }
@@ -279,6 +295,15 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
+     * @return How long destructive hold actions need the switch held
+     */
+    public ClearHoldTime getClearHoldTime ()
+    {
+        return this.clearHoldTime;
+    }
+
+
+    /**
      * @return True to arm the track before recording
      */
     public boolean isArmOnRecord ()
@@ -311,6 +336,15 @@ public class PacerConfiguration extends AbstractConfiguration
     public CountIn getCountIn ()
     {
         return this.countIn;
+    }
+
+
+    /**
+     * @return The length of the fade actions
+     */
+    public FadeLength getFadeLength ()
+    {
+        return this.fadeLength;
     }
 
 
@@ -361,6 +395,16 @@ public class PacerConfiguration extends AbstractConfiguration
     public ExpressionTarget getExpressionTarget (final int index)
     {
         return this.expressionTargets[index];
+    }
+
+
+    /**
+     * @param index 0-1
+     * @return The response curve of an expression pedal
+     */
+    public PedalCurve getPedalCurve (final int index)
+    {
+        return this.pedalCurves[index];
     }
 
 

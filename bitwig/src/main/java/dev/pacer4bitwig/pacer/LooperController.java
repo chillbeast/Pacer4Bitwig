@@ -5,6 +5,7 @@ package dev.pacer4bitwig.pacer;
 import de.mossgrabers.framework.daw.IHost;
 import de.mossgrabers.framework.daw.IModel;
 import de.mossgrabers.framework.daw.ITransport;
+import de.mossgrabers.framework.daw.clip.INoteClip;
 import de.mossgrabers.framework.daw.constants.LaunchQuantization;
 import de.mossgrabers.framework.daw.constants.PostRecordingAction;
 import de.mossgrabers.framework.daw.data.ICursorTrack;
@@ -25,19 +26,23 @@ import dev.pacer4bitwig.pacer.led.LedState;
 import dev.pacer4bitwig.pacer.looper.Action;
 import dev.pacer4bitwig.pacer.looper.CountIn;
 import dev.pacer4bitwig.pacer.looper.ExpressionTarget;
+import dev.pacer4bitwig.pacer.looper.HoldAction;
 import dev.pacer4bitwig.pacer.looper.LayerPlanner;
 import dev.pacer4bitwig.pacer.looper.LoopAction;
 import dev.pacer4bitwig.pacer.looper.LoopLeds;
 import dev.pacer4bitwig.pacer.looper.LoopLength;
 import dev.pacer4bitwig.pacer.looper.LoopLengthTracker;
 import dev.pacer4bitwig.pacer.looper.LoopState;
+import dev.pacer4bitwig.pacer.looper.PedalCurve;
 import dev.pacer4bitwig.pacer.looper.TapTiming;
+import dev.pacer4bitwig.pacer.looper.VolumeFade;
 import dev.pacer4bitwig.pacer.midi.RawMidiSender;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -57,6 +62,10 @@ public class LooperController
     private static final long            ARM_SETTLE_MS         = 500;
     /** Give up a count-in if the transport has not started by then. */
     private static final long            COUNT_IN_START_MS     = 2000;
+    /** Give the launcher cursor clip time to follow a newly selected slot. */
+    private static final long            CURSOR_CLIP_FOLLOW_MS = 150;
+    /** Restore volumes even if the loops never report stopped. */
+    private static final long            FADE_STOP_TIMEOUT_MS  = 20000;
     private static final long            LED_TEST_STEP_MS      = 1000;
     private static final int             RECORD_HISTORY        = 64;
     private static final int             BEATS_PER_BAR_4_4     = 4;
@@ -75,6 +84,8 @@ public class LooperController
     private final LoopLengthTracker      lengthTracker         = new LoopLengthTracker (PacerMap.MAX_LOOP_TRACKS);
     private int                          matchedBars;
     private PendingCountIn               pendingCountIn;
+    private VolumeFade                   fade;
+    private long                         fadeStopRequestedAt   = -1;
     private long                         ledTestStartedAt      = -1;
 
 
@@ -139,6 +150,21 @@ public class LooperController
 
 
     /**
+     * @param switchIndex 0-9
+     * @return How much longer than a normal hold the switch must stay down before its hold runs
+     */
+    public long getExtraHoldMillis (final int switchIndex)
+    {
+        final boolean destructive;
+        if (this.isLoopSwitch (switchIndex))
+            destructive = this.configuration.getLoopHoldAction () == HoldAction.DELETE;
+        else
+            destructive = this.configuration.getSwitchHold (switchIndex).isDestructive ();
+        return destructive ? this.configuration.getClearHoldTime ().getExtraMillis () : 0;
+    }
+
+
+    /**
      * A switch was tapped.
      *
      * @param switchIndex 0-9
@@ -177,6 +203,16 @@ public class LooperController
 
 
     /**
+     * @param index 0-3
+     * @return How much longer than a normal hold the jack must stay down before its hold runs
+     */
+    public long getFootswitchExtraHoldMillis (final int index)
+    {
+        return this.configuration.getFootswitchHold (index).isDestructive () ? this.configuration.getClearHoldTime ().getExtraMillis () : 0;
+    }
+
+
+    /**
      * A footswitch jack was tapped.
      *
      * @param index 0-3
@@ -199,16 +235,43 @@ public class LooperController
 
 
     /**
-     * An expression pedal moved while it is set to a MIDI target.
+     * The parameter a pedal is bound to directly. Only linear parameter targets are bound; everything else (MIDI
+     * targets, curves) goes through {@link #pedalMoved(int, int)}.
+     *
+     * @param index 0-1
+     * @return The parameter, or null to route the pedal through its command
+     */
+    public IParameter getPedalBinding (final int index)
+    {
+        final ExpressionTarget target = this.configuration.getExpressionTarget (index);
+        if (target.getKind () != ExpressionTarget.Kind.PARAMETER || this.configuration.getPedalCurve (index) != PedalCurve.LINEAR)
+            return null;
+        return this.getExpressionParameter (target);
+    }
+
+
+    /**
+     * An expression pedal moved and is not bound directly to a parameter.
      *
      * @param index 0-1
      * @param value The pedal position, 0-127
      */
     public void pedalMoved (final int index, final int value)
     {
-        final int [] message = this.configuration.getExpressionTarget (index).toMidi (value, this.configuration.getPedalMidiChannel ());
-        if (message != null)
-            this.midiSender.send (message[0], message[1], message[2]);
+        final ExpressionTarget target = this.configuration.getExpressionTarget (index);
+        final PedalCurve curve = this.configuration.getPedalCurve (index);
+
+        if (target.isMidi ())
+        {
+            final int [] message = target.toMidi (curve.apply (value), this.configuration.getPedalMidiChannel ());
+            if (message != null)
+                this.midiSender.send (message[0], message[1], message[2]);
+            return;
+        }
+
+        final IParameter parameter = this.getExpressionParameter (target);
+        if (parameter != null)
+            parameter.setNormalizedValue (curve.apply (value / 127.0));
     }
 
 
@@ -240,29 +303,6 @@ public class LooperController
 
 
     /**
-     * @param target The expression pedal target
-     * @return The parameter to bind, null for none or for MIDI targets
-     */
-    public IParameter getExpressionParameter (final ExpressionTarget target)
-    {
-        final ICursorTrack cursorTrack = this.model.getCursorTrack ();
-        return switch (target)
-        {
-            case SELECTED_VOLUME -> cursorTrack.getVolumeParameter ();
-            case SELECTED_PAN -> cursorTrack.getPanParameter ();
-            case SELECTED_SEND_1 -> cursorTrack.getSendBank ().getItem (0);
-            case SELECTED_SEND_2 -> cursorTrack.getSendBank ().getItem (1);
-            case MASTER_VOLUME -> this.model.getMasterTrack ().getVolumeParameter ();
-            case DEVICE_REMOTE_1 -> this.model.getCursorDevice ().getParameterBank ().getItem (0);
-            case DEVICE_REMOTE_2 -> this.model.getCursorDevice ().getParameterBank ().getItem (1);
-            case PROJECT_REMOTE_1 -> this.model.getProject ().getParameterBank ().getItem (0);
-            case PROJECT_REMOTE_2 -> this.model.getProject ().getParameterBank ().getItem (1);
-            default -> null;
-        };
-    }
-
-
-    /**
      * Cycle every LED through all colours, one second each.
      */
     public void startLedTest ()
@@ -273,12 +313,13 @@ public class LooperController
 
 
     /**
-     * Runs on every tick: count-ins, loop length matching, exclusive arm.
+     * Runs on every tick: count-ins, loop length matching, fades, exclusive arm.
      */
     public void tick ()
     {
         this.updateCountIn ();
         this.updateLoopLengths ();
+        this.updateFade ();
         this.enforceExclusiveArm ();
     }
 
@@ -346,7 +387,10 @@ public class LooperController
             case LOOP_SELECTED -> this.withSelectedTrack (this::loopTap);
             case STOP_SELECTED -> this.withSelectedTrack (track -> track.stop (false));
             case MUTE_SELECTED -> this.withSelectedTrack (ITrack::toggleMute);
+            case SOLO_SELECTED -> this.withSelectedTrack (ITrack::toggleSolo);
             case CLEAR_SELECTED -> this.withSelectedTrack (this::clearLoop);
+            case DOUBLE_SELECTED -> this.withSelectedTrack (track -> this.editLoopClip (track, true));
+            case HALVE_SELECTED -> this.withSelectedTrack (track -> this.editLoopClip (track, false));
             case SELECT_PREVIOUS_LOOP -> this.selectLoop (-1);
             case SELECT_NEXT_LOOP -> this.selectLoop (1);
             case PLAY_STOP_ALL -> {
@@ -358,8 +402,12 @@ public class LooperController
             case STOP_ALL -> this.stopAll ();
             case PLAY_ROW -> this.playRow ();
             case CLEAR_ROW -> this.clearRow ();
+            case MUTE_ALL_TOGGLE -> this.toggleMuteAll ();
+            case FADE_OUT -> this.toggleFade (VolumeFade.Direction.OUT);
+            case FADE_IN -> this.toggleFade (VolumeFade.Direction.IN);
             case ROW_PREVIOUS -> this.scrollRows (false);
             case ROW_NEXT -> this.scrollRows (true);
+            case DUPLICATE_ROW -> this.duplicateRow ();
             case TRACKS_LEFT -> this.scrollTracks (false);
             case TRACKS_RIGHT -> this.scrollTracks (true);
             case UNDO -> {
@@ -396,6 +444,7 @@ public class LooperController
         final ITransport transport = this.model.getTransport ();
         final ITrackBank trackBank = this.getTrackBank ();
         final Optional<ITrack> selected = this.getSelectedTrack ();
+        final boolean selectedHasLoop = selected.isPresent () && this.getLoopSlot (selected.get ()).hasContent ();
 
         return switch (action)
         {
@@ -405,7 +454,9 @@ public class LooperController
             case LOOP_SELECTED -> selected.map (this::loopLed).orElse (LedState.DARK);
             case STOP_SELECTED -> LedState.when (selected.isPresent () && selected.get ().isPlaying (), LedColour.WHITE);
             case MUTE_SELECTED -> LedState.when (selected.isPresent () && selected.get ().isMute (), LedColour.BLUE);
-            case CLEAR_SELECTED -> LedState.when (selected.isPresent () && this.getLoopSlot (selected.get ()).hasContent (), LedColour.RED);
+            case SOLO_SELECTED -> LedState.when (selected.isPresent () && selected.get ().isSolo (), LedColour.AMBER);
+            case CLEAR_SELECTED -> LedState.when (selectedHasLoop, LedColour.RED);
+            case DOUBLE_SELECTED, HALVE_SELECTED -> LedState.when (selectedHasLoop, LedColour.WHITE);
             case SELECT_PREVIOUS_LOOP, SELECT_NEXT_LOOP, LED_TEST -> LedState.solid (LedColour.WHITE);
             case PLAY_STOP_ALL -> {
                 if (this.anyLoop (true))
@@ -415,8 +466,20 @@ public class LooperController
             case STOP_ALL -> LedState.when (this.anyLoop (true), LedColour.WHITE);
             case PLAY_ROW -> LedState.when (this.anyLoop (false), LedColour.GREEN);
             case CLEAR_ROW -> LedState.when (this.anyLoop (false), LedColour.RED);
+            case MUTE_ALL_TOGGLE -> LedState.when (this.anyLoopMuted (), LedColour.BLUE);
+            case FADE_OUT -> {
+                if (this.fade != null && this.fade.getDirection () == VolumeFade.Direction.OUT)
+                    yield new LedState (LedColour.WHITE, LedPattern.BLINK_MEDIUM);
+                yield LedState.when (this.anyLoop (true), LedColour.WHITE);
+            }
+            case FADE_IN -> {
+                if (this.fade != null && this.fade.getDirection () == VolumeFade.Direction.IN)
+                    yield new LedState (LedColour.GREEN, LedPattern.BLINK_MEDIUM);
+                yield LedState.when (this.anyLoop (false) && !this.anyLoop (true), LedColour.GREEN);
+            }
             case ROW_PREVIOUS -> LedState.when (trackBank.getSceneBank ().canScrollBackwards (), LedColour.WHITE);
             case ROW_NEXT -> LedState.solid (trackBank.getSceneBank ().canScrollForwards () ? LedColour.WHITE : LedColour.BLUE);
+            case DUPLICATE_ROW -> LedState.when (this.anyLoop (false), LedColour.WHITE);
             case TRACKS_LEFT -> LedState.when (trackBank.canScrollBackwards (), LedColour.WHITE);
             case TRACKS_RIGHT -> LedState.when (trackBank.canScrollForwards (), LedColour.WHITE);
             case UNDO -> LedState.when (this.model.getApplication ().canUndo (), LedColour.WHITE);
@@ -696,6 +759,166 @@ public class LooperController
     }
 
 
+    /** Double (duplicate the content) or halve the loop of a track, through the launcher cursor clip. */
+    private void editLoopClip (final ITrack track, final boolean doubleIt)
+    {
+        final ISlot slot = this.getLoopSlot (track);
+        if (!slot.hasContent ())
+        {
+            this.notify ("No loop on " + track.getName ());
+            return;
+        }
+
+        track.select ();
+        slot.select ();
+        this.host.scheduleTask ( () -> {
+            final INoteClip clip = this.model.getCursorClip ();
+            if (!clip.doesExist ())
+                return;
+            if (doubleIt)
+            {
+                clip.duplicateContent ();
+                this.notify (track.getName () + ": loop doubled");
+                return;
+            }
+            final double length = clip.getLoopLength ();
+            if (length < 2)
+            {
+                this.notify (track.getName () + ": loop is too short to halve");
+                return;
+            }
+            clip.setLoopLength (length / 2);
+            this.notify (track.getName () + ": loop halved");
+        }, CURSOR_CLIP_FOLLOW_MS);
+    }
+
+
+    private void toggleMuteAll ()
+    {
+        final ITrackBank trackBank = this.getTrackBank ();
+        boolean anyAudible = false;
+        for (int i = 0; i < this.getLoopCount (); i++)
+        {
+            final ITrack track = trackBank.getItem (i);
+            if (track.doesExist () && !track.isMute () && this.getLoopSlot (track).hasContent ())
+                anyAudible = true;
+        }
+        for (int i = 0; i < this.getLoopCount (); i++)
+        {
+            final ITrack track = trackBank.getItem (i);
+            if (track.doesExist ())
+                track.setMute (anyAudible);
+        }
+        this.notify (anyAudible ? "All loops muted" : "All loops unmuted");
+    }
+
+
+    // ---- Fades --------------------------------------------------------------------------------------------------
+
+    private void toggleFade (final VolumeFade.Direction direction)
+    {
+        if (this.fade != null)
+        {
+            this.restoreFadeVolumes ();
+            this.notify ("Fade cancelled");
+            return;
+        }
+
+        if (direction == VolumeFade.Direction.OUT ? !this.anyLoop (true) : !this.anyLoop (false))
+        {
+            this.notify (direction == VolumeFade.Direction.OUT ? "No loop is playing" : "No loops in this row");
+            return;
+        }
+
+        final Map<Integer, Double> volumes = new LinkedHashMap<> ();
+        final ITrackBank trackBank = this.getTrackBank ();
+        for (int i = 0; i < this.getLoopCount (); i++)
+        {
+            final ITrack track = trackBank.getItem (i);
+            if (track.doesExist ())
+                volumes.put (Integer.valueOf (i), Double.valueOf (this.model.getValueChanger ().toNormalizedValue (track.getVolume ())));
+        }
+
+        final int bars = this.configuration.getFadeLength ().getBars ();
+        this.fade = new VolumeFade (direction, bars * this.clock.getBeatsPerBar (), volumes);
+        this.fadeStopRequestedAt = -1;
+
+        if (direction == VolumeFade.Direction.IN)
+        {
+            // Silence first, then launch; the ramp starts once the loops actually play
+            for (final Integer index: volumes.keySet ())
+                trackBank.getItem (index.intValue ()).getVolumeParameter ().setNormalizedValue (0);
+            if (!this.anyLoop (true))
+                this.playRow ();
+        }
+        this.notify ("Fade " + (direction == VolumeFade.Direction.OUT ? "out" : "in") + " over " + this.configuration.getFadeLength ().getLabel ());
+    }
+
+
+    private void updateFade ()
+    {
+        final VolumeFade current = this.fade;
+        if (current == null)
+            return;
+
+        if (this.fadeStopRequestedAt >= 0)
+        {
+            // Faded out: restore the volumes once the loops have really stopped
+            if (!this.anyLoop (true) || System.currentTimeMillis () - this.fadeStopRequestedAt > FADE_STOP_TIMEOUT_MS)
+                this.restoreFadeVolumes ();
+            return;
+        }
+
+        if (!this.clock.isPlaying ())
+        {
+            if (current.isStarted ())
+                this.restoreFadeVolumes ();
+            return;
+        }
+        if (current.getDirection () == VolumeFade.Direction.IN && !this.anyLoop (true))
+            return;
+
+        final double position = this.clock.getPositionInBeats ();
+        current.startAt (position);
+        final ITrackBank trackBank = this.getTrackBank ();
+        for (final Integer index: current.getOriginalVolumes ().keySet ())
+        {
+            final ITrack track = trackBank.getItem (index.intValue ());
+            if (track.doesExist ())
+                track.getVolumeParameter ().setNormalizedValue (current.getVolume (index.intValue (), position));
+        }
+
+        if (!current.isComplete (position))
+            return;
+        if (current.getDirection () == VolumeFade.Direction.OUT)
+        {
+            trackBank.stop (false);
+            this.fadeStopRequestedAt = System.currentTimeMillis ();
+        }
+        else
+            this.fade = null;
+    }
+
+
+    private void restoreFadeVolumes ()
+    {
+        final VolumeFade current = this.fade;
+        this.fade = null;
+        this.fadeStopRequestedAt = -1;
+        if (current == null)
+            return;
+        final ITrackBank trackBank = this.getTrackBank ();
+        for (final Map.Entry<Integer, Double> entry: current.getOriginalVolumes ().entrySet ())
+        {
+            final ITrack track = trackBank.getItem (entry.getKey ().intValue ());
+            if (track.doesExist ())
+                track.getVolumeParameter ().setNormalizedValue (entry.getValue ().doubleValue ());
+        }
+    }
+
+
+    // ---- Arm, rows, tracks --------------------------------------------------------------------------------------
+
     private void armForRecording (final ITrack track)
     {
         final int index = track.getIndex ();
@@ -775,6 +998,8 @@ public class LooperController
     {
         if (this.pendingCountIn != null)
             this.cancelCountIn ();
+        if (this.fade != null)
+            this.restoreFadeVolumes ();
         final ITrackBank trackBank = this.getTrackBank ();
         for (int i = 0; i < this.getLoopCount (); i++)
         {
@@ -808,14 +1033,34 @@ public class LooperController
     }
 
 
+    private void duplicateRow ()
+    {
+        if (!this.anyLoop (false))
+        {
+            this.notify ("Nothing to duplicate in this row");
+            return;
+        }
+        final ISceneBank sceneBank = this.getTrackBank ().getSceneBank ();
+        sceneBank.getItem (0).duplicate ();
+        // The copy is inserted right after this row
+        this.host.scheduleTask (sceneBank::scrollForwards, 100);
+        this.host.scheduleTask ( () -> this.notify ("Row duplicated - now on row " + (sceneBank.getScrollPosition () + 1)), 2 * NOTIFY_DELAY_MS);
+    }
+
+
     private void scrollTracks (final boolean forwards)
     {
+        // Bank positions are about to point at other tracks
+        if (this.fade != null)
+            this.restoreFadeVolumes ();
+        if (this.pendingCountIn != null)
+            this.cancelCountIn ();
+
         final ITrackBank trackBank = this.getTrackBank ();
         if (forwards)
             trackBank.scrollForwards ();
         else
             trackBank.scrollBackwards ();
-        // Bank positions now point at other tracks
         this.armedByLooper.clear ();
         this.lastArmedIndex = -1;
         this.recordHistory.clear ();
@@ -864,6 +1109,19 @@ public class LooperController
     }
 
 
+    private boolean anyLoopMuted ()
+    {
+        final ITrackBank trackBank = this.getTrackBank ();
+        for (int i = 0; i < this.getLoopCount (); i++)
+        {
+            final ITrack track = trackBank.getItem (i);
+            if (track.doesExist () && track.isMute ())
+                return true;
+        }
+        return false;
+    }
+
+
     /** The loop states of the row, null for missing tracks, with a pending count-in shown as queued. */
     private LoopState [] getRowStates ()
     {
@@ -879,6 +1137,25 @@ public class LooperController
 
 
     // ---- Helpers ------------------------------------------------------------------------------------------------
+
+    private IParameter getExpressionParameter (final ExpressionTarget target)
+    {
+        final ICursorTrack cursorTrack = this.model.getCursorTrack ();
+        return switch (target)
+        {
+            case SELECTED_VOLUME -> cursorTrack.getVolumeParameter ();
+            case SELECTED_PAN -> cursorTrack.getPanParameter ();
+            case SELECTED_SEND_1 -> cursorTrack.getSendBank ().getItem (0);
+            case SELECTED_SEND_2 -> cursorTrack.getSendBank ().getItem (1);
+            case MASTER_VOLUME -> this.model.getMasterTrack ().getVolumeParameter ();
+            case DEVICE_REMOTE_1 -> this.model.getCursorDevice ().getParameterBank ().getItem (0);
+            case DEVICE_REMOTE_2 -> this.model.getCursorDevice ().getParameterBank ().getItem (1);
+            case PROJECT_REMOTE_1 -> this.model.getProject ().getParameterBank ().getItem (0);
+            case PROJECT_REMOTE_2 -> this.model.getProject ().getParameterBank ().getItem (1);
+            default -> null;
+        };
+    }
+
 
     private LedClock getLedClock (final long now)
     {

@@ -93,8 +93,9 @@ export function buildLooperPreset (slot, mode)
     FOOTSWITCH_OBJECTS.forEach ((obj, f) => {
         out.push (controlMode (idx, obj));
         out.push (step (idx, obj, 1, { channel: CHANNEL, type: MSG_CC_TRIGGER, data: [FOOTSWITCH_CC_BASE + f, 127, 0], active: 1 }));
+        // Same shape as the factory's unused steps
         for (let n = 2; n <= 6; n++)
-            out.push (step (idx, obj, n, {}));
+            out.push (step (idx, obj, n, { data: [0, 127, 0] }));
     });
 
     EXPRESSION_OBJECTS.forEach ((obj, e) => {

@@ -25,7 +25,8 @@ mvn -q install
 ```
 
 This copies `Pacer4Bitwig.bwextension` into `Documents/Bitwig Studio/Extensions`. In Bitwig: **Settings > Controllers >
-Add controller > Nektar > PACER Looper**, input port `PACER`, output port `PACER`.
+Add controller > Nektar > PACER Looper**, input port `PACER`, output port `PACER`. (Every CI build on GitHub also
+offers the `.bwextension` as a download.)
 
 Nektar's own *PACER* script also claims the `PACER` port, so it has to be disabled while PACER Looper is active.
 
@@ -37,8 +38,9 @@ node looper-preset.mjs
 node pacer-send.mjs ../presets/bitwig-looper-two-colour-D1.syx --confirm D1
 ```
 
-…or use the **Bitwig Looper** template in Pacer Studio. `pacer-send.mjs` backs the slot up to `backups/` before it
-writes. Start with the **two-colour** variant; switch to multi-colour only after the LED test passes (see section 6).
+…or use the **Bitwig Looper** template in Pacer Studio (`editor/`). `pacer-send.mjs` backs the slot up to `backups/`
+before it writes. Start with the **two-colour** variant; switch to multi-colour only after the LED test passes (see
+section 6).
 
 On the Pacer, select preset D1. The preset sends CC 119 when loaded, which makes the extension repaint every LED.
 
@@ -71,7 +73,9 @@ Defaults — everything except the loop switches can be reassigned in the settin
 | **EXP 1** | Volume of the selected track | – |
 | **EXP 2** | Master volume | – |
 
-**Smart loop** — one switch per loop, like a looper pedal:
+### Smart loop
+
+One switch per loop, like a looper pedal:
 
 | The slot is… | A tap… |
 |--------------|--------|
@@ -82,34 +86,49 @@ Defaults — everything except the loop switches can be reassigned in the settin
 | waiting to record/play, counting in | cancels |
 | waiting to stop | keeps it playing |
 
-**One-button looper** — the classic single-pedal looper, spread over the loop tracks: each tap closes the loop that is
-recording, or starts recording on the first empty loop track of the row. Tap, play, tap (loop 1 closes), play more,
-tap (loop 2 starts)… Hold clears the most recent loop. Put it on a footswitch jack or any assignable switch.
-
-**Mute instead of stop** (*Tap on a playing loop = Mute/unmute*) is the classic looper-pedal feel: the clip keeps
-running silently, so it comes back exactly in time.
-
-**Count-in** (*Count-in from a stopped transport = 1 or 2 bars*): recording from a stopped transport starts the
-transport with the metronome on, counts in, and starts recording on the next bar. The metronome switches off again
-as recording starts if it was off before. Tap the same switch during the count-in to cancel.
-
-**Loop length = Match the first loop of the row:** the first loop of a row is recorded free; its length (in bars)
-becomes the fixed length of every later loop in that row, which then close by themselves. When the row is empty again
-the next first loop is free again.
-
 Loop switches fire **on press**, so timing is tight. Holding a loop switch therefore also runs the tap first; with the
-default hold action (delete) that is harmless — whatever the tap started is deleted. Hold time is about half a
-second. Switches without a hold action always fire on press.
+default hold action (delete) that is harmless — whatever the tap started is deleted. Switches without a hold action
+always fire on press.
 
-**Scene rows as song sections:** each row (scene) is a set of loops. Record a verse in row 1, tap **SW B** to move to
-row 2 and record the chorus, then launch rows with **SW 6** (or Bitwig's scene launchers).
+### Building a performance
 
-**Actions** available for SW 5–6 (4-loop layout), SW A–D and FS 1–4 (tap and hold each): one-button looper, clear
-the last loop, smart loop / stop / mute / clear the selected track, select previous/next loop track, play row / stop
-all, stop all, play row, clear row, previous/next row, move loop tracks left/right, undo, redo, launcher overdub,
-metronome, tap tempo, transport play/stop, LED test.
+- **One-button looper** — the classic single-pedal looper, spread over the loop tracks: each tap closes the loop that
+  is recording, or starts recording on the first empty loop track of the row. Hold clears the most recent loop.
+- **Mute instead of stop** (*Tap on a playing loop = Mute/unmute*): the clip keeps running silently, so it comes back
+  exactly in time. **Mute/unmute all loops** drops everything out at once for a break and brings it back on the next
+  tap; **Solo/unsolo selected loop** isolates one layer.
+- **Count-in** (*Count-in from a stopped transport = 1 or 2 bars*): recording from a stopped transport starts the
+  transport with the metronome on, counts in, and starts recording on the next bar. The metronome switches off again
+  as recording starts if it was off before. Tap the same switch during the count-in to cancel.
+- **Loop length = Match the first loop of the row:** the first loop of a row is recorded free; its length (in bars)
+  becomes the fixed length of every later loop in that row, which then close by themselves. When the row is empty
+  again the next first loop is free again.
+- **Double / halve selected loop:** *double* duplicates the clip's content (a 2-bar loop becomes 4 bars of the same
+  material, ready for variations); *halve* shortens the loop region to its first half.
+- **Scene rows as song sections:** each row (scene) is a set of loops. Record a verse in row 1, tap **SW B** to move
+  to row 2 and record the chorus, then launch rows with **SW 6** (or Bitwig's scene launchers). **Duplicate row**
+  copies the current row with all its loops into a new row right below and moves there — play the copy and replace
+  single loops to build a variation.
+- **Fade out and stop all loops:** ramps every loop track down over the *Fade length* (following the tempo), stops
+  the loops and then restores their volumes, so the next launch plays at the normal level. **Fade in the row**
+  launches the row from silence and ramps up. Tap either again during a fade to cancel it and restore the volumes.
+  (If arranger automation writing is armed, Bitwig records the volume ramps as automation.)
+- **Hold time for clearing actions** (*Long* / *Very long*): deleting holds — a loop switch's delete, *Clear the last
+  recorded loop*, *Clear selected loop*, *Clear all loops in the row* — only run if the switch stays down for 1.5 or
+  2.5 seconds. Other holds keep the normal half second. Protects a live set against a heavy foot.
 
-**Expression pedal targets**
+### Actions
+
+Available for SW 5–6 (4-loop layout), SW A–D and FS 1–4, as tap and as hold:
+
+| Group | Actions |
+|-------|---------|
+| Loops | one-button looper · clear the last recorded loop · smart loop / stop / mute / solo / clear the selected track · double / halve the selected loop · select previous / next loop track |
+| Row | play row / stop all · stop all · play row · clear row · mute/unmute all loops · fade out and stop · fade in the row |
+| Navigation | previous / next row · duplicate row · move loop tracks left / right |
+| Transport & misc | undo · redo · launcher overdub · metronome · tap tempo · transport play/stop · LED test |
+
+### Expression pedals
 
 | Kind | Targets |
 |------|---------|
@@ -118,6 +137,9 @@ metronome, tap tempo, transport play/stop, LED test.
 
 MIDI targets reach every instrument on a track whose input is "PACER" or *All ins*, on the channel set in
 *MIDI channel for pedal messages* (default 1).
+
+**Response** per pedal: *Linear*, *Inverted* (toe = minimum), *Slow start* (fine control near the heel — good for
+volume swells) or *Fast start* (fine control near the toe).
 
 ## 6. LEDs
 
@@ -140,8 +162,9 @@ preset variant.
 
 Assignable switches light up when their tap action has something to do: undo/redo possible, loops playing (play/stop
 all: green playing, amber loaded), previous/next row available (next row shows blue when it would add a scene),
-overdub on (red), metronome on, transport running (green). The one-button looper shows the loop it is busy with.
-**Tap tempo** flashes every beat — white on the downbeat, green on the others in multi-colour mode.
+overdub on (red), metronome on, transport running (green), any loop muted (blue), selected loop soloed (amber).
+The one-button looper shows the loop it is busy with; fade actions blink while a fade runs. **Tap tempo** flashes
+every beat — white on the downbeat, green on the others in multi-colour mode.
 
 **LED test:** *Settings > Pacer LEDs > Test the LEDs* (or the *Test the LEDs* action) lights every switch white,
 red, green, amber, blue, purple for a second each. With the two-colour preset every step just looks "on"; with the
@@ -155,13 +178,16 @@ multi-colour preset you should see six different colours — that confirms multi
 | | Loop switch fires on press | On (tight timing) · Off (on release; hold no longer runs the tap) |
 | | Tap on a playing loop | Stop · Mute/unmute · Toggle launcher overdub (note clips) · Nothing |
 | | Hold a loop switch | Delete the clip · Stop · Nothing |
+| | Hold time for clearing actions | Normal (0.5 s) · Long (1.5 s) · Very long (2.5 s) |
 | | Arm the track when recording | On · Off |
 | | Exclusive arm (disarm finished loops) | On · Off |
 | | Select the track on press | On · Off (EXP targets follow the selected track) |
 | | Count-in from a stopped transport | Off · 1 bar · 2 bars |
+| | Fade length | 1 · 2 · 4 · 8 bars |
 | Switches | SW 5, SW 6, SW A–D tap / hold | any action |
 | Jacks | FS 1–4 tap / hold | any action |
 | | EXP 1, EXP 2 | any pedal target |
+| | EXP 1, EXP 2 response | Linear · Inverted · Slow start · Fast start |
 | | MIDI channel for pedal messages | 1–16 |
 | Pacer LEDs | LED mode | Two-colour (safe) · Multi-colour (experimental) |
 | | Blink in time with the transport | On · Off |
@@ -183,15 +209,19 @@ Run these once with the Pacer on preset D1 and the controller added in Bitwig.
 6. [ ] SW A / SW B move the highlighted scene row in Bitwig; SW B past the last row adds a scene.
 7. [ ] SW D flashes on every beat while the transport runs.
 8. [ ] EXP 1 moves the selected track's volume; set EXP 2 to *mod wheel* and it moves the mod wheel of an instrument
-       on a track listening to "PACER".
+       on a track listening to "PACER"; *Inverted* response flips it.
 9. [ ] Switch to another Pacer preset and back to D1: all LEDs repaint.
 10. [ ] Another preset sending notes on channel 1 plays an instrument track whose input is "PACER".
-11. [ ] FS 1 (or an action assigned to *One-button looper*): tap, tap, tap, tap records loop 1 then loop 2; hold clears
-        loop 2.
+11. [ ] FS 1 (one-button looper): tap, tap, tap, tap records loop 1 then loop 2; hold clears loop 2.
 12. [ ] Count-in 1 bar from a stopped transport: recording starts on bar 2.
 13. [ ] Loop length *Match the first loop*: a 2-bar first loop makes the next loop close by itself after 2 bars.
-14. [ ] *Test the LEDs* with the multi-colour preset shows six colours.
-15. [ ] Pressing a switch in multi-colour mode does not leave a wrong colour behind (the extension repaints 30 ms
+14. [ ] *Fade out and stop* (assign it to a switch): loops fade over the fade length, stop, and play at full volume on
+        the next launch.
+15. [ ] *Duplicate row*: a new row with the same loops appears below and becomes the current row.
+16. [ ] *Double selected loop* on a 1-bar loop makes it 2 bars long.
+17. [ ] *Hold time for clearing actions = Long*: holding SW 1 for one second does not delete; two seconds does.
+18. [ ] *Test the LEDs* with the multi-colour preset shows six colours.
+19. [ ] Pressing a switch in multi-colour mode does not leave a wrong colour behind (the extension repaints 30 ms
         after each press).
 
-If 14 or 15 fail, stay in two-colour mode and note what you saw in the LED Lab checklist.
+If 18 or 19 fail, stay in two-colour mode and note what you saw in the LED Lab checklist.

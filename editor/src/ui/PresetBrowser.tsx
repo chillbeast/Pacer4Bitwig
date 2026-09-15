@@ -78,7 +78,7 @@ export function PresetBrowser() {
   });
 
   return (
-    <nav className="browser" aria-label="Preset browser">
+    <nav className="browser" id="preset-browser" aria-label="Preset browser">
       <div className="browser__header">
         <h2 className="panel-title">Presets</h2>
         {swapFrom !== null ? (
@@ -209,7 +209,10 @@ function SlotTile({
       aria-current={selected ? 'true' : undefined}
       aria-label={`${index === 0 ? 'Current preset' : `Preset ${label}`}: ${status}`}
       draggable={!!slot.preset}
-      onClick={onChoose}
+      onClick={() => {
+        onChoose();
+        useUi.getState().setBrowserOpen(false);
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         onChoose();

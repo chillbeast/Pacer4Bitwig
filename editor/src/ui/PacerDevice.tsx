@@ -26,7 +26,7 @@ import { ledAppearance, ledVars, previewColor } from './led';
 const W = 1000;
 const H = 600;
 
-type ItemId = ControlKey | 'preset';
+export type ItemId = ControlKey | 'preset';
 
 interface Box {
   x: number;
@@ -43,7 +43,7 @@ const SW_H = 196;
 
 const box = (cx: number, y: number, w = SW_W, h = SW_H): Box => ({ x: cx - w / 2, y, w, h });
 
-const LAYOUT: Record<ItemId, Box> = {
+export const LAYOUT: Record<ItemId, Box> = {
   SWA: box(COL[1], TOP_Y),
   SWB: box(COL[2], TOP_Y),
   SWC: box(COL[3], TOP_Y),
@@ -80,7 +80,7 @@ function center(id: ItemId) {
 }
 
 /** Nearest item in the arrow direction (used for keyboard navigation). */
-function neighbour(from: ItemId, key: string): ItemId | null {
+export function neighbour(from: ItemId, key: string): ItemId | null {
   const c = center(from);
   let best: ItemId | null = null;
   let bestScore = Infinity;

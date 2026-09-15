@@ -1,8 +1,9 @@
 import factoryUrl from '../assets/factory-defaults.syx?url';
-import { isAbortError } from '../midi';
+import { MidiError, isAbortError } from '../midi';
 import {
   D6_INDEX,
   FULL_BACKUP_MESSAGES,
+  GLOBAL_MESSAGE_COUNT,
   SINGLE_PRESET_MESSAGES,
   concatMessages,
   describePart,
@@ -42,6 +43,14 @@ import {
 import { confirmAction, useUi, type ToastTone, type WriteRequest } from '../store/ui';
 import { MAX_IMPORT_BYTES, downloadBytes, downloadText, readFileBytes, safeFilePart, timestamp } from './files';
 import { midi } from './midi';
+import {
+  describeIncomplete,
+  readAllWithRetries,
+  readPresetWithRetries,
+  summarizeReadAll,
+  type ReadIO,
+  type ReadStatus,
+} from './readAll';
 
 function toast(tone: ToastTone, title: string, detail?: string, timeoutMs?: number) {
   return useUi.getState().toast({ tone, title, detail }, timeoutMs ?? (tone === 'error' ? 12000 : 5000));
@@ -95,6 +104,37 @@ async function fetchPreset(index: number, signal: AbortSignal): Promise<ParsedPr
   return parseMessages(result.messages).presets.get(index) ?? null;
 }
 
+/** Replace a generic "no reply" timeout with one that names what was requested. */
+function nameTimeout(what: string, expected: number) {
+  return (err: unknown): never => {
+    if (err instanceof MidiError && err.code === 'timeout') {
+      throw new MidiError('timeout', `No reply to ${what} (0 of ${expected} messages). Check the cable and that port 1 is selected.`);
+    }
+    throw err;
+  };
+}
+
+function readIO(signal: AbortSignal): ReadIO {
+  return {
+    fullBackup: (onProgress) =>
+      midi
+        .request(requestFullBackup(), { expected: FULL_BACKUP_MESSAGES, firstReplyTimeoutMs: 4000, idleTimeoutMs: 2500, signal, onProgress })
+        .catch(nameTimeout('the full backup request', FULL_BACKUP_MESSAGES)),
+    preset: (index, onProgress) =>
+      midi
+        .request(requestPreset(index), { expected: SINGLE_PRESET_MESSAGES, signal, onProgress })
+        .catch(nameTimeout(`the request for ${slotLabel(index)}`, SINGLE_PRESET_MESSAGES)),
+    globals: (onProgress) =>
+      midi
+        .request(requestGlobals(), { firstReplyTimeoutMs: 3000, idleTimeoutMs: 800, signal, onProgress })
+        .catch(nameTimeout('the global settings request', GLOBAL_MESSAGE_COUNT)),
+  };
+}
+
+function statusFor(kind: OperationKind, controller: AbortController) {
+  return (status: ReadStatus) => relabel(kind, status.label, status.total, controller, status.done);
+}
+
 async function fetchGlobals(signal: AbortSignal) {
   const result = await midi.request(requestGlobals(), {
     firstReplyTimeoutMs: 3000,
@@ -137,22 +177,21 @@ export async function readPresetFromDevice(index: number): Promise<boolean> {
   }
   const controller = begin('read', `Reading ${slotLabel(index)}`, SINGLE_PRESET_MESSAGES);
   try {
-    const parsed = await fetchPreset(index, controller.signal);
-    if (!parsed) throw new Error(`The Pacer replied without data for ${slotLabel(index)}.`);
+    const { parsed, retries } = await readPresetWithRetries(readIO(controller.signal), index, {
+      signal: controller.signal,
+      onStatus: statusFor('read', controller),
+    });
     useEditor.getState().loadFromDevice([{ index, preset: parsed.preset, complete: parsed.complete }]);
     useEditor.getState().selectSlot(index);
+    const retried = retries > 0 ? ` after ${retries} retr${retries === 1 ? 'y' : 'ies'}` : '';
     if (parsed.complete) {
-      toast('success', `Read ${slotLabel(index)} “${displayName(parsed.preset.name)}”`, undefined, 3000);
+      toast('success', `Read ${slotLabel(index)} “${displayName(parsed.preset.name)}”${retried}`, undefined, 3000);
     } else {
-      toast(
-        'warning',
-        `Incomplete reply for ${slotLabel(index)}`,
-        `Received ${parsed.parts} of ${SINGLE_PRESET_MESSAGES} parts; missing parts show defaults.`,
-      );
+      toast('warning', `Incomplete reply for ${slotLabel(index)}${retried}`, `${describeIncomplete(parsed, index)}. Missing parts show defaults.`, 15000);
     }
     return true;
   } catch (err) {
-    if (!isAbortError(err)) toast('error', `Could not read ${slotLabel(index)}`, errorText(err));
+    if (!isAbortError(err) && !controller.signal.aborted) toast('error', `Could not read ${slotLabel(index)}`, errorText(err));
     return false;
   } finally {
     end();
@@ -192,33 +231,47 @@ export async function readAllFromDevice(): Promise<boolean> {
   }
   const controller = begin('backup', 'Reading all presets', FULL_BACKUP_MESSAGES);
   try {
-    const { parsed, globals, complete } = await fetchFullBackup(controller);
-    const entries: LoadEntry[] = [...parsed.presets.values()].map((p) => ({
+    const result = await readAllWithRetries(readIO(controller.signal), {
+      signal: controller.signal,
+      onStatus: statusFor('backup', controller),
+    });
+    const complete = [...result.presets.values()].filter((p) => p.complete);
+    // Session backup: the raw reply when nothing had to be repaired, else the verified data re-encoded
+    // (the encoder reproduces device dumps byte for byte).
+    const pristine = result.retried.length === 0 && result.failed.length === 0 && result.globalsComplete;
+    const backupMessages = pristine
+      ? result.backupMessages
+      : [...complete.flatMap((p) => encodePreset(p.preset, p.index)), ...encodeGlobals(result.globals)];
+    useDevice.getState().setBackup({
+      bytes: concatMessages(backupMessages),
+      messages: backupMessages.length,
+      time: Date.now(),
+      downloaded: false,
+    });
+    if (result.globals.messages.length > 0) useEditor.getState().setDeviceGlobals(result.globals, false);
+
+    const entries: LoadEntry[] = [...result.presets.values()].map((p) => ({
       index: p.index,
       preset: p.preset,
       complete: p.complete,
     }));
     useEditor.getState().loadFromDevice(entries);
-    if (globals.messages.length > 0 && !isGlobalsEdited(useEditor.getState().globals)) {
-      useEditor.getState().loadGlobals(globals, 'device');
+    if (result.globals.messages.length > 0 && !isGlobalsEdited(useEditor.getState().globals)) {
+      useEditor.getState().loadGlobals(result.globals, 'device');
     }
-    const incomplete = entries.filter((e) => !e.complete).length;
-    if (!complete || incomplete > 0) {
-      toast('warning', `Read ${entries.length} presets (${incomplete} incomplete)`, 'The transfer stopped early. Try again.');
-    } else {
-      useUi.getState().toast(
-        {
-          tone: 'success',
-          title: `Read ${entries.length} presets from the Pacer`,
-          detail: 'A full backup of this read is kept for the session.',
-          action: { label: 'Download backup', run: downloadSessionBackup },
-        },
-        8000,
-      );
-    }
+    const summary = summarizeReadAll(result);
+    useUi.getState().toast(
+      {
+        tone: summary.ok ? 'success' : 'warning',
+        title: summary.title,
+        detail: `${summary.detail}.${pristine ? '' : ' The session backup contains only the verified data.'}`,
+        action: { label: 'Download backup', run: downloadSessionBackup },
+      },
+      summary.ok ? 8000 : 25000,
+    );
     return true;
   } catch (err) {
-    if (!isAbortError(err)) toast('error', 'Could not read the presets', errorText(err));
+    if (!isAbortError(err) && !controller.signal.aborted) toast('error', 'Could not read the presets', errorText(err));
     return false;
   } finally {
     end();

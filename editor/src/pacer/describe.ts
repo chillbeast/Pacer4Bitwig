@@ -286,6 +286,51 @@ export function describeMidiMessage(bytes: Uint8Array): MidiDescription {
 
 export { INC_DEC_OPTIONS };
 
+function ranges(numbers: number[]): string {
+  const sorted = [...new Set(numbers)].sort((a, b) => a - b);
+  const out: string[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
+    out.push(j > i ? `${sorted[i]}–${sorted[j]}` : String(sorted[i]));
+    i = j;
+  }
+  return out.join(', ');
+}
+
+/** Compact list of parts, e.g. "Switch A LEDs 1–6, on-load MIDI 3–16". */
+export function summarizeParts(parts: readonly PartRef[], maxGroups = 4): string {
+  const groups = new Map<string, number[]>();
+  const add = (label: string, n: number) => groups.set(label, [...(groups.get(label) ?? []), n]);
+  for (const part of parts) {
+    switch (part.kind) {
+      case 'name':
+        add('name', 0);
+        break;
+      case 'mode':
+        add(`${CONTROL_BY_KEY_LABEL(part.control)} mode`, 0);
+        break;
+      case 'step':
+        add(`${CONTROL_BY_KEY_LABEL(part.control)} steps`, part.step + 1);
+        break;
+      case 'led':
+        add(`${CONTROL_BY_KEY_LABEL(part.control)} LEDs`, part.step + 1);
+        break;
+      case 'midi':
+        add('on-load MIDI', part.setting + 1);
+        break;
+    }
+  }
+  const text = [...groups].map(([label, numbers]) => (numbers.every((n) => n === 0) ? label : `${label} ${ranges(numbers)}`));
+  return text.length > maxGroups ? `${text.slice(0, maxGroups).join(', ')} +${text.length - maxGroups} more` : text.join(', ');
+}
+
+function CONTROL_BY_KEY_LABEL(key: PartRef extends infer R ? (R extends { control: infer K } ? K : never) : never): string {
+  return CONTROL_BY_OBJ_LABELS.get(key) ?? String(key);
+}
+
+const CONTROL_BY_OBJ_LABELS = new Map([...CONTROL_BY_OBJ.values()].map((d) => [d.key, d.label]));
+
 /** Human-readable value of one preset part, for diff views ("before → after"). */
 export function describePartValue(part: PartRef, preset: Preset | null): string {
   if (!preset) return '—';

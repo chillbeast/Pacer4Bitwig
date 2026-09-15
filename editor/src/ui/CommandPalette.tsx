@@ -92,6 +92,8 @@ function useCommands(): Command[] {
     { id: 'monitor', group: 'View', label: `${ui.monitorOpen ? 'Close' : 'Open'} MIDI monitor`, run: then(() => ui.setMonitorOpen(!ui.monitorOpen)) },
     { id: 'theme', group: 'View', label: `Switch to ${ui.theme === 'dark' ? 'light' : 'dark'} theme`, run: then(ui.toggleTheme) },
     { id: 'shortcuts', group: 'View', label: 'Keyboard shortcuts', shortcut: '?', run: () => ui.openDialog('shortcuts') },
+    { id: 'help', group: 'View', label: 'Help & troubleshooting', keywords: 'port busy permission d6 backup', run: () => ui.openDialog('help') },
+    { id: 'presets-drawer', group: 'View', label: 'Show preset browser', keywords: 'drawer', run: then(() => ui.setBrowserOpen(true)) },
     { id: 'about', group: 'View', label: 'About Pacer Studio', run: () => ui.openDialog('about') },
   ];
 
@@ -205,6 +207,12 @@ function PaletteBody() {
           ))}
           {results.length === 0 && <li className="hint palette__empty">No matching command.</li>}
         </ul>
+        <p className="palette__footer">
+          <span>Pacer Studio v{__APP_VERSION__}</span>
+          <span>
+            <kbd className="palette__kbd">↑↓</kbd> choose · <kbd className="palette__kbd">Enter</kbd> run · <kbd className="palette__kbd">Esc</kbd> close
+          </span>
+        </p>
       </div>
     </Dialog>
   );

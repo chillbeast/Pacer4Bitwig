@@ -76,6 +76,7 @@ export function TopBar() {
   const view = useUi((s) => s.view);
   const theme = useUi((s) => s.theme);
   const follow = useUi((s) => s.follow);
+  const browserOpen = useUi((s) => s.browserOpen);
 
   const connected = isConnected(midiState);
   const pending = pendingSummary(slots);
@@ -94,6 +95,16 @@ export function TopBar() {
           Pacer <b>Studio</b>
         </span>
       </div>
+
+      <Button
+        variant="ghost"
+        className="topbar__drawer-toggle"
+        aria-controls="preset-browser"
+        aria-expanded={browserOpen}
+        onClick={() => useUi.getState().setBrowserOpen(!browserOpen)}
+      >
+        Presets
+      </Button>
 
       <ConnectionPill />
 
@@ -114,7 +125,7 @@ export function TopBar() {
           <div className="op" role="status" aria-live="polite">
             <span className="op__label">{operation.label}</span>
             <ProgressBar value={operation.done} max={operation.total} label={operation.label} />
-            <span className="op__count mono">
+            <span className="op__count mono" aria-hidden="true">
               {operation.done}/{operation.total}
             </span>
             {operation.cancel && (
@@ -197,6 +208,17 @@ export function TopBar() {
           title="Toggle theme"
           onClick={() => useUi.getState().toggleTheme()}
         />
+        <Button
+          variant="ghost"
+          className="btn--icon"
+          aria-label="Help and troubleshooting"
+          title="Help & troubleshooting"
+          onClick={() => useUi.getState().openDialog('help')}
+        >
+          <span aria-hidden="true" className="help-glyph">
+            ?
+          </span>
+        </Button>
         <Button variant="ghost" icon={<IconInfo />} aria-label="About Pacer Studio" onClick={() => useUi.getState().openDialog('about')} />
       </div>
     </header>

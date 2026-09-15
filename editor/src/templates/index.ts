@@ -1,12 +1,24 @@
 import type { ControlLabels } from '../pacer/json';
 import type { Preset } from '../pacer/model';
-import { LOOPER_DEFAULT_SLOT, LOOPER_LABELS, buildBitwigLooperPreset, type LooperLedMode } from './bitwigLooper';
+import {
+  LOOPER_CHANNEL,
+  LOOPER_DEFAULT_SLOT,
+  LOOPER_LABELS,
+  LOOPER_PRESET_LOADED_VALUE,
+  buildBitwigLooperPreset,
+  type LooperLedMode,
+} from './bitwigLooper';
 import { buildCcTogglePedalboard, buildMmcTransport, buildProgramPedalboard } from './pedalboards';
 
 export interface TemplateChoice {
   value: string;
   label: string;
   description: string;
+}
+
+export interface TemplateHint {
+  label: string;
+  value: string;
 }
 
 export interface TemplateDef {
@@ -16,15 +28,21 @@ export interface TemplateDef {
   /** Preferred target slot; undefined = the selected slot. */
   defaultSlot?: number;
   choices?: { label: string; options: readonly TemplateChoice[] };
-  build: (choice?: string) => { preset: Preset; labels: ControlLabels; title: string };
+  /** Offer a MIDI channel picker (1–16). */
+  channel?: { default: number; note: string };
+  /** "Matching Bitwig settings" shown next to the options. */
+  hints?: (choice: string | undefined, channel: number) => readonly TemplateHint[];
+  build: (choice?: string, channel?: number) => { preset: Preset; labels: ControlLabels; title: string };
 }
+
+const looperMode = (choice: string | undefined): LooperLedMode => (choice === 'multi-colour' ? 'multi-colour' : 'two-colour');
 
 export const TEMPLATES: readonly TemplateDef[] = [
   {
     id: 'bitwig-looper',
     name: 'Bitwig Looper',
     summary:
-      'Implements docs/PACER-MAP.md: CC Trigger 127/0 on channel 16 — switches CC 102–111, footswitch jacks CC 112–115, expression pedals CC 116/117, preset-loaded CC 119. Preset name “LOOPS”.',
+      'Implements docs/PACER-MAP.md: CC Trigger 127/0 on the looper channel — switches CC 102–111, footswitch jacks CC 112–115, expression pedals CC 116/117, preset-loaded CC 119. Preset name “LOOPS”.',
     defaultSlot: LOOPER_DEFAULT_SLOT,
     choices: {
       label: 'LED strategy',
@@ -43,9 +61,29 @@ export const TEMPLATES: readonly TemplateDef[] = [
         },
       ],
     },
-    build: (choice) => {
-      const mode: LooperLedMode = choice === 'multi-colour' ? 'multi-colour' : 'two-colour';
-      return { preset: buildBitwigLooperPreset(mode), labels: LOOPER_LABELS, title: `Bitwig Looper (${mode})` };
+    channel: {
+      default: LOOPER_CHANNEL,
+      note: 'Set the same channel in Bitwig: Settings > Controllers > PACER Looper > Looper MIDI channel',
+    },
+    hints: (choice, channel) => {
+      const mode = looperMode(choice);
+      return [
+        { label: 'Controller', value: 'Settings > Controllers > Add > Nektar > PACER Looper, ports PACER / PACER' },
+        { label: 'Looper MIDI channel', value: String(channel) },
+        {
+          label: 'LED mode',
+          value: `Automatic — nothing to match: the preset announces ${mode} (preset-loaded CC 119 = ${LOOPER_PRESET_LOADED_VALUE[mode]}). If you pick a mode manually, choose ${mode}.`,
+        },
+        { label: 'Other presets', value: `Avoid channel ${channel} in other presets: the extension reserves it for the looper.` },
+      ];
+    },
+    build: (choice, channel = LOOPER_CHANNEL) => {
+      const mode = looperMode(choice);
+      return {
+        preset: buildBitwigLooperPreset(mode, channel),
+        labels: LOOPER_LABELS,
+        title: `Bitwig Looper (${mode}${channel === LOOPER_CHANNEL ? '' : `, channel ${channel}`})`,
+      };
     },
   },
   {

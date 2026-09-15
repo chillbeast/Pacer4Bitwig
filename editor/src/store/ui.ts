@@ -11,6 +11,7 @@ export type DialogId =
   | 'restore'
   | 'palette'
   | 'shortcuts'
+  | 'help'
   | null;
 export type ToastTone = 'info' | 'success' | 'warning' | 'error';
 
@@ -47,6 +48,7 @@ export interface ChoiceRequest {
 
 const THEME_KEY = 'pacer-studio.theme';
 const FOLLOW_KEY = 'pacer-studio.follow';
+const FIRST_RUN_KEY = 'pacer-studio.first-run';
 
 function load<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
@@ -75,6 +77,12 @@ export interface UiState {
   previewStep: number;
   /** Select the control that sent an incoming MIDI message. */
   follow: boolean;
+  /** Preset browser drawer on narrow layouts. */
+  browserOpen: boolean;
+  /** The first-run guide was dismissed (persisted). */
+  firstRunDismissed: boolean;
+  setBrowserOpen: (open: boolean) => void;
+  dismissFirstRun: () => void;
   /** Last control highlighted by hardware follow. */
   flash: { key: ControlKey; at: number } | null;
   dialog: DialogId;
@@ -108,6 +116,13 @@ export const useUi = create<UiState>()((set, get) => ({
   previewStep: 0,
   follow: load(FOLLOW_KEY, ['on', 'off'], 'on') === 'on',
   flash: null,
+  browserOpen: false,
+  firstRunDismissed: load(FIRST_RUN_KEY, ['dismissed', 'show'], 'show') === 'dismissed',
+  setBrowserOpen: (browserOpen) => set({ browserOpen }),
+  dismissFirstRun: () => {
+    save(FIRST_RUN_KEY, 'dismissed');
+    set({ firstRunDismissed: true });
+  },
   dialog: null,
   writeRequest: null,
   choice: null,

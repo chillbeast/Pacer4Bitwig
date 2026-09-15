@@ -454,7 +454,10 @@
 .menu__item:hover:not(:disabled),
 .menu__item:focus-visible {
   background: var(--surface-4);
-  outline: none;
+}
+.menu__item:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
 }
 .menu__item:disabled {
   color: var(--text-faint);

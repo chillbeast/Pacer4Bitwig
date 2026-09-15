@@ -5,6 +5,7 @@ import { isConnected, useDevice } from '../store/device';
 import { useEditor, type Selection } from '../store/editor';
 import {
   LOOPER_CHANNEL,
+  looperChannelOf,
   LOOPER_LABELS,
   LOOPER_ROLES,
   LOOPER_SLOT_COLOURS,
@@ -87,7 +88,8 @@ export function LedLab() {
     setLit(null);
   }, [key]);
 
-  const send = (cc: number, value: number) => sendControlChange(LOOPER_CHANNEL, cc, value);
+  const channel = looperChannelOf(slot.preset) ?? LOOPER_CHANNEL;
+  const send = (cc: number, value: number) => sendControlChange(channel, cc, value);
 
   const show = (k: number) => {
     const previous = litRef.current;
@@ -146,7 +148,7 @@ export function LedLab() {
         <div className="ledlab__intro">
           <h1 className="stage__name">LED Lab</h1>
           <p className="hint">
-            Sends plain CCs on channel {LOOPER_CHANNEL} to the Pacer to test how its LEDs react. Load the <b>Bitwig Looper
+            Sends plain CCs on channel {channel} to the Pacer to test how its LEDs react. Load the <b>Bitwig Looper
             (multi-colour)</b> preset on the Pacer first (LED MIDI Ctrl on). Only clicks send MIDI.
           </p>
           <p className="hint">

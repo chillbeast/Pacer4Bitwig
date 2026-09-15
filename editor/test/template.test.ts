@@ -57,7 +57,8 @@ describe('Bitwig Looper template (docs/PACER-MAP.md)', () => {
         });
         expect(preset.controls.EXP1.steps[0]).toEqual({ channel: 16, msgType: MSG.AD_CC, data: [116, 0, 127], active: true });
         expect(preset.controls.EXP2.steps[0]).toEqual({ channel: 16, msgType: MSG.AD_CC, data: [117, 0, 127], active: true });
-        expect(preset.midi[0]).toEqual({ channel: 16, msgType: MSG.LOAD_CC, data: [119, 127, 0] });
+        // preset-loaded value announces the LED variant: 127 two-colour, 2 multi-colour
+        expect(preset.midi[0]).toEqual({ channel: 16, msgType: MSG.LOAD_CC, data: [119, mode === 'multi-colour' ? 2 : 127, 0] });
         expect(preset.midi.slice(1).every((m) => m.msgType === MSG.OFF)).toBe(true);
       });
 

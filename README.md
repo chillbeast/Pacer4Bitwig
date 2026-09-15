@@ -5,7 +5,7 @@ Turn a **Nektar Pacer** into a live-looper pedalboard for **Bitwig Studio**, and
 | Part | What it is |
 |------|------------|
 | [`bitwig/`](bitwig) | **PACER Looper** Bitwig extension (Java, DrivenByMoss framework): smart record/play/stop per loop track, undo, scene rows, overdub, tap tempo, expression pedals, LED feedback |
-| [`editor/`](editor) | **Pacer Studio**: a Web MIDI preset editor with a hardware-first UI, templates and an LED lab |
+| [`editor/`](editor) | **Pacer Studio**: a Web MIDI preset editor with a hardware-first UI, templates and an LED lab — **use it online: <https://chillbeast.github.io/Pacer4Bitwig/>** (Chrome or Edge) |
 | [`tools/`](tools) | Node scripts: read-only backup, looper preset generator, guarded preset writer |
 | [`docs/LOOPER.md`](docs/LOOPER.md) | User guide: Bitwig setup, switch functions, LEDs, settings, test checklist |
 | [`docs/PACER-MAP.md`](docs/PACER-MAP.md) | The MIDI contract between the Pacer preset and the extension |

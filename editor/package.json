@@ -1,6 +1,6 @@
 {
   "name": "pacer-studio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Pacer Studio - a hardware-first editor for the Nektar Pacer MIDI footswitch controller",
   "private": true,
   "type": "module",

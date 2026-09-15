@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { BANKS, CURRENT_PRESET_INDEX, D6_INDEX, displayName, slotLabel } from '../pacer';
 import { useEditor } from '../store/editor';
 import { useUi } from '../store/ui';
 import { TEMPLATES, templateById } from '../templates';
-import { Button, Segmented } from './controls';
+import { Button, Segmented, SelectField } from './controls';
 import { Dialog } from './Dialog';
 
 /** Remembered between openings (and restored when reopening from a preview). */
@@ -11,6 +11,7 @@ const memory = {
   templateId: TEMPLATES[0].id,
   choices: {} as Record<string, string>,
   slots: {} as Record<string, number>,
+  channels: {} as Record<string, number>,
 };
 
 export function TemplatesDialog() {
@@ -20,6 +21,8 @@ export function TemplatesDialog() {
   const [templateId, setTemplateId] = useState(memory.templateId);
   const [choice, setChoice] = useState<string | undefined>(undefined);
   const [slot, setSlot] = useState(selectedSlot);
+  const [channel, setChannel] = useState(16);
+  const hintsId = useId();
 
   const template = templateById(templateId) ?? TEMPLATES[0];
 
@@ -34,6 +37,7 @@ export function TemplatesDialog() {
     setTemplateId(t.id);
     setChoice(memory.choices[t.id] ?? t.choices?.options[0].value);
     setSlot(memory.slots[t.id] ?? t.defaultSlot ?? (selectedSlot === D6_INDEX ? 1 : selectedSlot));
+    setChannel(memory.channels[t.id] ?? t.channel?.default ?? 16);
   }
 
   const close = () => useUi.getState().closeDialog();
@@ -43,11 +47,13 @@ export function TemplatesDialog() {
     memory.templateId = template.id;
     if (choice) memory.choices[template.id] = choice;
     memory.slots[template.id] = slot;
-    const result = template.build(choice);
+    if (template.channel) memory.channels[template.id] = channel;
+    const result = template.build(choice, template.channel ? channel : undefined);
     return { preset: result.preset, labels: result.labels, slot, title: result.title };
   };
 
   const activeChoice = template.choices?.options.find((o) => o.value === choice);
+  const hints = template.hints?.(choice, channel) ?? [];
 
   return (
     <Dialog
@@ -123,9 +129,41 @@ export function TemplatesDialog() {
               </div>
             )}
 
+            {template.channel && (
+              <div className="template-channel">
+                <SelectField label="Looper MIDI channel" value={channel} onChange={(v) => setChannel(Number(v))} mono>
+                  {Array.from({ length: 16 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                      {i + 1}
+                      {i + 1 === template.channel!.default ? ' (default)' : ''}
+                    </option>
+                  ))}
+                </SelectField>
+                <p className="template-channel__note" role="note">
+                  {template.channel.note}
+                </p>
+              </div>
+            )}
+
+            {hints.length > 0 && (
+              <aside className="bitwig-hints" aria-labelledby={hintsId}>
+                <h4 id={hintsId}>Matching Bitwig settings</h4>
+                <dl>
+                  {hints.map((h) => (
+                    <div key={h.label}>
+                      <dt>{h.label}</dt>
+                      <dd>{h.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </aside>
+            )}
+
             <div className="field">
-              <span className="field__label">Target slot</span>
-              <div className="slot-picker" role="radiogroup" aria-label="Target slot">
+              <span className="field__label" id={`${hintsId}-slot`}>
+                Target slot
+              </span>
+              <div className="slot-picker" role="radiogroup" aria-labelledby={`${hintsId}-slot`}>
                 <SlotOption index={CURRENT_PRESET_INDEX} current={slot} onPick={setSlot} name={slots[0].preset?.name} preferred={template.defaultSlot} />
                 {BANKS.map((bank, b) => (
                   <div key={bank} className="slot-picker__row">

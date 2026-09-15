@@ -8,6 +8,10 @@ import './styles/device.css';
 import './styles/components.css';
 import './styles/panels.css';
 import './styles/wave2.css';
+import './styles/wave3.css';
+import { registerServiceWorker } from './app/pwa';
+
+registerServiceWorker();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

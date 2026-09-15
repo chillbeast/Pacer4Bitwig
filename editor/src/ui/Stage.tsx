@@ -3,6 +3,7 @@ import { pickFiles } from '../app/files';
 import { importFiles, loadFactoryPresets, readAllFromDevice } from '../app/operations';
 import { copyShareLink } from '../app/share';
 import { printCheatSheet } from './CheatSheet';
+import { FirstRunGuide } from './FirstRunGuide';
 import { CONTROL_KEYS, displayName, presetKey, slotLabel, slotLongLabel, type ControlKey, type Preset } from '../pacer';
 import { isConnected, useDevice } from '../store/device';
 import { isSlotEdited, isSlotInSync, slotPendingParts, useEditor } from '../store/editor';
@@ -107,6 +108,8 @@ export function Stage() {
           </div>
         </div>
       </div>
+
+      <FirstRunGuide />
 
       {preview && (
         <div className="preview-banner" role="region" aria-label="Template preview">

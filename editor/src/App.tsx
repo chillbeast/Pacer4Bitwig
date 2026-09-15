@@ -7,6 +7,7 @@ import { useUi } from './store/ui';
 import { CheatSheet } from './ui/CheatSheet';
 import { CommandPalette, ShortcutsDialog } from './ui/CommandPalette';
 import { GlobalView } from './ui/GlobalView';
+import { HelpDialog } from './ui/HelpDialog';
 import { Inspector } from './ui/Inspector';
 import { LedLab } from './ui/LedLab';
 import { MidiMonitor } from './ui/MidiMonitor';
@@ -33,6 +34,7 @@ function isTextInput(el: Element | null): boolean {
 export function App() {
   const theme = useUi((s) => s.theme);
   const view = useUi((s) => s.view);
+  const browserOpen = useUi((s) => s.browserOpen);
   const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
@@ -64,6 +66,10 @@ export function App() {
         else if (!dialogOpen) ui.openDialog('palette');
         return;
       }
+      if (e.key === 'Escape' && ui.browserOpen && !dialogOpen) {
+        ui.setBrowserOpen(false);
+        return;
+      }
       if (e.key === '?' && !mod && !isTextInput(document.activeElement) && !dialogOpen) {
         e.preventDefault();
         ui.openDialog('shortcuts');
@@ -92,7 +98,7 @@ export function App() {
   return (
     <>
       <div
-        className={`app view-${view}`}
+        className={`app view-${view}${browserOpen ? ' browser-open' : ''}`}
         onDragOver={(e) => {
           if (hasFiles(e)) {
             e.preventDefault();
@@ -115,6 +121,7 @@ export function App() {
         <TopBar />
         <div className="app__main">
           <PresetBrowser />
+          {browserOpen && <div className="drawer-scrim" aria-hidden="true" onClick={() => useUi.getState().setBrowserOpen(false)} />}
           {view === 'editor' && (
             <>
               <Stage />
@@ -135,6 +142,7 @@ export function App() {
         <AboutDialog />
         <CommandPalette />
         <ShortcutsDialog />
+        <HelpDialog />
         <ChoiceDialog />
         <Toasts />
         {dragging && (

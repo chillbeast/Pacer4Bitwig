@@ -24,9 +24,19 @@
 
 ### Pacer Studio (editor)
 
+- **Online:** hosted on GitHub Pages at <https://chillbeast.github.io/Pacer4Bitwig/>; installable as an offline app
+  (manifest + generated service worker, works under the Pages base path).
+- Bitwig Looper template: MIDI channel picker and a "matching Bitwig settings" panel; the preset-loaded CC 119 sends
+  127 for two-colour and 2 for multi-colour.
+- Verified reads with bounded automatic retries, a result summary and timeouts that name the missing request.
+- Accessibility: dialog focus trap and focus return, live regions, visible focus rings, AA contrast tokens in both
+  themes, reduced motion.
+- Tablet layouts from 768 px (preset browser drawer, stacked panels); first-run guide and a Help & troubleshooting
+  dialog.
 - Global settings view (experimental writes), device identity / firmware, hardware follow, share links, printable
   cheat sheets, restore-from-backup wizard, new templates (CC toggle pedalboard, program change pedalboard, MMC
-  transport), command palette, manual GitHub Pages workflow.
+  transport), command palette.
+- Version 0.2.0, shown in About and the command palette.
 
 ### Tools
 

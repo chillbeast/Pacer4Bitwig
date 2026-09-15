@@ -29,6 +29,11 @@ export const LOOPER_FOOTSWITCH_CC_BASE = 112;
 export const LOOPER_EXPRESSION_CC_BASE = 116;
 export const LOOPER_PRESET_LOADED_CC = 119;
 export const LOOPER_COLOUR_SLOT_CC_BASE = 20;
+/** Value of the preset-loaded CC: tells the extension's "Automatic" LED mode which variant is loaded. */
+export const LOOPER_PRESET_LOADED_VALUE: Readonly<Record<LooperLedMode, number>> = {
+  'two-colour': 127,
+  'multi-colour': 2,
+};
 /** SW1..SW4 are loop tracks. */
 export const LOOPER_LOOP_SWITCH_COUNT = 4;
 
@@ -104,12 +109,52 @@ export const LOOPER_ROLES: Readonly<Record<ControlKey, string>> = Object.fromEnt
  * regardless of colours or labels.
  */
 export function isLooperLayout(preset: Preset | null): boolean {
-  if (!preset) return false;
-  return (Object.keys(LOOPER_ACTION_CC) as ControlKey[]).every((key) => {
+  return looperChannelOf(preset) !== null;
+}
+
+/**
+ * The looper MIDI channel of a preset laid out like the template (every control's step 1 carries its action CC on
+ * one shared channel), or null when the preset is not a looper layout.
+ */
+export function looperChannelOf(preset: Preset | null): number | null {
+  if (!preset) return null;
+  let channel: number | null = null;
+  for (const key of Object.keys(LOOPER_ACTION_CC) as ControlKey[]) {
     const step = preset.controls[key].steps[0];
     const type = key.startsWith('EXP') ? MSG.AD_CC : MSG.SW_CC_TRIGGER;
-    return step.active && step.channel === LOOPER_CHANNEL && step.msgType === type && step.data[0] === LOOPER_ACTION_CC[key];
-  });
+    if (!step.active || step.msgType !== type || step.data[0] !== LOOPER_ACTION_CC[key]) return null;
+    if (step.channel < 1 || step.channel > 16) return null;
+    if (channel === null) channel = step.channel;
+    else if (step.channel !== channel) return null;
+  }
+  return channel;
+}
+
+/** LED variant announced by the preset-loaded message of a looper preset, or null. */
+export function looperLedModeOf(preset: Preset | null): LooperLedMode | null {
+  const channel = looperChannelOf(preset);
+  if (!preset || channel === null) return null;
+  const m = preset.midi[0];
+  if (m.msgType !== MSG.LOAD_CC || m.channel !== channel || m.data[0] !== LOOPER_PRESET_LOADED_CC) return null;
+  if (m.data[1] === LOOPER_PRESET_LOADED_VALUE['multi-colour']) return 'multi-colour';
+  if (m.data[1] === LOOPER_PRESET_LOADED_VALUE['two-colour']) return 'two-colour';
+  return null;
+}
+
+/**
+ * Build the template. `channel` (1–16, default 16) replaces every channel-16 value — steps, pedals and the
+ * preset-loaded CC; CC numbers and everything else stay the same. It must match the extension's
+ * "Looper MIDI channel" setting.
+ */
+export function buildBitwigLooperPreset(mode: LooperLedMode, channel: number = LOOPER_CHANNEL): Preset {
+  if (!Number.isInteger(channel) || channel < 1 || channel > 16) throw new RangeError(`Invalid MIDI channel ${channel}`);
+  const preset = buildDefaultChannelPreset(mode);
+  if (channel === LOOPER_CHANNEL) return preset;
+  for (const control of Object.values(preset.controls)) {
+    for (const step of control.steps) if (step.channel === LOOPER_CHANNEL) step.channel = channel;
+  }
+  for (const setting of preset.midi) if (setting.channel === LOOPER_CHANNEL) setting.channel = channel;
+  return preset;
 }
 
 /** Short labels shown on the switch screens in the editor (not stored on the Pacer). */
@@ -141,7 +186,7 @@ function unusedSwitchStep(data: [number, number, number] = [0, 127, 0]): Step {
   return createStep({ channel: 0, msgType: MSG.OFF, data, active: false });
 }
 
-export function buildBitwigLooperPreset(mode: LooperLedMode): Preset {
+function buildDefaultChannelPreset(mode: LooperLedMode): Preset {
   const multi = mode === 'multi-colour';
   const preset = createPreset(LOOPER_PRESET_NAME);
 
@@ -190,10 +235,11 @@ export function buildBitwigLooperPreset(mode: LooperLedMode): Preset {
     }
   });
 
+  // The preset-loaded value also tells the extension which LED variant this preset is.
   preset.midi[0] = createMidiSetting({
     channel: LOOPER_CHANNEL,
     msgType: MSG.LOAD_CC,
-    data: [LOOPER_PRESET_LOADED_CC, 127, 0],
+    data: [LOOPER_PRESET_LOADED_CC, LOOPER_PRESET_LOADED_VALUE[mode], 0],
   });
 
   return preset;

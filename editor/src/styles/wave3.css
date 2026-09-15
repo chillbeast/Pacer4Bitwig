@@ -1,0 +1,289 @@
+/* ---------- First-run guide ---------- */
+.first-run {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: var(--surface-1);
+}
+.first-run__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.first-run__head h2 {
+  font-size: var(--text-md);
+}
+.first-run__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
+}
+.first-run__step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: var(--text-sm);
+  color: var(--text-dim);
+}
+.first-run__num {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+}
+.first-run__step.is-next .first-run__num {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.first-run__step.is-done .first-run__num {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.first-run__step.is-next strong {
+  color: var(--text);
+}
+.first-run__text {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}
+.first-run__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---------- Help ---------- */
+.help-glyph {
+  display: inline-block;
+  width: 16px;
+  font-size: 15px;
+  font-weight: 800;
+  text-align: center;
+}
+.help-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-dim);
+}
+.help-steps strong {
+  color: var(--text);
+}
+.help-heading {
+  font-size: var(--text-xs);
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.help-topic {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.help-topic summary {
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.help-topic__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 12px 10px;
+  color: var(--text-dim);
+}
+.help-topic__body ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* ---------- Template channel + Bitwig hints ---------- */
+.template-channel {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  align-items: end;
+  gap: 12px;
+}
+.template-channel__note {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--warning);
+  background: var(--warning-soft);
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+.bitwig-hints {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border-strong);
+}
+.bitwig-hints h4 {
+  margin: 0 0 6px;
+  font-size: var(--text-xs);
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.bitwig-hints dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bitwig-hints dl > div {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 8px;
+  font-size: var(--text-sm);
+}
+.bitwig-hints dt {
+  color: var(--text-faint);
+}
+.bitwig-hints dd {
+  margin: 0;
+  color: var(--text-dim);
+}
+
+/* ---------- Palette footer ---------- */
+.palette__footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 2px 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+}
+
+/* ---------- Narrow layouts: preset browser drawer (≤ 1180 px) ---------- */
+.topbar__drawer-toggle,
+.drawer-scrim {
+  display: none;
+}
+
+@media (max-width: 1180px) {
+  .app__main {
+    grid-template-columns: minmax(0, 1fr) var(--inspector-w);
+  }
+  .view-ledlab .app__main,
+  .view-global .app__main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .topbar__drawer-toggle {
+    display: inline-flex;
+  }
+  .browser {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 50;
+    width: min(300px, 86vw);
+    border-right: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-lg);
+    transform: translateX(-102%);
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0.2s;
+  }
+  .browser-open .browser {
+    transform: none;
+    visibility: visible;
+  }
+  .browser-open .drawer-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    background: rgba(5, 6, 8, 0.5);
+  }
+}
+
+/* ---------- Tablet portrait (≤ 900 px): stacked panels, page scroll ---------- */
+@media (max-width: 900px) {
+  .app {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+  .app__main,
+  .view-ledlab .app__main,
+  .view-global .app__main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .stage,
+  .app__inspector,
+  .global-view,
+  .ledlab__device,
+  .ledlab__panel {
+    overflow: visible;
+    min-height: auto;
+  }
+  .app__inspector,
+  .ledlab__panel {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+  .ledlab {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .stage__device > .pacer,
+  .ledlab__device > .pacer {
+    width: 100%;
+    min-width: 0;
+  }
+  .monitor {
+    position: sticky;
+    bottom: 0;
+    z-index: 15;
+  }
+  .topbar__center {
+    display: none;
+  }
+  .template-channel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .bitwig-hints dl > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .op {
+    max-width: none;
+  }
+}
+
+/* Keep the operation progress visible when the centre slot is hidden on narrow screens. */
+@media (max-width: 900px) {
+  .topbar:has(.op) .topbar__center {
+    display: flex;
+    order: 99;
+    flex-basis: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .browser {
+    transition: none;
+  }
+  .flash {
+    animation: none;
+    opacity: 0.8;
+  }
+}

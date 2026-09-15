@@ -16,6 +16,7 @@ import {
   TARGET_GLOBAL,
   TARGET_PRESET,
 } from './constants';
+import type { PartRef } from './encode';
 import { createPreset, normalizeName, type Preset } from './model';
 import { slotLabel } from './slots';
 import { isPacerMessage, readElements, splitSysex, toHex } from './sysex';
@@ -33,6 +34,22 @@ export interface ParsedPreset {
   complete: boolean;
   /** True when at least one LED config was present. */
   hasLeds: boolean;
+  /** Parts that were not in the data (empty for a complete preset). */
+  missing: PartRef[];
+}
+
+/** Every part of a preset in dump order, with the key used while parsing. */
+export function presetPartKeys(): { key: string; part: PartRef }[] {
+  const out: { key: string; part: PartRef }[] = [{ key: 'name', part: { kind: 'name' } }];
+  for (const def of CONTROLS) {
+    out.push({ key: `${def.key}:mode`, part: { kind: 'mode', control: def.key } });
+    for (let s = 0; s < STEP_COUNT; s++) out.push({ key: `${def.key}:s${s}`, part: { kind: 'step', control: def.key, step: s } });
+    if (def.hasLeds) {
+      for (let s = 0; s < STEP_COUNT; s++) out.push({ key: `${def.key}:l${s}`, part: { kind: 'led', control: def.key, step: s } });
+    }
+  }
+  for (let s = 0; s < PRESET_MIDI_COUNT; s++) out.push({ key: `midi:${s}`, part: { kind: 'midi', setting: s } });
+  return out;
 }
 
 export interface ParseResult {
@@ -219,6 +236,7 @@ export function parseMessages(messages: readonly Uint8Array[]): ParseResult {
   }
 
   const presets = new Map<number, ParsedPreset>();
+  const allParts = presetPartKeys();
   for (const index of [...builders.keys()].sort((a, b) => a - b)) {
     const b = builders.get(index)!;
     presets.set(index, {
@@ -227,6 +245,7 @@ export function parseMessages(messages: readonly Uint8Array[]): ParseResult {
       parts: b.parts.size,
       complete: b.parts.size === PRESET_PART_COUNT,
       hasLeds: b.hasLeds,
+      missing: allParts.filter((p) => !b.parts.has(p.key)).map((p) => p.part),
     });
   }
 

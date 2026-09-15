@@ -6,6 +6,7 @@ import de.mossgrabers.framework.configuration.AbstractConfiguration;
 import de.mossgrabers.framework.configuration.IEnumSetting;
 import de.mossgrabers.framework.configuration.IIntegerSetting;
 import de.mossgrabers.framework.configuration.ISettingsUI;
+import de.mossgrabers.framework.configuration.IStringSetting;
 import de.mossgrabers.framework.controller.valuechanger.IValueChanger;
 import de.mossgrabers.framework.daw.IHost;
 import de.mossgrabers.framework.daw.midi.ArpeggiatorMode;
@@ -30,6 +31,7 @@ import dev.pacer4bitwig.pacer.looper.PedalCurve;
 import dev.pacer4bitwig.pacer.looper.PedalResponse;
 import dev.pacer4bitwig.pacer.looper.PlayingTapAction;
 import dev.pacer4bitwig.pacer.looper.QuantizationChoice;
+import dev.pacer4bitwig.pacer.preset.PresetKind;
 import dev.pacer4bitwig.util.Labelled;
 
 import java.util.Arrays;
@@ -38,8 +40,8 @@ import java.util.function.Consumer;
 
 
 /**
- * Settings of the PACER Looper (Bitwig: Settings > Controllers), plus one project setting (the position of the loop
- * tracks).
+ * Settings of the PACER Looper (Bitwig: Settings > Controllers), plus project settings: the position of the loop
+ * tracks, and the FX preset's instruments and snapshots.
  */
 public class PacerConfiguration extends AbstractConfiguration
 {
@@ -61,11 +63,15 @@ public class PacerConfiguration extends AbstractConfiguration
     public static final Integer              LOOP_TRACK_START     = Integer.valueOf (1007);
     /** Setting ID: the looper MIDI channel. */
     public static final Integer              LOOPER_CHANNEL       = Integer.valueOf (1008);
+    /** Setting ID: the preset selected on the Pacer (looper or FX). */
+    public static final Integer              ACTIVE_PRESET        = Integer.valueOf (1009);
 
     /** Number of expression pedal jacks. */
     public static final int                  NUM_EXPRESSION       = 2;
     /** Highest selectable first loop track. */
     public static final int                  MAX_LOOP_TRACK_START = 128;
+    /** Instruments of the FX preset. */
+    public static final int                  NUM_INSTRUMENTS      = 4;
 
     /** Default tap / hold actions of SW 1-6 (when not loop switches) and SW A-D. */
     private static final Action [] []        SWITCH_DEFAULTS      =
@@ -111,7 +117,61 @@ public class PacerConfiguration extends AbstractConfiguration
             Action.TRANSPORT_PLAY_STOP
         }
     };
-    /** Default tap / hold actions of FS 1-4. */
+    /** Default tap / double-tap / hold actions of SW 1-6 and SW A-D on the FX preset. */
+    private static final Action [] []        FX_SWITCH_DEFAULTS   =
+    {
+        {
+            Action.FX_1,
+            Action.NONE,
+            Action.MOMENTARY
+        },
+        {
+            Action.FX_2,
+            Action.NONE,
+            Action.MOMENTARY
+        },
+        {
+            Action.FX_3,
+            Action.NONE,
+            Action.MOMENTARY
+        },
+        {
+            Action.FX_4,
+            Action.NONE,
+            Action.MOMENTARY
+        },
+        {
+            Action.FX_5,
+            Action.NONE,
+            Action.MOMENTARY
+        },
+        {
+            Action.FX_6,
+            Action.NONE,
+            Action.MOMENTARY
+        },
+        {
+            Action.FOCUS_A,
+            Action.MUTE_A,
+            Action.ASSIGN_A
+        },
+        {
+            Action.FOCUS_B,
+            Action.MUTE_B,
+            Action.ASSIGN_B
+        },
+        {
+            Action.FOCUS_C,
+            Action.MUTE_C,
+            Action.ASSIGN_C
+        },
+        {
+            Action.SNAPSHOT_NEXT,
+            Action.SNAPSHOT_FIRST,
+            Action.SNAPSHOT_STORE
+        }
+    };
+    /** Default tap / hold actions of FS 1-4 (shared by both presets). */
     private static final Action [] []        FOOTSWITCH_DEFAULTS  =
     {
         {
@@ -123,11 +183,11 @@ public class PacerConfiguration extends AbstractConfiguration
             Action.CLEAR_ROW
         },
         {
-            Action.NONE,
+            Action.FOCUS_NEXT,
             Action.NONE
         },
         {
-            Action.NONE,
+            Action.SNAPSHOT_NEXT,
             Action.NONE
         }
     };
@@ -136,17 +196,26 @@ public class PacerConfiguration extends AbstractConfiguration
         ExpressionTarget.SELECTED_VOLUME,
         ExpressionTarget.MASTER_VOLUME
     };
+    private static final ExpressionTarget [] FX_EXPRESSION_DEFAULTS =
+    {
+        ExpressionTarget.FOCUSED_REMOTE_7,
+        ExpressionTarget.FOCUSED_REMOTE_8
+    };
 
     private static final String              CATEGORY_LOOPER      = "Looper";
     private static final String              CATEGORY_BOTTOM_ROW  = "Bottom row SW 1-6 (switches that are not loop switches)";
     private static final String              CATEGORY_TOP_ROW     = "Top row SW A-D";
-    private static final String              CATEGORY_JACKS       = "Footswitch jacks FS 1-4";
+    private static final String              CATEGORY_FX          = "FX preset";
+    private static final String              CATEGORY_FX_BOTTOM   = "FX preset: SW 1-6";
+    private static final String              CATEGORY_FX_TOP      = "FX preset: SW A-D";
+    private static final String              CATEGORY_JACKS       = "Footswitch jacks FS 1-4 (both presets)";
     private static final String              CATEGORY_PEDALS      = "Expression pedals";
     private static final String              CATEGORY_LEDS        = "Pacer LEDs";
     private static final String              CATEGORY_LAUNCHER    = "Clip launcher (pushed into the project)";
     private static final String              CATEGORY_DAW_MODE    = "Nektar DAW mode (USB port 2)";
     private static final String              CATEGORY_FEEDBACK    = "Feedback";
     private static final String              CATEGORY_PROJECT     = "PACER Looper";
+    private static final String              CATEGORY_FX_PROJECT  = "PACER FX";
     private static final String []           ON_OFF               =
     {
         "On",
@@ -154,6 +223,19 @@ public class PacerConfiguration extends AbstractConfiguration
     };
     private static final String []           MIDI_CHANNELS        = new String [16];
     private static final String []           LOOP_TRACK_COUNTS    = new String [PacerMap.MAX_LOOP_TRACKS];
+    private static final String []           SNAPSHOT_COUNTS      =
+    {
+        "2",
+        "3",
+        "4"
+    };
+    private static final String []           INSTRUMENT_LETTERS   =
+    {
+        "A",
+        "B",
+        "C",
+        "D"
+    };
 
     static
     {
@@ -183,10 +265,14 @@ public class PacerConfiguration extends AbstractConfiguration
     private final Action []                  switchTap            = new Action [PacerMap.NUM_SWITCHES];
     private final Action []                  switchHold           = new Action [PacerMap.NUM_SWITCHES];
     private final Action []                  switchDoubleTap      = new Action [PacerMap.NUM_SWITCHES];
+    private final Action []                  fxSwitchTap          = new Action [PacerMap.NUM_SWITCHES];
+    private final Action []                  fxSwitchDoubleTap    = new Action [PacerMap.NUM_SWITCHES];
+    private final Action []                  fxSwitchHold         = new Action [PacerMap.NUM_SWITCHES];
     private final Action []                  footswitchTap        = new Action [PacerMap.NUM_FOOTSWITCHES];
     private final Action []                  footswitchHold       = new Action [PacerMap.NUM_FOOTSWITCHES];
     private final Action []                  footswitchDoubleTap  = new Action [PacerMap.NUM_FOOTSWITCHES];
     private final ExpressionTarget []        expressionTargets    = EXPRESSION_DEFAULTS.clone ();
+    private final ExpressionTarget []        fxExpressionTargets  = FX_EXPRESSION_DEFAULTS.clone ();
     private final PedalCurve []              pedalCurves          = new PedalCurve [NUM_EXPRESSION];
     private final int []                     pedalMinimum         = new int [NUM_EXPRESSION];
     private final int []                     pedalMaximum         = new int [NUM_EXPRESSION];
@@ -205,6 +291,17 @@ public class PacerConfiguration extends AbstractConfiguration
     private volatile NotificationLevel       notificationLevel    = NotificationLevel.ALL;
     private volatile int                     loopTrackStart       = 1;
     private IIntegerSetting                  loopTrackStartSetting;
+    private volatile PresetKind              activePreset         = PresetKind.LOOPER;
+    private IEnumSetting                     activePresetSetting;
+    private volatile int                     snapshotsPerInstrument = 2;
+    private volatile boolean                 focusSelectsTrack    = false;
+    private volatile String                  remotePageName       = "Pacer";
+    private final String []                  instrumentTracks     = new String [NUM_INSTRUMENTS];
+    private final IStringSetting []          instrumentTrackSettings = new IStringSetting [NUM_INSTRUMENTS];
+    private final String []                  instrumentSnapshots  = new String [NUM_INSTRUMENTS];
+    private final IStringSetting []          snapshotSettings     = new IStringSetting [NUM_INSTRUMENTS];
+    private volatile int                     focusedInstrument    = 0;
+    private IEnumSetting                     focusedInstrumentSetting;
 
 
     /**
@@ -222,6 +319,9 @@ public class PacerConfiguration extends AbstractConfiguration
         {
             this.switchTap[i] = SWITCH_DEFAULTS[i][0];
             this.switchHold[i] = SWITCH_DEFAULTS[i][1];
+            this.fxSwitchTap[i] = FX_SWITCH_DEFAULTS[i][0];
+            this.fxSwitchDoubleTap[i] = FX_SWITCH_DEFAULTS[i][1];
+            this.fxSwitchHold[i] = FX_SWITCH_DEFAULTS[i][2];
         }
         for (int i = 0; i < PacerMap.NUM_FOOTSWITCHES; i++)
         {
@@ -232,6 +332,8 @@ public class PacerConfiguration extends AbstractConfiguration
         Arrays.fill (this.footswitchDoubleTap, Action.NONE);
         Arrays.fill (this.pedalCurves, PedalCurve.LINEAR);
         Arrays.fill (this.pedalMaximum, 100);
+        Arrays.fill (this.instrumentTracks, "");
+        Arrays.fill (this.instrumentSnapshots, "");
     }
 
 
@@ -241,6 +343,7 @@ public class PacerConfiguration extends AbstractConfiguration
     {
         this.initLooper (globalSettings);
         this.initSwitches (globalSettings);
+        this.initFx (globalSettings);
         this.initPedals (globalSettings);
         this.initLeds (globalSettings);
 
@@ -266,6 +369,8 @@ public class PacerConfiguration extends AbstractConfiguration
             this.loopTrackStart = value.intValue ();
             this.notifyObservers (LOOP_TRACK_START);
         });
+
+        this.initFxProject (documentSettings);
     }
 
 
@@ -322,6 +427,55 @@ public class PacerConfiguration extends AbstractConfiguration
     }
 
 
+    private void initFx (final ISettingsUI settings)
+    {
+        // Follows the preset-loaded CC; also a manual override
+        this.activePresetSetting = settings.getEnumSetting ("Active preset (follows the preset selected on the Pacer)", CATEGORY_FX, Labelled.labels (PresetKind.values ()), PresetKind.LOOPER.getLabel ());
+        this.activePresetSetting.addValueObserver (value -> {
+            this.activePreset = Labelled.fromLabel (PresetKind.values (), value, PresetKind.LOOPER);
+            this.notifyObservers (ACTIVE_PRESET);
+        });
+
+        final IEnumSetting snapshotSetting = settings.getEnumSetting ("Snapshots per instrument", CATEGORY_FX, SNAPSHOT_COUNTS, SNAPSHOT_COUNTS[0]);
+        snapshotSetting.addValueObserver (value -> this.snapshotsPerInstrument = Math.max (0, Arrays.asList (SNAPSHOT_COUNTS).indexOf (value)) + 2);
+        onOffSetting (settings, "Focusing an instrument selects its track in Bitwig", CATEGORY_FX, false, value -> this.focusSelectsTrack = value);
+        settings.getStringSetting ("Remote controls page name", CATEGORY_FX, 40, "Pacer").addValueObserver (value -> this.remotePageName = value == null ? "" : value.trim ());
+
+        for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
+        {
+            final int index = i;
+            final String name = "FX " + PacerMap.SWITCH_NAMES[i];
+            final String category = i < PacerMap.FIRST_TOP_ROW_SWITCH ? CATEGORY_FX_BOTTOM : CATEGORY_FX_TOP;
+            enumSetting (settings, name + " tap", category, Action.values (), FX_SWITCH_DEFAULTS[i][0], value -> this.fxSwitchTap[index] = value);
+            enumSetting (settings, name + " double-tap", category, Action.values (), FX_SWITCH_DEFAULTS[i][1], value -> this.fxSwitchDoubleTap[index] = value);
+            enumSetting (settings, name + " hold", category, Action.values (), FX_SWITCH_DEFAULTS[i][2], value -> this.fxSwitchHold[index] = value);
+        }
+    }
+
+
+    private void initFxProject (final ISettingsUI settings)
+    {
+        for (int i = 0; i < NUM_INSTRUMENTS; i++)
+        {
+            final int index = i;
+            this.instrumentTrackSettings[i] = settings.getStringSetting ("Instrument " + INSTRUMENT_LETTERS[i] + " (track name)", CATEGORY_FX_PROJECT, 64, "");
+            this.instrumentTrackSettings[i].addValueObserver (value -> this.instrumentTracks[index] = value == null ? "" : value.trim ());
+        }
+
+        this.focusedInstrumentSetting = settings.getEnumSetting ("Focused instrument", CATEGORY_FX_PROJECT, INSTRUMENT_LETTERS, INSTRUMENT_LETTERS[0]);
+        this.focusedInstrumentSetting.addValueObserver (value -> this.focusedInstrument = Math.max (0, Arrays.asList (INSTRUMENT_LETTERS).indexOf (value)));
+
+        for (int i = 0; i < NUM_INSTRUMENTS; i++)
+        {
+            final int index = i;
+            this.snapshotSettings[i] = settings.getStringSetting ("Instrument " + INSTRUMENT_LETTERS[i] + " snapshots", CATEGORY_FX_PROJECT, 256, "");
+            this.snapshotSettings[i].addValueObserver (value -> this.instrumentSnapshots[index] = value == null ? "" : value);
+            // Internal state, only saved with the project
+            this.snapshotSettings[i].setVisible (false);
+        }
+    }
+
+
     private void initPedals (final ISettingsUI settings)
     {
         for (int i = 0; i < NUM_EXPRESSION; i++)
@@ -331,6 +485,10 @@ public class PacerConfiguration extends AbstractConfiguration
             final String name = "EXP " + (i + 1);
             enumSetting (settings, name, CATEGORY_PEDALS, ExpressionTarget.values (), EXPRESSION_DEFAULTS[i], value -> {
                 this.expressionTargets[index] = value;
+                this.notifyObservers (settingID);
+            });
+            enumSetting (settings, name + " on the FX preset", CATEGORY_PEDALS, ExpressionTarget.values (), FX_EXPRESSION_DEFAULTS[i], value -> {
+                this.fxExpressionTargets[index] = value;
                 this.notifyObservers (settingID);
             });
             enumSetting (settings, name + " response", CATEGORY_PEDALS, PedalCurve.values (), PedalCurve.LINEAR, value -> {
@@ -565,6 +723,36 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
+     * @param switchIndex 0-9
+     * @return The tap action of a switch on the FX preset
+     */
+    public Action getFxSwitchTap (final int switchIndex)
+    {
+        return this.fxSwitchTap[switchIndex];
+    }
+
+
+    /**
+     * @param switchIndex 0-9
+     * @return The double-tap action of a switch on the FX preset
+     */
+    public Action getFxSwitchDoubleTap (final int switchIndex)
+    {
+        return this.fxSwitchDoubleTap[switchIndex];
+    }
+
+
+    /**
+     * @param switchIndex 0-9
+     * @return The hold action of a switch on the FX preset
+     */
+    public Action getFxSwitchHold (final int switchIndex)
+    {
+        return this.fxSwitchHold[switchIndex];
+    }
+
+
+    /**
      * @param index 0-3
      * @return The tap action of a footswitch jack
      */
@@ -596,11 +784,21 @@ public class PacerConfiguration extends AbstractConfiguration
 
     /**
      * @param index 0-1
-     * @return The target of an expression pedal
+     * @return The target of an expression pedal on the looper preset
      */
     public ExpressionTarget getExpressionTarget (final int index)
     {
         return this.expressionTargets[index];
+    }
+
+
+    /**
+     * @param index 0-1
+     * @return The target of an expression pedal on the FX preset
+     */
+    public ExpressionTarget getFxExpressionTarget (final int index)
+    {
+        return this.fxExpressionTargets[index];
     }
 
 
@@ -633,7 +831,7 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
-     * @return The mode LEDs are driven in: the setting, or the variant the looper preset announced
+     * @return The mode LEDs are driven in: the setting, or the variant the preset announced
      */
     public LedMode getEffectiveLedMode ()
     {
@@ -642,7 +840,7 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
-     * Remember the LED variant the looper preset announced when it was loaded.
+     * Remember the LED variant the preset announced when it was loaded.
      *
      * @param announced TWO_COLOUR or MULTI_COLOUR
      */
@@ -737,5 +935,123 @@ public class PacerConfiguration extends AbstractConfiguration
         final int value = Math.max (1, Math.min (MAX_LOOP_TRACK_START, oneBased));
         if (this.loopTrackStartSetting != null && value != this.loopTrackStart)
             this.loopTrackStartSetting.set (value);
+    }
+
+
+    /**
+     * @return The preset selected on the Pacer
+     */
+    public PresetKind getActivePreset ()
+    {
+        return this.activePreset;
+    }
+
+
+    /**
+     * Remember the preset the Pacer announced.
+     *
+     * @param kind The preset
+     */
+    public void setActivePreset (final PresetKind kind)
+    {
+        if (this.activePresetSetting != null && kind != this.activePreset)
+            this.activePresetSetting.set (kind.getLabel ());
+    }
+
+
+    /**
+     * @return How many snapshots each instrument cycles through, 2-4
+     */
+    public int getSnapshotsPerInstrument ()
+    {
+        return this.snapshotsPerInstrument;
+    }
+
+
+    /**
+     * @return True to select an instrument's track in Bitwig when it gets focused
+     */
+    public boolean isFocusSelectsTrack ()
+    {
+        return this.focusSelectsTrack;
+    }
+
+
+    /**
+     * @return The name of the remote controls page the FX switches and pedals use
+     */
+    public String getRemotePageName ()
+    {
+        return this.remotePageName;
+    }
+
+
+    /**
+     * @param slot 0-3
+     * @return The track name of an instrument, empty if not assigned
+     */
+    public String getInstrumentTrack (final int slot)
+    {
+        return this.instrumentTracks[slot];
+    }
+
+
+    /**
+     * Assign a track to an instrument, saved in the project.
+     *
+     * @param slot 0-3
+     * @param trackName The track name
+     */
+    public void setInstrumentTrack (final int slot, final String trackName)
+    {
+        this.instrumentTracks[slot] = trackName;
+        if (this.instrumentTrackSettings[slot] != null)
+            this.instrumentTrackSettings[slot].set (trackName);
+    }
+
+
+    /**
+     * @return The focused instrument, 0-3
+     */
+    public int getFocusedInstrument ()
+    {
+        return this.focusedInstrument;
+    }
+
+
+    /**
+     * Focus an instrument, saved in the project.
+     *
+     * @param slot 0-3
+     */
+    public void setFocusedInstrument (final int slot)
+    {
+        this.focusedInstrument = slot;
+        if (this.focusedInstrumentSetting != null)
+            this.focusedInstrumentSetting.set (INSTRUMENT_LETTERS[slot]);
+    }
+
+
+    /**
+     * @param slot 0-3
+     * @return The encoded snapshots of an instrument, may be empty
+     */
+    public String getInstrumentSnapshots (final int slot)
+    {
+        return this.instrumentSnapshots[slot];
+    }
+
+
+    /**
+     * Store the snapshots of an instrument in the project.
+     *
+     * @param slot 0-3
+     * @param encoded The encoded snapshots
+     */
+    public void setInstrumentSnapshots (final int slot, final String encoded)
+    {
+        this.instrumentSnapshots[slot] = encoded;
+        if (this.snapshotSettings[slot] != null)
+            this.snapshotSettings[slot].set (encoded);
     }
 }

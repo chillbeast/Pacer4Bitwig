@@ -13,8 +13,8 @@ architecture while keeping its hard-won SysEx protocol knowledge. Version 0.2.0.
 - **Device identity**: firmware version from the Universal Identity reply in the connection pill and About panel
 - **Hardware follow**: press a switch on the Pacer and the editor selects it (toggle "Follow" in the top bar)
 - **Share links**, **printable cheat sheet**, **Restore from backup** wizard with per-control differences
-- Templates: Bitwig Looper ([`docs/PACER-MAP.md`](../docs/PACER-MAP.md), selectable looper MIDI channel), CC toggle
-  pedalboard, program change pedalboard, MMC transport
+- Templates: Bitwig Looper and Bitwig FX ([`docs/PACER-MAP.md`](../docs/PACER-MAP.md), selectable looper MIDI
+  channel), CC toggle pedalboard, program change pedalboard, MMC transport
 - LED Lab, MIDI monitor (Pacer SysEx, identity, MMC and channel messages)
 - Works offline: import/export `.syx` and `.json`; installable as an app with an offline app shell
 - Undo/redo, command palette (**Ctrl+K**), shortcut overview (**?**), first-run guide, Help & troubleshooting
@@ -88,14 +88,23 @@ request that went unanswered. When a repair was needed, the session backup conta
 The template implements `docs/PACER-MAP.md`. Options:
 
 - **LED strategy**: two-colour (documented behaviour) or multi-colour (experimental colour slots). The preset-loaded
-  message (on-load MIDI 1, CC 119) tells the extension which variant is loaded: value **127** two-colour, **2**
-  multi-colour. With the extension's LED mode "Automatic" nothing needs to be matched.
+  message (on-load MIDI 1, CC 119) tells the extension which preset and variant is loaded: **127** looper two-colour,
+  **2** looper multi-colour, **17** FX two-colour, **18** FX multi-colour (*preset × 16 + variant*; 127 is the looper's
+  legacy value). With the extension's LED mode "Automatic" nothing needs to be matched.
 - **Looper MIDI channel** (1–16, default 16): changes every channel-16 value of the preset (switch steps, footswitch jacks,
   pedals and the preset-loaded CC); CC numbers stay the same. Set the same channel in Bitwig:
   *Settings > Controllers > PACER Looper > Looper MIDI channel*.
 
 The dialog shows these matching Bitwig settings next to the options. Channel 16 output is byte-identical to
 `tools/looper-preset.mjs`.
+
+### Bitwig FX template
+
+A pedalboard for the instruments you play live through Bitwig ([`docs/FX-PRESET.md`](../docs/FX-PRESET.md)): SW 1–6
+switch effects, SW A–C pick the instrument, SW D steps through snapshots. It needs PACER Looper 0.3.0 in Bitwig. On the
+Pacer it is the looper preset with default slot **D2**, name `FX`, preset-loaded value **17** / **18** and, two-colour,
+green SW 1–6 and white SW A–D; the options are the same. Channel 16 output is byte-identical to
+`tools/looper-preset.mjs --preset fx`.
 
 ### Global settings
 
@@ -141,13 +150,14 @@ src/
   midi/        Web MIDI service (port auto-selection, hot-plug, SysEx reassembly, request/collect, paced writes),
                Universal Identity request/reply parsing
   store/       zustand stores: editor (slots + globals + undo/redo), device, ui, monitor
-  templates/   Bitwig Looper (docs/PACER-MAP.md, roles from docs/LOOPER.md) and generic pedalboards
+  templates/   Bitwig Looper (docs/PACER-MAP.md, roles from docs/LOOPER.md), Bitwig FX (docs/FX-PRESET.md) and generic
+               pedalboards
   app/         operations (read with retries, write, import/export), identity, follow, share, service worker registration
   ui/          React components (hardware rendering, browser, inspector, global view, dialogs, LED Lab, palette,
                cheat sheet, help, first-run guide)
   styles/      CSS custom-property design tokens and component styles (incl. print and responsive styles)
 build/pwa.ts   Vite plugin that writes the service worker after production builds
-test/          vitest suites + fixtures (factory dumps, user patch, looper generator output)
+test/          vitest suites + fixtures (factory dumps, user patch, looper and FX generator output)
 ```
 
 Key protocol facts (verified against factory dumps and a real device dump):

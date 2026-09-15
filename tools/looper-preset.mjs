@@ -1,8 +1,8 @@
-// Generates the "Bitwig Looper" Pacer preset described in docs/PACER-MAP.md as .syx files.
-// Does not talk to the Pacer - use pacer-send.mjs (or Pacer Studio) to write the result.
+// Generates the Bitwig Pacer presets described in docs/PACER-MAP.md as .syx files: the looper preset and the FX preset
+// (docs/FX-PRESET.md). Does not talk to the Pacer - use pacer-send.mjs (or Pacer Studio) to write the result.
 //
-//   node looper-preset.mjs                                  both variants for D1 on channel 16 -> ../presets/
-//   node looper-preset.mjs --slot C6 --mode multi --channel 5
+//   node looper-preset.mjs                                  every preset (looper D1, FX D2), both variants, channel 16 -> ../presets/
+//   node looper-preset.mjs --preset fx --slot C6 --mode multi --channel 5
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -20,15 +20,29 @@ export const SWITCH_CC_BASE = 102;
 export const FOOTSWITCH_CC_BASE = 112;
 export const EXP_CC_BASE = 116;
 export const PRESET_LOADED_CC = 119;
-/** The preset-loaded CC value tells the extension which LED variant this preset is. */
-export const PRESET_LOADED_VALUE = { two: 127, multi: 2 };
 export const COLOUR_SLOT_CC_BASE = 20;
-export const PRESET_NAME = 'LOOPS';
+
+export const PRESET_KINDS = ['looper', 'fx'];
+export const DEFAULT_SLOT = { looper: 'D1', fx: 'D2' };
+export const PRESET_NAME = { looper: 'LOOPS', fx: 'FX' };
+/**
+ * The preset-loaded CC value tells the extension which preset and LED variant is loaded: kind * 16 + variant
+ * (variant 1 two-colour, 2 multi-colour); 127 is the legacy looper two-colour value.
+ */
+export const PRESET_LOADED_VALUE = { looper: { two: 127, multi: 2 }, fx: { two: 17, multi: 18 } };
 
 const COLOUR = { OFF: 0x00, RED: 0x03, AMBER: 0x07, GREEN: 0x0D, BLUE: 0x11, PURPLE: 0x15, WHITE: 0x17 };
 /** Multi-colour: on colour of steps 1..6. */
 const SLOT_COLOURS = [COLOUR.WHITE, COLOUR.RED, COLOUR.GREEN, COLOUR.AMBER, COLOUR.BLUE, COLOUR.PURPLE];
 const LOOP_SWITCHES = 4;
+const FX_SWITCHES = 6;
+
+/** Two-colour: on colour of step 1 - loop switches red (looper), FX switches green (FX), the rest white. */
+const twoColourOn = (kind, switchIndex) => {
+    if (kind === 'fx')
+        return switchIndex < FX_SWITCHES ? COLOUR.GREEN : COLOUR.WHITE;
+    return switchIndex < LOOP_SWITCHES ? COLOUR.RED : COLOUR.WHITE;
+};
 
 export const colourSlotCC = (switchIndex, step) => COLOUR_SLOT_CC_BASE + switchIndex * 5 + step - 2;
 
@@ -67,19 +81,22 @@ const midiSetting = (idx, n, { channel = 0, type = MSG_OFF, data = [0, 0, 0] }) 
         e + 5, 1, data[2]]);
 };
 
+// Always 5 characters, space padded - like every name in the factory presets and the device dumps ("MMC  ")
 const name = (idx, text) => {
     const chars = text.padEnd (5).slice (0, 5);
     return message ([CMD_SET, TGT_PRESET, idx, OBJ_NAME, 0x01, chars.length, ...[...chars].map (c => c.charCodeAt (0))]);
 };
 
-export function buildLooperPreset (slot, mode, channel = DEFAULT_CHANNEL)
+export function buildPreset (kind, slot, mode, channel = DEFAULT_CHANNEL)
 {
+    if (!PRESET_KINDS.includes (kind))
+        throw new Error (`Invalid preset "${kind}" (expected ${PRESET_KINDS.join (' or ')})`);
     if (!Number.isInteger (channel) || channel < 1 || channel > 16)
         throw new Error (`Invalid MIDI channel ${channel} (expected 1..16)`);
 
     const idx = presetIndex (slot);
     const multi = mode === 'multi';
-    const out = [name (idx, PRESET_NAME)];
+    const out = [name (idx, PRESET_NAME[kind])];
 
     SWITCH_OBJECTS.forEach ((obj, s) => {
         out.push (controlMode (idx, obj));
@@ -89,7 +106,7 @@ export function buildLooperPreset (slot, mode, channel = DEFAULT_CHANNEL)
                 ? step (idx, obj, n, { channel, type: MSG_CC_TRIGGER, data: [colourSlotCC (s, n), 127, 0], active: 1 })
                 : step (idx, obj, n, { data: [0, 127, 0] }));
 
-        const onColour = multi ? SLOT_COLOURS[0] : (s < LOOP_SWITCHES ? COLOUR.RED : COLOUR.WHITE);
+        const onColour = multi ? SLOT_COLOURS[0] : twoColourOn (kind, s);
         out.push (led (idx, obj, 1, { midi: 1, on: onColour }));
         for (let n = 2; n <= 6; n++)
             out.push (multi ? led (idx, obj, n, { midi: 1, on: SLOT_COLOURS[n - 1] }) : led (idx, obj, n, {}));
@@ -111,12 +128,15 @@ export function buildLooperPreset (slot, mode, channel = DEFAULT_CHANNEL)
             out.push (step (idx, obj, n, { type: MSG_CC, data: [0, 0, 127] }));
     });
 
-    out.push (midiSetting (idx, 1, { channel, type: MSG_LOAD_CC, data: [PRESET_LOADED_CC, PRESET_LOADED_VALUE[multi ? 'multi' : 'two'], 0] }));
+    out.push (midiSetting (idx, 1, { channel, type: MSG_LOAD_CC, data: [PRESET_LOADED_CC, PRESET_LOADED_VALUE[kind][multi ? 'multi' : 'two'], 0] }));
     for (let n = 2; n <= 16; n++)
         out.push (midiSetting (idx, n, {}));
 
     return out;
 }
+
+export const buildLooperPreset = (slot, mode, channel) => buildPreset ('looper', slot, mode, channel);
+export const buildFxPreset = (slot, mode, channel) => buildPreset ('fx', slot, mode, channel);
 
 // ---- CLI --------------------------------------------------------------------------------------------------------
 
@@ -124,26 +144,35 @@ if (process.argv[1] && fileURLToPath (import.meta.url) === process.argv[1])
 {
     const args = process.argv.slice (2);
     const option = (flag, fallback) => (args.includes (flag) ? args[args.indexOf (flag) + 1] : fallback);
-    const slot = option ('--slot', 'D1').toUpperCase ();
+    const presetArg = option ('--preset', 'all');
+    const slotArg = option ('--slot', null);
     const modeArg = option ('--mode', 'both');
     const channel = Number (option ('--channel', String (DEFAULT_CHANNEL)));
+    const kinds = presetArg === 'all' ? PRESET_KINDS : [presetArg];
     const modes = modeArg === 'both' ? ['two', 'multi'] : [modeArg];
 
-    if (slot === 'D6')
-        throw new Error ('D6 cannot be read back by the Pacer - pick another slot');
+    if (slotArg && kinds.length > 1)
+        throw new Error ('--slot needs --preset looper or --preset fx (the presets default to different slots)');
 
     const root = join (dirname (fileURLToPath (import.meta.url)), '..', 'presets');
     mkdirSync (root, { recursive: true });
 
-    for (const mode of modes)
+    for (const kind of kinds)
     {
-        const messages = buildLooperPreset (slot, mode, channel);
-        const invalid = messages.filter (m => !isValidPacerMessage (m)).length;
-        if (messages.length !== 189 || invalid > 0)
-            throw new Error (`Self-check failed: ${messages.length} messages (expected 189), ${invalid} invalid`);
-        const suffix = channel === DEFAULT_CHANNEL ? '' : `-ch${channel}`;
-        const file = join (root, `bitwig-looper-${mode}-colour-${slot}${suffix}.syx`);
-        writeFileSync (file, concat (messages));
-        console.log (`${file}: ${messages.length} messages`);
+        const slot = (slotArg ?? DEFAULT_SLOT[kind] ?? '').toUpperCase ();
+        if (slot === 'D6')
+            throw new Error ('D6 cannot be read back by the Pacer - pick another slot');
+
+        for (const mode of modes)
+        {
+            const messages = buildPreset (kind, slot, mode, channel);
+            const invalid = messages.filter (m => !isValidPacerMessage (m)).length;
+            if (messages.length !== 189 || invalid > 0)
+                throw new Error (`Self-check failed: ${messages.length} messages (expected 189), ${invalid} invalid`);
+            const suffix = channel === DEFAULT_CHANNEL ? '' : `-ch${channel}`;
+            const file = join (root, `bitwig-${kind}-${mode}-colour-${slot}${suffix}.syx`);
+            writeFileSync (file, concat (messages));
+            console.log (`${file}: ${messages.length} messages`);
+        }
     }
 }

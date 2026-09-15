@@ -12,10 +12,23 @@ The single source of truth for how the **Pacer preset** (written by the editor) 
   "global"). The channel is configurable: extension setting *Looper MIDI channel*, `tools/looper-preset.mjs
   --channel N`, and the channel picker of Pacer Studio's Bitwig Looper template — all three must agree. The CC
   numbers never change.
-- The preset-loaded message (CC 119) carries the LED variant in its value: **127 = two-colour preset, 2 =
-  multi-colour preset**. With the extension's LED mode on *Automatic* the LEDs follow the preset.
-- Preset slot: **D1** (preset index `0x13`) by default, name `LOOPS`. Never use D6 (`0x18`): the Pacer does not
-  answer GET requests for it (known firmware quirk, see `reference/pacer-editor/dumps/README.md`).
+- The preset-loaded message (CC 119) announces which preset was selected and its LED variant. With the extension's
+  LED mode on *Automatic* the LEDs follow the preset.
+
+  | CC 119 value | Preset | LEDs |
+  |--------------|--------|------|
+  | 127 | Looper | two-colour |
+  | 2   | Looper | multi-colour |
+  | 17  | FX (docs/FX-PRESET.md) | two-colour |
+  | 18  | FX | multi-colour |
+
+  New values follow *kind × 16 + variant* (kind 0 looper, 1 FX, 2 reserved for a combined preset; variant 1
+  two-colour, 2 multi-colour). 127 stays the looper's two-colour value so presets already on a Pacer keep working;
+  unknown kinds count as the looper. The extension's setting *Active preset* follows this message.
+- Preset slots by default: **D1** (preset index `0x13`) = looper, name `LOOPS`; **D2** (`0x14`) = FX, name `FX`
+  (space-padded to five characters like every preset name). The FX preset is the looper preset with its own name,
+  CC 119 value and two-colour on colours (SW 1–6 green `0x0D`, SW A–D white `0x17`). Never use D6 (`0x18`): the
+  Pacer does not answer GET requests for it (known firmware quirk, see `reference/pacer-editor/dumps/README.md`).
 
 ## Controls
 
@@ -37,10 +50,10 @@ The single source of truth for how the **Pacer preset** (written by the editor) 
 | FS 4    | `0x1B`    | 115                | –                           | (unassigned)                  |
 | EXP 1   | `0x36`    | 116 (0–127)        | –                           | Selected track volume         |
 | EXP 2   | `0x37`    | 117 (0–127)        | –                           | Master volume                 |
-| Preset loaded | `0x7E` setting 1 | 119 = 127   | –                           | Extension re-sends every LED  |
+| Preset loaded | `0x7E` setting 1 | 119 (value: see above) | –                    | Extension switches preset, re-sends every LED |
 
 - The "looper role" column lists the extension's defaults; SW 5–6, SW A–D, FS 1–4 and EXP 1–2 are reassignable in
-  the Bitwig settings. The CCs never change.
+  the Bitwig settings. The CCs never change. The FX preset uses the same CCs with its own roles (docs/FX-PRESET.md).
 - Channel 16 is reserved for the looper. The extension passes channels 1–15 to Bitwig as the note input
   "PACER", so other presets must avoid channel 16. Expression pedals set to a MIDI target inject their messages into
   that same note input.

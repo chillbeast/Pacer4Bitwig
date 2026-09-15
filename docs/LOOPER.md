@@ -260,8 +260,14 @@ multi-colour preset you should see six different colours — that confirms multi
 | | Names for new rows | comma separated text |
 | Bottom row SW 1-6 | SW 1–6 tap / double-tap / hold (when not loop switches) | any action |
 | Top row SW A-D | SW A–D tap / double-tap / hold | any action |
-| Footswitch jacks | FS 1–4 tap / double-tap / hold | any action |
+| FX preset | Active preset (follows the preset selected on the Pacer) | Looper preset · FX preset |
+| | Snapshots per instrument | 2 · 3 · 4 |
+| | Focusing an instrument selects its track in Bitwig | Off · On |
+| | Remote controls page name | text (default "Pacer") |
+| FX preset: SW 1-6, SW A-D | FX SW 1–6, FX SW A–D tap / double-tap / hold | any action (defaults: docs/FX-PRESET.md) |
+| Footswitch jacks (both presets) | FS 1–4 tap / double-tap / hold | any action |
 | Expression pedals | EXP 1, EXP 2 | any pedal target |
+| | EXP 1, EXP 2 on the FX preset | any pedal target (default: focused instrument remote control 7 / 8) |
 | | EXP 1, EXP 2 response | Linear · Inverted · Slow start · Fast start |
 | | EXP 1, EXP 2 heel (minimum) / toe (maximum) | 0–100 % |
 | | MIDI channel for pedal messages | 1–16 |
@@ -302,6 +308,7 @@ How you hear your instrument while looping audio:
 | LEDs never light | LED mode *Automatic* or matching the preset variant; select the looper preset again (it announces itself); run *Test the LEDs*. |
 | LEDs show odd colours | You are in multi-colour mode with the two-colour preset (or the multi-colour hypothesis does not hold on your Pacer) — use two-colour. |
 | Other presets do not reach instruments | The track's input must be "PACER" or *All ins*, and the preset must not use the looper channel. |
+| Pedal set to mod wheel / expression does nothing | The Pacer always shows and sends CC 116/117; the extension converts them inside Bitwig. The instrument's track needs input "PACER" or *All ins* and must be armed (or monitoring), and the patch must respond to that controller. |
 | Track/Transport presets do nothing | Enable *Nektar DAW mode* and assign port 2 (`MIDIIN2 (PACER)` / `MIDIOUT2 (PACER)`). |
 | Loop switches control the wrong tracks | Check *Loop tracks start at track* (per project) and use hold SW A / SW B to move the loop track window. |
 | I hear my input twice | Several armed tracks with auto monitoring — keep *Exclusive arm* on, or use a dedicated input track. |

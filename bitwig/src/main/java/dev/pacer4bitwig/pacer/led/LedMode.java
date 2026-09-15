@@ -10,7 +10,7 @@ import dev.pacer4bitwig.util.Labelled;
  */
 public enum LedMode implements Labelled
 {
-    /** Follow the variant the looper preset announces with its preset-loaded message. */
+    /** Follow the variant the preset announces with its preset-loaded message ({@code PresetAnnouncement}). */
     AUTO ("Automatic (the looper preset tells)"),
     /** Step 1 only: 127 = on colour, 0 = off colour. State is shown with blink patterns. */
     TWO_COLOUR ("Two-colour (safe)"),
@@ -18,12 +18,7 @@ public enum LedMode implements Labelled
     MULTI_COLOUR ("Multi-colour (experimental)");
 
 
-    /** Preset-loaded CC value of the two-colour preset variant. */
-    public static final int PRESET_VALUE_TWO_COLOUR   = 127;
-    /** Preset-loaded CC value of the multi-colour preset variant. */
-    public static final int PRESET_VALUE_MULTI_COLOUR = 2;
-
-    private final String    label;
+    private final String label;
 
 
     LedMode (final String label)
@@ -51,18 +46,5 @@ public enum LedMode implements Labelled
     {
         final LedMode mode = setting == AUTO ? announced : setting;
         return mode == MULTI_COLOUR ? MULTI_COLOUR : TWO_COLOUR;
-    }
-
-
-    /**
-     * The variant a preset-loaded CC value announces. Anything but the multi-colour value (older presets send 127)
-     * means two-colour.
-     *
-     * @param value The CC value
-     * @return TWO_COLOUR or MULTI_COLOUR
-     */
-    public static LedMode fromPresetValue (final int value)
-    {
-        return value == PRESET_VALUE_MULTI_COLOUR ? MULTI_COLOUR : TWO_COLOUR;
     }
 }

@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { encodePreset, messageChecksumValid, parseDump, concatMessages } from '../src/pacer';
+import { buildBitwigFxPreset } from '../src/templates/bitwigFx';
 import {
+  BITWIG_PRESET_LOADED_VALUE,
   LOOPER_DEFAULT_SLOT,
-  LOOPER_PRESET_LOADED_VALUE,
   buildBitwigLooperPreset,
+  decodePresetLoadedValue,
   looperChannelOf,
-  looperLedModeOf,
+  presetAnnouncementOf,
   type LooperLedMode,
 } from '../src/templates/bitwigLooper';
 
@@ -61,15 +63,31 @@ describe('Bitwig Looper MIDI channel', () => {
     expect(() => buildBitwigLooperPreset('two-colour', 17)).toThrow(RangeError);
   });
 
-  it('announces the LED variant in the preset-loaded value', () => {
-    expect(LOOPER_PRESET_LOADED_VALUE).toEqual({ 'two-colour': 127, 'multi-colour': 2 });
+  it('announces the preset and LED variant in the preset-loaded value', () => {
+    expect(BITWIG_PRESET_LOADED_VALUE).toEqual({
+      looper: { 'two-colour': 127, 'multi-colour': 2 },
+      fx: { 'two-colour': 17, 'multi-colour': 18 },
+    });
     for (const mode of MODES) {
-      expect(looperLedModeOf(buildBitwigLooperPreset(mode))).toBe(mode);
-      expect(looperLedModeOf(buildBitwigLooperPreset(mode, 9))).toBe(mode);
+      expect(presetAnnouncementOf(buildBitwigLooperPreset(mode))).toEqual({ kind: 'looper', mode });
+      expect(presetAnnouncementOf(buildBitwigLooperPreset(mode, 9))).toEqual({ kind: 'looper', mode });
+      expect(presetAnnouncementOf(buildBitwigFxPreset(mode))).toEqual({ kind: 'fx', mode });
+      expect(presetAnnouncementOf(buildBitwigFxPreset(mode, 9))).toEqual({ kind: 'fx', mode });
     }
     const mixed = buildBitwigLooperPreset('two-colour');
     mixed.controls.SW3.steps[0].channel = 2;
     expect(looperChannelOf(mixed)).toBeNull();
-    expect(looperLedModeOf(mixed)).toBeNull();
+    expect(presetAnnouncementOf(mixed)).toBeNull();
+  });
+
+  it('decodes preset-loaded values as kind × 16 + variant, 127 = looper two-colour', () => {
+    expect(decodePresetLoadedValue(127)).toEqual({ kind: 'looper', mode: 'two-colour' });
+    expect(decodePresetLoadedValue(2)).toEqual({ kind: 'looper', mode: 'multi-colour' });
+    expect(decodePresetLoadedValue(17)).toEqual({ kind: 'fx', mode: 'two-colour' });
+    expect(decodePresetLoadedValue(18)).toEqual({ kind: 'fx', mode: 'multi-colour' });
+    // unknown kinds count as the looper
+    expect(decodePresetLoadedValue(34)).toEqual({ kind: 'looper', mode: 'multi-colour' });
+    expect(decodePresetLoadedValue(0)).toBeNull();
+    expect(decodePresetLoadedValue(19)).toBeNull();
   });
 });

@@ -41,7 +41,7 @@ public class PacerControllerExtensionDefinition extends AbstractControllerExtens
             // Let the hardware bindings see every message as well
             noteInput.setShouldConsumeEvents (false);
             return noteInput::sendRawMidiEvent;
-        });
+        }, () -> new BitwigFxTracks (host));
     }
 
 

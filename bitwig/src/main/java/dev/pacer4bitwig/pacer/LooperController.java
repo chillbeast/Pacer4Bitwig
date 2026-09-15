@@ -38,10 +38,8 @@ import dev.pacer4bitwig.pacer.looper.LoopState;
 import dev.pacer4bitwig.pacer.looper.LoopSwitchMode;
 import dev.pacer4bitwig.pacer.looper.LooperText;
 import dev.pacer4bitwig.pacer.looper.MuteTiming;
-import dev.pacer4bitwig.pacer.looper.PedalResponse;
 import dev.pacer4bitwig.pacer.looper.TapTiming;
 import dev.pacer4bitwig.pacer.looper.VolumeFade;
-import dev.pacer4bitwig.pacer.midi.RawMidiSender;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -56,8 +54,9 @@ import java.util.function.Predicate;
 
 
 /**
- * All looper behaviour: what switches, jacks and pedals do and what the LEDs show. The setup only wires hardware
- * to these methods; {@link #tick()} runs every few tens of milliseconds for everything that watches state.
+ * Looper behaviour: loop switches, looper actions and their LEDs, parameter targets of the pedals. The
+ * {@link PacerController} decides what each switch does on the active preset; {@link #tick()} runs every few tens of
+ * milliseconds for everything that watches state.
  * <p>
  * The looper manages the first "loop tracks" of the track bank (1-6). Each loop switch controls the slot of the
  * track with the same number in the current scene row (the track bank is one scene high, so scrolling its scene
@@ -85,7 +84,6 @@ public class LooperController
     private final IModel                  model;
     private final PacerConfiguration      configuration;
     private final BeatClock               clock;
-    private RawMidiSender                 midiSender            = RawMidiSender.NONE;
 
     /** Track bank positions the looper armed itself, with the time it did so. */
     private final Map<Integer, Long>      armedByLooper         = new HashMap<> ();
@@ -144,69 +142,42 @@ public class LooperController
     }
 
 
-    /**
-     * @param midiSender Sends pedal MIDI into Bitwig
-     */
-    public void setMidiSender (final RawMidiSender midiSender)
-    {
-        this.midiSender = midiSender;
-    }
-
-
-    // ---- Stomp switches -----------------------------------------------------------------------------------------
+    // ---- Loop switches --------------------------------------------------------------------------------------------
 
     /**
-     * @param switchIndex 0-9
-     * @return True if the switch fires its tap on press
+     * @return True if loop switches fire their tap on press
      */
-    public boolean isTapOnPress (final int switchIndex)
+    public boolean isLoopSwitchTapOnPress ()
     {
-        if (this.isLoopSwitch (switchIndex))
-            return this.configuration.getLoopSwitchMode () == LoopSwitchMode.HOLD_TO_RECORD || TapTiming.loopTapOnPress (this.configuration.isLoopOnPress (), this.configuration.getLoopHoldAction ());
-        return TapTiming.actionTapOnPress (this.configuration.getSwitchTap (switchIndex), this.configuration.getSwitchHold (switchIndex));
+        return this.configuration.getLoopSwitchMode () == LoopSwitchMode.HOLD_TO_RECORD || TapTiming.loopTapOnPress (this.configuration.isLoopOnPress (), this.configuration.getLoopHoldAction ());
     }
 
 
     /**
-     * @param switchIndex 0-9
-     * @return How much longer than a normal hold the switch must stay down before its hold runs
+     * @return How much longer than a normal hold a loop switch must stay down before its hold runs
      */
-    public long getExtraHoldMillis (final int switchIndex)
+    public long getLoopSwitchExtraHoldMillis ()
     {
-        final boolean destructive;
-        if (this.isLoopSwitch (switchIndex))
-            destructive = this.configuration.getLoopHoldAction () == HoldAction.DELETE;
-        else
-            destructive = this.configuration.getSwitchHold (switchIndex).isDestructive ();
-        return destructive ? this.configuration.getClearHoldTime ().getExtraMillis () : 0;
+        return this.configuration.getLoopHoldAction () == HoldAction.DELETE ? this.configuration.getClearHoldTime ().getExtraMillis () : 0;
     }
 
 
     /**
-     * @param switchIndex 0-9
-     * @return True if a double-tap action is assigned to the switch
+     * @return True if double-tapping a loop switch does something
      */
-    public boolean isDoubleTapEnabled (final int switchIndex)
+    public boolean isLoopSwitchDoubleTapEnabled ()
     {
-        if (this.isLoopSwitch (switchIndex))
-            return this.configuration.getLoopDoubleTap () != LoopDoubleTap.NOTHING;
-        return this.configuration.getSwitchDoubleTap (switchIndex) != Action.NONE;
+        return this.configuration.getLoopDoubleTap () != LoopDoubleTap.NOTHING;
     }
 
 
     /**
-     * A switch was tapped.
+     * A loop switch was tapped.
      *
-     * @param switchIndex 0-9
+     * @param switchIndex 0-5
      */
-    public void tap (final int switchIndex)
+    public void loopSwitchTap (final int switchIndex)
     {
-        if (!this.isLoopSwitch (switchIndex))
-        {
-            this.perform (this.configuration.getSwitchTap (switchIndex));
-            return;
-        }
-
         final ITrack track = this.getTrackBank ().getItem (switchIndex);
         this.holdRecording[switchIndex] = false;
         if (this.configuration.getLoopSwitchMode () == LoopSwitchMode.HOLD_TO_RECORD && track.doesExist () && this.getLoopState (track) == LoopState.EMPTY)
@@ -222,18 +193,12 @@ public class LooperController
 
 
     /**
-     * A switch was double-tapped (the first tap has already run).
+     * A loop switch was double-tapped (the first tap has already run).
      *
-     * @param switchIndex 0-9
+     * @param switchIndex 0-5
      */
-    public void doubleTap (final int switchIndex)
+    public void loopSwitchDoubleTap (final int switchIndex)
     {
-        if (!this.isLoopSwitch (switchIndex))
-        {
-            this.perform (this.configuration.getSwitchDoubleTap (switchIndex));
-            return;
-        }
-
         final ITrack track = this.getTrackBank ().getItem (switchIndex);
         if (!track.doesExist ())
             return;
@@ -247,23 +212,18 @@ public class LooperController
                 this.clearLoop (track);
             }
             case UNDO -> this.perform (Action.UNDO);
-            case NOTHING -> this.tap (switchIndex);
+            case NOTHING -> this.loopSwitchTap (switchIndex);
         }
     }
 
 
     /**
-     * A switch was held.
+     * A loop switch was held.
      *
-     * @param switchIndex 0-9
+     * @param switchIndex 0-5
      */
-    public void hold (final int switchIndex)
+    public void loopSwitchHold (final int switchIndex)
     {
-        if (!this.isLoopSwitch (switchIndex))
-        {
-            this.perform (this.configuration.getSwitchHold (switchIndex));
-            return;
-        }
         // Holding is how hold-to-record records - never delete that recording
         if (!this.holdRecording[switchIndex])
             this.loopHold (this.getTrackBank ().getItem (switchIndex));
@@ -271,13 +231,13 @@ public class LooperController
 
 
     /**
-     * A switch was released.
+     * A loop switch was released.
      *
-     * @param switchIndex 0-9
+     * @param switchIndex 0-5
      */
-    public void release (final int switchIndex)
+    public void loopSwitchRelease (final int switchIndex)
     {
-        if (!this.isLoopSwitch (switchIndex) || !this.holdRecording[switchIndex])
+        if (!this.holdRecording[switchIndex])
             return;
         this.holdRecording[switchIndex] = false;
 
@@ -292,147 +252,33 @@ public class LooperController
     }
 
 
-    // ---- Footswitch jacks ---------------------------------------------------------------------------------------
-
-    /**
-     * @param index 0-3
-     * @return True if the footswitch jack fires its tap on press
-     */
-    public boolean isFootswitchTapOnPress (final int index)
-    {
-        return TapTiming.actionTapOnPress (this.configuration.getFootswitchTap (index), this.configuration.getFootswitchHold (index));
-    }
-
-
-    /**
-     * @param index 0-3
-     * @return How much longer than a normal hold the jack must stay down before its hold runs
-     */
-    public long getFootswitchExtraHoldMillis (final int index)
-    {
-        return this.configuration.getFootswitchHold (index).isDestructive () ? this.configuration.getClearHoldTime ().getExtraMillis () : 0;
-    }
-
-
-    /**
-     * @param index 0-3
-     * @return True if a double-tap action is assigned to the jack
-     */
-    public boolean isFootswitchDoubleTapEnabled (final int index)
-    {
-        return this.configuration.getFootswitchDoubleTap (index) != Action.NONE;
-    }
-
-
-    /**
-     * A footswitch jack was tapped.
-     *
-     * @param index 0-3
-     */
-    public void footswitchTap (final int index)
-    {
-        this.perform (this.configuration.getFootswitchTap (index));
-    }
-
-
-    /**
-     * A footswitch jack was double-tapped.
-     *
-     * @param index 0-3
-     */
-    public void footswitchDoubleTap (final int index)
-    {
-        this.perform (this.configuration.getFootswitchDoubleTap (index));
-    }
-
-
-    /**
-     * A footswitch jack was held.
-     *
-     * @param index 0-3
-     */
-    public void footswitchHold (final int index)
-    {
-        this.perform (this.configuration.getFootswitchHold (index));
-    }
-
-
-    // ---- Expression pedals --------------------------------------------------------------------------------------
-
-    /**
-     * The parameter a pedal is bound to directly. Only parameter targets with a linear, full-range response are bound;
-     * everything else (MIDI targets, curves, ranges) goes through {@link #pedalMoved(int, int)}.
-     *
-     * @param index 0-1
-     * @return The parameter, or null to route the pedal through its command
-     */
-    public IParameter getPedalBinding (final int index)
-    {
-        final ExpressionTarget target = this.configuration.getExpressionTarget (index);
-        if (target.getKind () != ExpressionTarget.Kind.PARAMETER || !this.configuration.getPedalResponse (index).isIdentity ())
-            return null;
-        return this.getExpressionParameter (target);
-    }
-
-
-    /**
-     * An expression pedal moved and is not bound directly to a parameter.
-     *
-     * @param index 0-1
-     * @param value The pedal position, 0-127
-     */
-    public void pedalMoved (final int index, final int value)
-    {
-        final ExpressionTarget target = this.configuration.getExpressionTarget (index);
-        final PedalResponse response = this.configuration.getPedalResponse (index);
-
-        if (target.isMidi ())
-        {
-            final int [] message = target.toMidi (response.map (value), this.configuration.getPedalMidiChannel ());
-            if (message != null)
-                this.midiSender.send (message[0], message[1], message[2]);
-            return;
-        }
-
-        final IParameter parameter = this.getExpressionParameter (target);
-        if (parameter != null)
-            parameter.setNormalizedValue (response.map (value / 127.0));
-    }
-
-
     // ---- LEDs ---------------------------------------------------------------------------------------------------
 
     /**
-     * Get the light code of a switch right now.
+     * The LED test overrides every LED while it runs.
      *
-     * @param switchIndex 0-9
-     * @return The code, see {@link LedState#code(LedClock)}
+     * @param now Wall-clock milliseconds
+     * @return The light code, -1 if no test is running
      */
-    public int getLedCode (final int switchIndex)
+    public int getLedTestCode (final long now)
     {
-        final long now = System.currentTimeMillis ();
-        if (this.ledTestStartedAt >= 0)
-        {
-            final long step = (now - this.ledTestStartedAt) / LED_TEST_STEP_MS;
-            if (step < LedColour.values ().length - 1)
-                return LedColour.WHITE.ordinal () + (int) step;
-            this.ledTestStartedAt = -1;
-        }
+        if (this.ledTestStartedAt < 0)
+            return -1;
+        final long step = (now - this.ledTestStartedAt) / LED_TEST_STEP_MS;
+        if (step < LedColour.values ().length - 1)
+            return LedColour.WHITE.ordinal () + (int) step;
+        this.ledTestStartedAt = -1;
+        return -1;
+    }
 
-        if (switchIndex >= PacerMap.FIRST_TOP_ROW_SWITCH)
-        {
-            final int beatCode = this.getBeatCounterCode (switchIndex - PacerMap.FIRST_TOP_ROW_SWITCH, now);
-            if (beatCode >= 0)
-                return beatCode;
-        }
 
-        final LedClock ledClock = this.getLedClock (now);
-        final LedState state;
-        if (this.isLoopSwitch (switchIndex))
-            state = this.loopLed (this.getTrackBank ().getItem (switchIndex));
-        else
-            state = this.actionLed (this.configuration.getSwitchTap (switchIndex), ledClock);
-        return state.code (ledClock);
+    /**
+     * @param switchIndex 0-5, a loop switch
+     * @return What the loop switch's LED shows
+     */
+    public LedState loopSwitchLed (final int switchIndex)
+    {
+        return this.loopLed (this.getTrackBank ().getItem (switchIndex));
     }
 
 
@@ -444,7 +290,7 @@ public class LooperController
      * @param now Wall-clock milliseconds
      * @return The light code, -1 if the counter is not active
      */
-    private int getBeatCounterCode (final int topRowIndex, final long now)
+    public int getBeatCounterCode (final int topRowIndex, final long now)
     {
         if (!this.configuration.isCountBeats () || !this.clock.isPlaying ())
             return -1;
@@ -619,11 +465,21 @@ public class LooperController
             }
             case SHOW_STATUS -> this.showStatus ();
             case LED_TEST -> this.startLedTest ();
+            default -> {
+                // FX actions run in the FxController, MOMENTARY in the PacerController
+            }
         }
     }
 
 
-    private LedState actionLed (final Action action, final LedClock ledClock)
+    /**
+     * The LED of a switch whose tap runs a looper action.
+     *
+     * @param action The action
+     * @param ledClock The time
+     * @return The LED state
+     */
+    public LedState actionLed (final Action action, final LedClock ledClock)
     {
         final ITransport transport = this.model.getTransport ();
         final ITrackBank trackBank = this.getTrackBank ();
@@ -687,6 +543,7 @@ public class LooperController
                 yield LedState.when (transport.isPlaying (), LedColour.GREEN);
             }
             case TRANSPORT_PLAY_STOP -> LedState.when (transport.isPlaying (), LedColour.GREEN);
+            default -> LedState.DARK;
         };
     }
 
@@ -1512,7 +1369,11 @@ public class LooperController
 
     // ---- Helpers ------------------------------------------------------------------------------------------------
 
-    private IParameter getExpressionParameter (final ExpressionTarget target)
+    /**
+     * @param target A pedal target
+     * @return The Bitwig parameter of a parameter target, null for other targets
+     */
+    public IParameter getExpressionParameter (final ExpressionTarget target)
     {
         final ICursorTrack cursorTrack = this.model.getCursorTrack ();
         return switch (target)
@@ -1531,7 +1392,11 @@ public class LooperController
     }
 
 
-    private LedClock getLedClock (final long now)
+    /**
+     * @param now Wall-clock milliseconds
+     * @return The time LED patterns are evaluated at, beat-synced while the transport runs (setting)
+     */
+    public LedClock getLedClock (final long now)
     {
         if (!this.configuration.isBeatSyncedLeds () || !this.clock.isPlaying ())
             return LedClock.unsynced (now);
@@ -1539,7 +1404,11 @@ public class LooperController
     }
 
 
-    private boolean isLoopSwitch (final int switchIndex)
+    /**
+     * @param switchIndex 0-9
+     * @return True if the switch is a loop switch (on the looper preset)
+     */
+    public boolean isLoopSwitch (final int switchIndex)
     {
         return switchIndex < this.configuration.getLoopSwitchCount ().getCount () && switchIndex < this.getLoopCount ();
     }

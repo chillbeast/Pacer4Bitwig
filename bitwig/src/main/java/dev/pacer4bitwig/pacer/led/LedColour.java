@@ -12,27 +12,35 @@ import de.mossgrabers.framework.controller.color.ColorEx;
 public enum LedColour
 {
     /** Dark. */
-    OFF (ColorEx.BLACK),
+    OFF (ColorEx.BLACK, -1),
     /** Step 1. */
-    WHITE (ColorEx.WHITE),
+    WHITE (ColorEx.WHITE, -1),
     /** Step 2. */
-    RED (ColorEx.RED),
+    RED (ColorEx.RED, 0),
     /** Step 3. */
-    GREEN (ColorEx.GREEN),
+    GREEN (ColorEx.GREEN, 120),
     /** Step 4. */
-    AMBER (ColorEx.ORANGE),
+    AMBER (ColorEx.ORANGE, 35),
     /** Step 5. */
-    BLUE (ColorEx.BLUE),
+    BLUE (ColorEx.BLUE, 225),
     /** Step 6. */
-    PURPLE (ColorEx.PURPLE);
+    PURPLE (ColorEx.PURPLE, 280);
 
 
-    private final ColorEx colorEx;
+    /** Colours with less saturation than this count as grey. */
+    private static final double GREY_SATURATION = 0.2;
+    /** Colours darker than this count as grey. */
+    private static final double DARK            = 0.08;
+
+    private final ColorEx       colorEx;
+    /** Hue in degrees, -1 for no hue. */
+    private final double        hue;
 
 
-    LedColour (final ColorEx colorEx)
+    LedColour (final ColorEx colorEx, final double hue)
     {
         this.colorEx = colorEx;
+        this.hue = hue;
     }
 
 
@@ -68,5 +76,49 @@ public enum LedColour
     {
         final LedColour [] values = values ();
         return code > 0 && code < values.length ? values[code] : OFF;
+    }
+
+
+    /**
+     * The Pacer colour closest to an RGB colour, e.g. a track colour: white for greys, otherwise the nearest hue.
+     *
+     * @param red Red, 0-1
+     * @param green Green, 0-1
+     * @param blue Blue, 0-1
+     * @return The colour, never OFF
+     */
+    public static LedColour nearest (final double red, final double green, final double blue)
+    {
+        final double max = Math.max (red, Math.max (green, blue));
+        final double min = Math.min (red, Math.min (green, blue));
+        final double delta = max - min;
+        if (max < DARK || delta / max < GREY_SATURATION)
+            return WHITE;
+
+        double hue;
+        if (max == red)
+            hue = 60 * ((green - blue) / delta);
+        else if (max == green)
+            hue = 60 * ((blue - red) / delta + 2);
+        else
+            hue = 60 * ((red - green) / delta + 4);
+        if (hue < 0)
+            hue += 360;
+
+        LedColour best = WHITE;
+        double bestDistance = Double.MAX_VALUE;
+        for (final LedColour colour: values ())
+        {
+            if (colour.hue < 0)
+                continue;
+            final double difference = Math.abs (hue - colour.hue);
+            final double distance = Math.min (difference, 360 - difference);
+            if (distance < bestDistance)
+            {
+                best = colour;
+                bestDistance = distance;
+            }
+        }
+        return best;
     }
 }

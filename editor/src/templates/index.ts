@@ -1,5 +1,6 @@
 import type { ControlLabels } from '../pacer/json';
 import type { Preset } from '../pacer/model';
+import { FX_DEFAULT_SLOT, FX_LABELS, FX_PRESET_LOADED_VALUE, buildBitwigFxPreset } from './bitwigFx';
 import {
   LOOPER_CHANNEL,
   LOOPER_DEFAULT_SLOT,
@@ -37,21 +38,32 @@ export interface TemplateDef {
 
 const looperMode = (choice: string | undefined): LooperLedMode => (choice === 'multi-colour' ? 'multi-colour' : 'two-colour');
 
-export const TEMPLATES: readonly TemplateDef[] = [
-  {
-    id: 'bitwig-looper',
-    name: 'Bitwig Looper',
-    summary:
-      'Implements docs/PACER-MAP.md: CC Trigger 127/0 on the looper channel — switches CC 102–111, footswitch jacks CC 112–115, expression pedals CC 116/117, preset-loaded CC 119. Preset name “LOOPS”.',
-    defaultSlot: LOOPER_DEFAULT_SLOT,
+/** The presets of the PACER Looper extension: same layout, LED choice and channel picker (docs/PACER-MAP.md). */
+function bitwigTemplate(def: {
+  id: string;
+  name: string;
+  summary: string;
+  defaultSlot: number;
+  /** Two-colour LED colours, e.g. "red for loop switches 1–4, white for the rest". */
+  twoColourLeds: string;
+  /** How the LED mode hint names what the preset announces. */
+  announced: (mode: LooperLedMode) => string;
+  presetLoadedValue: Readonly<Record<LooperLedMode, number>>;
+  labels: ControlLabels;
+  buildPreset: (mode: LooperLedMode, channel: number) => Preset;
+}): TemplateDef {
+  return {
+    id: def.id,
+    name: def.name,
+    summary: def.summary,
+    defaultSlot: def.defaultSlot,
     choices: {
       label: 'LED strategy',
       options: [
         {
           value: 'two-colour',
           label: 'Two-colour',
-          description:
-            'Documented behaviour: step 1 carries the LED (red for loop switches 1–4, white for the rest, off when idle). The extension blinks to show state.',
+          description: `Documented behaviour: step 1 carries the LED (${def.twoColourLeds}, off when idle). The extension blinks to show state.`,
         },
         {
           value: 'multi-colour',
@@ -72,7 +84,7 @@ export const TEMPLATES: readonly TemplateDef[] = [
         { label: 'Looper MIDI channel', value: String(channel) },
         {
           label: 'LED mode',
-          value: `Automatic — nothing to match: the preset announces ${mode} (preset-loaded CC 119 = ${LOOPER_PRESET_LOADED_VALUE[mode]}). If you pick a mode manually, choose ${mode}.`,
+          value: `Automatic — nothing to match: the preset announces ${def.announced(mode)} (preset-loaded CC 119 = ${def.presetLoadedValue[mode]}). If you pick a mode manually, choose ${mode}.`,
         },
         { label: 'Other presets', value: `Avoid channel ${channel} in other presets: the extension reserves it for the looper.` },
       ];
@@ -80,12 +92,39 @@ export const TEMPLATES: readonly TemplateDef[] = [
     build: (choice, channel = LOOPER_CHANNEL) => {
       const mode = looperMode(choice);
       return {
-        preset: buildBitwigLooperPreset(mode, channel),
-        labels: LOOPER_LABELS,
-        title: `Bitwig Looper (${mode}${channel === LOOPER_CHANNEL ? '' : `, channel ${channel}`})`,
+        preset: def.buildPreset(mode, channel),
+        labels: def.labels,
+        title: `${def.name} (${mode}${channel === LOOPER_CHANNEL ? '' : `, channel ${channel}`})`,
       };
     },
-  },
+  };
+}
+
+export const TEMPLATES: readonly TemplateDef[] = [
+  bitwigTemplate({
+    id: 'bitwig-looper',
+    name: 'Bitwig Looper',
+    summary:
+      'Implements docs/PACER-MAP.md: CC Trigger 127/0 on the looper channel — switches CC 102–111, footswitch jacks CC 112–115, expression pedals CC 116/117, preset-loaded CC 119. Preset name “LOOPS”.',
+    defaultSlot: LOOPER_DEFAULT_SLOT,
+    twoColourLeds: 'red for loop switches 1–4, white for the rest',
+    announced: (mode) => mode,
+    presetLoadedValue: LOOPER_PRESET_LOADED_VALUE,
+    labels: LOOPER_LABELS,
+    buildPreset: buildBitwigLooperPreset,
+  }),
+  bitwigTemplate({
+    id: 'bitwig-fx',
+    name: 'Bitwig FX',
+    summary:
+      'A pedalboard for the instruments you play live through Bitwig: SW 1–6 switch effects, SW A–C pick the instrument, SW D steps through snapshots; needs PACER Looper 0.3.0 in Bitwig. Same CCs as Bitwig Looper (docs/FX-PRESET.md), preset name “FX”.',
+    defaultSlot: FX_DEFAULT_SLOT,
+    twoColourLeds: 'green for FX switches 1–6, white for A–D',
+    announced: (mode) => `the FX preset, ${mode}`,
+    presetLoadedValue: FX_PRESET_LOADED_VALUE,
+    labels: FX_LABELS,
+    buildPreset: buildBitwigFxPreset,
+  }),
   {
     id: 'cc-toggle',
     name: 'CC toggle pedalboard',

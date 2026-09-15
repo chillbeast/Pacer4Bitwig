@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { clonePreset, describePartValue, diffByControl, parseDump } from '../src/pacer';
-import { LOOPER_LABELS, buildBitwigLooperPreset } from '../src/templates/bitwigLooper';
-import { cheatLabel } from '../src/ui/CheatSheet';
+import { FX_LABELS, FX_TAP_HOLD, buildBitwigFxPreset } from '../src/templates/bitwigFx';
+import { LOOPER_LABELS, LOOPER_TAP_HOLD, buildBitwigLooperPreset } from '../src/templates/bitwigLooper';
+import { bitwigRolesOf, cheatLabel } from '../src/ui/CheatSheet';
 import { fixture } from './helpers';
 
 describe('per-control diff', () => {
@@ -40,15 +41,24 @@ describe('per-control diff', () => {
 describe('cheat sheet labels', () => {
   it('uses the PACER Looper roles for the looper layout', () => {
     const looper = buildBitwigLooperPreset('two-colour');
-    expect(cheatLabel(looper, LOOPER_LABELS, 'SW5', true)).toEqual({ title: 'Undo', hold: 'Redo' });
-    expect(cheatLabel(looper, LOOPER_LABELS, 'SWA', true)).toEqual({ title: 'Row −', hold: 'Tracks ←' });
-    expect(cheatLabel(looper, LOOPER_LABELS, 'EXP1', true)).toEqual({ title: 'Selected track volume', hold: undefined });
+    expect(bitwigRolesOf(looper)).toBe(LOOPER_TAP_HOLD);
+    expect(cheatLabel(looper, LOOPER_LABELS, 'SW5', LOOPER_TAP_HOLD)).toEqual({ title: 'Undo', hold: 'Redo' });
+    expect(cheatLabel(looper, LOOPER_LABELS, 'SWA', LOOPER_TAP_HOLD)).toEqual({ title: 'Row −', hold: 'Tracks ←' });
+    expect(cheatLabel(looper, LOOPER_LABELS, 'EXP1', LOOPER_TAP_HOLD)).toEqual({ title: 'Selected track volume', hold: undefined });
+  });
+
+  it('uses the FX roles when the preset announces the FX preset', () => {
+    expect(bitwigRolesOf(buildBitwigFxPreset('multi-colour'))).toBe(FX_TAP_HOLD);
+    const fx = buildBitwigFxPreset('two-colour', 3);
+    expect(bitwigRolesOf(fx)).toBe(FX_TAP_HOLD);
+    expect(cheatLabel(fx, FX_LABELS, 'SWA', FX_TAP_HOLD)).toEqual({ title: 'Instrument A', hold: 'Assign track' });
   });
 
   it('falls back to editor labels, then the message type', () => {
     const a1 = parseDump(fixture('A1.factory.syx')).presets.get(1)!.preset;
-    expect(cheatLabel(a1, { SW1: 'CLEAN' }, 'SW1', false)).toEqual({ title: 'CLEAN' });
-    expect(cheatLabel(a1, {}, 'SW2', false)).toEqual({ title: 'Program & Bank' });
-    expect(cheatLabel(a1, {}, 'FS3', false)).toEqual({ title: '—' });
+    expect(bitwigRolesOf(a1)).toBeNull();
+    expect(cheatLabel(a1, { SW1: 'CLEAN' }, 'SW1', null)).toEqual({ title: 'CLEAN' });
+    expect(cheatLabel(a1, {}, 'SW2', null)).toEqual({ title: 'Program & Bank' });
+    expect(cheatLabel(a1, {}, 'FS3', null)).toEqual({ title: '—' });
   });
 });

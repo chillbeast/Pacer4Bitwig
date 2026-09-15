@@ -12,7 +12,8 @@ import {
   type Preset,
 } from '../pacer';
 import { useEditor } from '../store/editor';
-import { LOOPER_TAP_HOLD, isLooperLayout } from '../templates/bitwigLooper';
+import { FX_TAP_HOLD } from '../templates/bitwigFx';
+import { LOOPER_TAP_HOLD, isLooperLayout, presetAnnouncementOf, type TapHold } from '../templates/bitwigLooper';
 import { ledAppearance, ledVars } from './led';
 
 interface PrintState {
@@ -38,10 +39,18 @@ export interface CheatLabel {
   hold?: string;
 }
 
-/** Looper layout → PACER Looper default roles; otherwise editor labels; otherwise the message type. */
-export function cheatLabel(preset: Preset, labels: ControlLabels, key: ControlKey, looper: boolean): CheatLabel {
-  if (looper) {
-    const role = LOOPER_TAP_HOLD[key];
+export type BitwigRoles = Readonly<Record<ControlKey, TapHold>>;
+
+/** PACER Looper default roles of a looper-layout preset (FX roles when it announces the FX preset), otherwise null. */
+export function bitwigRolesOf(preset: Preset): BitwigRoles | null {
+  if (!isLooperLayout(preset)) return null;
+  return presetAnnouncementOf(preset)?.kind === 'fx' ? FX_TAP_HOLD : LOOPER_TAP_HOLD;
+}
+
+/** Bitwig preset → PACER Looper default roles; otherwise editor labels; otherwise the message type. */
+export function cheatLabel(preset: Preset, labels: ControlLabels, key: ControlKey, roles: BitwigRoles | null): CheatLabel {
+  if (roles) {
+    const role = roles[key];
     return { title: role.tap, hold: role.hold };
   }
   const step = preset.controls[key].steps[0];
@@ -58,10 +67,10 @@ export function CheatSheet() {
   const slot = useEditor((s) => (slotIndex === null ? null : s.slots[slotIndex]));
   if (slotIndex === null || !slot?.preset) return null;
   const preset = slot.preset;
-  const looper = isLooperLayout(preset);
+  const roles = bitwigRolesOf(preset);
   const onLoad = preset.midi.filter((m) => m.msgType !== MSG.OFF);
 
-  const cell = (key: ControlKey) => <SheetCell key={key} preset={preset} labels={slot.labels} controlKey={key} looper={looper} />;
+  const cell = (key: ControlKey) => <SheetCell key={key} preset={preset} labels={slot.labels} controlKey={key} roles={roles} />;
 
   return (
     <div className="cheat-sheet" aria-hidden="true">
@@ -70,7 +79,13 @@ export function CheatSheet() {
           <h1>
             {slotLabel(slotIndex)} · {displayName(preset.name) || 'unnamed'}
           </h1>
-          <p>{looper ? 'Bitwig PACER Looper — default roles (tap · hold)' : 'Nektar Pacer preset'}</p>
+          <p>
+            {roles === FX_TAP_HOLD
+              ? 'Bitwig PACER Looper, FX preset — default roles (tap · hold)'
+              : roles
+                ? 'Bitwig PACER Looper — default roles (tap · hold)'
+                : 'Nektar Pacer preset'}
+          </p>
         </div>
         <p className="cheat-sheet__meta">
           Pacer Studio · {new Date().toLocaleDateString()}
@@ -113,10 +128,10 @@ export function CheatSheet() {
   );
 }
 
-function SheetCell({ preset, labels, controlKey, looper }: { preset: Preset; labels: ControlLabels; controlKey: ControlKey; looper: boolean }) {
+function SheetCell({ preset, labels, controlKey, roles }: { preset: Preset; labels: ControlLabels; controlKey: ControlKey; roles: BitwigRoles | null }) {
   const def = CONTROL_BY_KEY[controlKey];
   const control = preset.controls[controlKey];
-  const label = cheatLabel(preset, labels, controlKey, looper);
+  const label = cheatLabel(preset, labels, controlKey, roles);
   const active = control.steps.filter((s) => s.active && s.msgType !== MSG.OFF);
   const led = control.leds?.[0];
   return (

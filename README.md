@@ -8,6 +8,7 @@ Turn a **Nektar Pacer** into a live-looper pedalboard for **Bitwig Studio**, and
 | [`editor/`](editor) | **Pacer Studio**: a Web MIDI preset editor with a hardware-first UI, templates and an LED lab — **use it online: <https://chillbeast.github.io/Pacer4Bitwig/>** (Chrome or Edge) |
 | [`tools/`](tools) | Node scripts: read-only backup, looper preset generator, guarded preset writer |
 | [`docs/LOOPER.md`](docs/LOOPER.md) | User guide: Bitwig setup, switch functions, LEDs, settings, test checklist |
+| [`docs/FX-PRESET.md`](docs/FX-PRESET.md) | FX preset guide: the Pacer as a pedalboard for live instruments (effects, instrument focus, snapshots) |
 | [`docs/PACER-MAP.md`](docs/PACER-MAP.md) | The MIDI contract between the Pacer preset and the extension |
 
 ## Download

@@ -26,11 +26,7 @@ class WaveSixTest
         // An explicit setting wins
         assertEquals (LedMode.TWO_COLOUR, LedMode.resolve (LedMode.TWO_COLOUR, LedMode.MULTI_COLOUR));
         assertEquals (LedMode.MULTI_COLOUR, LedMode.resolve (LedMode.MULTI_COLOUR, LedMode.TWO_COLOUR));
-
-        assertEquals (LedMode.MULTI_COLOUR, LedMode.fromPresetValue (LedMode.PRESET_VALUE_MULTI_COLOUR));
-        assertEquals (LedMode.TWO_COLOUR, LedMode.fromPresetValue (LedMode.PRESET_VALUE_TWO_COLOUR));
-        // Anything unknown is the safe mode
-        assertEquals (LedMode.TWO_COLOUR, LedMode.fromPresetValue (1));
+        // Decoding the preset-loaded value: FxPresetTest
     }
 
 

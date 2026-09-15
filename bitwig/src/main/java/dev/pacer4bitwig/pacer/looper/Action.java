@@ -6,9 +6,10 @@ import dev.pacer4bitwig.util.Labelled;
 
 
 /**
- * Actions that can be assigned to the non-loop switches, the footswitch jacks and hold gestures. To add one: add
- * the constant here, then handle it in {@code LooperController.perform} and {@code LooperController.actionLed}.
- * Settings store the label, so renaming a label resets that choice for existing users.
+ * Actions that can be assigned to switches (on both presets), the footswitch jacks and hold gestures. To add one: add
+ * the constant here, then handle it in {@code LooperController.perform} and {@code LooperController.actionLed} - or,
+ * for FX actions, in {@code FxController.perform} and {@code FxController.actionLed}. Settings store the label, so
+ * renaming a label resets that choice for existing users.
  */
 public enum Action implements Labelled
 {
@@ -84,19 +85,79 @@ public enum Action implements Labelled
     /** Pop up a one-line overview of the row and every loop. */
     SHOW_STATUS ("Show looper status", false, false),
     /** Cycle every switch LED through all colours. */
-    LED_TEST ("Test the LEDs", false, false);
+    LED_TEST ("Test the LEDs", false, false),
+
+    /** Hold only: runs the switch's tap action again on release, which turns a toggle into a momentary switch. */
+    MOMENTARY ("Momentary: tap again on release (hold)", false, false),
+
+    /** FX switch 1 of the focused instrument. */
+    FX_1 ("FX 1 on/off (focused instrument)", true, false, true),
+    /** FX switch 2 of the focused instrument. */
+    FX_2 ("FX 2 on/off (focused instrument)", true, false, true),
+    /** FX switch 3 of the focused instrument. */
+    FX_3 ("FX 3 on/off (focused instrument)", true, false, true),
+    /** FX switch 4 of the focused instrument. */
+    FX_4 ("FX 4 on/off (focused instrument)", true, false, true),
+    /** FX switch 5 of the focused instrument. */
+    FX_5 ("FX 5 on/off (focused instrument)", true, false, true),
+    /** FX switch 6 of the focused instrument. */
+    FX_6 ("FX 6 on/off (focused instrument)", true, false, true),
+    /** Focus instrument A. */
+    FOCUS_A ("Focus instrument A", true, false, true),
+    /** Focus instrument B. */
+    FOCUS_B ("Focus instrument B", true, false, true),
+    /** Focus instrument C. */
+    FOCUS_C ("Focus instrument C", true, false, true),
+    /** Focus instrument D. */
+    FOCUS_D ("Focus instrument D", true, false, true),
+    /** Focus the next assigned instrument. */
+    FOCUS_NEXT ("Focus the next instrument", true, false, true),
+    /** Focus the previous assigned instrument. */
+    FOCUS_PREVIOUS ("Focus the previous instrument", true, false, true),
+    /** Mute/unmute the track of instrument A. */
+    MUTE_A ("Mute/unmute instrument A", false, false, true),
+    /** Mute/unmute the track of instrument B. */
+    MUTE_B ("Mute/unmute instrument B", false, false, true),
+    /** Mute/unmute the track of instrument C. */
+    MUTE_C ("Mute/unmute instrument C", false, false, true),
+    /** Mute/unmute the track of instrument D. */
+    MUTE_D ("Mute/unmute instrument D", false, false, true),
+    /** Mute/unmute the track of the focused instrument. */
+    MUTE_FOCUSED ("Mute/unmute the focused instrument", false, false, true),
+    /** Make the track selected in Bitwig instrument A. */
+    ASSIGN_A ("Assign the track selected in Bitwig to instrument A", false, true, true),
+    /** Make the track selected in Bitwig instrument B. */
+    ASSIGN_B ("Assign the track selected in Bitwig to instrument B", false, true, true),
+    /** Make the track selected in Bitwig instrument C. */
+    ASSIGN_C ("Assign the track selected in Bitwig to instrument C", false, true, true),
+    /** Make the track selected in Bitwig instrument D. */
+    ASSIGN_D ("Assign the track selected in Bitwig to instrument D", false, true, true),
+    /** Move to the next snapshot of the focused instrument and recall it. */
+    SNAPSHOT_NEXT ("Next snapshot of the focused instrument", false, false, true),
+    /** Recall snapshot 1 of the focused instrument. */
+    SNAPSHOT_FIRST ("Back to snapshot 1 of the focused instrument", false, false, true),
+    /** Store the FX switches of the focused instrument in its current snapshot. */
+    SNAPSHOT_STORE ("Store the current snapshot of the focused instrument", false, true, true);
 
 
     private final String  label;
     private final boolean timingCritical;
     private final boolean destructive;
+    private final boolean fx;
 
 
     Action (final String label, final boolean timingCritical, final boolean destructive)
     {
+        this (label, timingCritical, destructive, false);
+    }
+
+
+    Action (final String label, final boolean timingCritical, final boolean destructive, final boolean fx)
+    {
         this.label = label;
         this.timingCritical = timingCritical;
         this.destructive = destructive;
+        this.fx = fx;
     }
 
 
@@ -120,12 +181,24 @@ public enum Action implements Labelled
 
 
     /**
-     * Destructive actions delete loops; as hold actions they honour the "hold time for clearing" setting.
+     * Destructive actions delete loops or overwrite assignments; as hold actions they honour the "hold time for
+     * clearing" setting.
      *
      * @return True if destructive
      */
     public boolean isDestructive ()
     {
         return this.destructive;
+    }
+
+
+    /**
+     * FX actions are run by the FX preset's controller, whichever preset is active.
+     *
+     * @return True for FX actions
+     */
+    public boolean isFx ()
+    {
+        return this.fx;
     }
 }

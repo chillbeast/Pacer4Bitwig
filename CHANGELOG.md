@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.3.0 — unreleased
+
+### FX preset (new)
+
+A second Pacer preset (D2, `FX`) that turns the Pacer into a pedalboard for the instruments played live through
+Bitwig, while the looper keeps running. See [docs/FX-PRESET.md](docs/FX-PRESET.md).
+
+- **Instruments:** up to four tracks (found by name, saved per project). Hold SW A–C to assign the track selected in
+  Bitwig, tap to focus, double-tap to mute. The FX preset follows instruments with its own cursor, so Bitwig's
+  selection (and a pinned Push) never moves it and it never moves them.
+- **FX switches SW 1–6:** a track remote controls page named "Pacer" when the track has one, otherwise the first six
+  devices of the chain. Tap latches, hold is momentary.
+- **Snapshots on SW D:** 2–4 per instrument; tap for the next, double-tap for the first, hold to store. The LED blinks
+  when the sound changed since.
+- **Pedals** on the FX preset have their own targets (defaults: remote controls 7 and 8 of the focused instrument).
+- FS 3 / FS 4 default to "focus the next instrument" / "next snapshot"; FS 1–2 keep looping on both presets.
+
+### PACER Looper (Bitwig extension)
+
+- The preset-loaded CC 119 now announces the preset as well as the LED variant (17 / 18 = FX preset); the setting
+  *Active preset* follows it and can be switched by hand.
+- New hold action **Momentary: tap again on release** for any switch or jack, and FX / instrument / snapshot actions
+  assignable on both presets.
+- Pedal targets *Focused instrument: remote control 1–8*.
+
+### Pacer Studio and tools
+
+- "Bitwig FX" template (shared with the looper template) and FX roles in the cheat sheet.
+- `tools/looper-preset.mjs --preset looper|fx|all` also writes `presets/bitwig-fx-{two,multi}-colour-D2.syx`.
+- `tools/pacer-monitor.mjs`: read-only monitor of everything the Pacer sends, for hardware testing.
+
 ## 0.2.0 — unreleased
 
 ### PACER Looper (Bitwig extension)

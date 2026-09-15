@@ -15,6 +15,7 @@ import de.mossgrabers.framework.controller.hardware.IHwFader;
 import de.mossgrabers.framework.controller.valuechanger.TwosComplementValueChanger;
 import de.mossgrabers.framework.daw.IHost;
 import de.mossgrabers.framework.daw.ModelSetup;
+import de.mossgrabers.framework.daw.data.ICursorTrack;
 import de.mossgrabers.framework.daw.midi.IMidiAccess;
 import de.mossgrabers.framework.daw.midi.IMidiInput;
 import de.mossgrabers.framework.daw.midi.IMidiOutput;
@@ -26,17 +27,19 @@ import dev.pacer4bitwig.pacer.controller.MidiFilters;
 import dev.pacer4bitwig.pacer.controller.PacerControlSurface;
 import dev.pacer4bitwig.pacer.controller.PacerMap;
 import dev.pacer4bitwig.pacer.daw.DawModeController;
+import dev.pacer4bitwig.pacer.fx.FxTracks;
 import dev.pacer4bitwig.pacer.led.LedColour;
 import dev.pacer4bitwig.pacer.led.LedMode;
 import dev.pacer4bitwig.pacer.led.SwitchLedWriter;
 import dev.pacer4bitwig.pacer.midi.NoteInputFactory;
+import dev.pacer4bitwig.pacer.preset.PresetKind;
 
 import java.util.function.Supplier;
 
 
 /**
- * Setup of the PACER Looper: creates the hardware proxies and wires them to the {@link LooperController} (port 1)
- * and the {@link DawModeController} (port 2).
+ * Setup of the PACER Looper: creates the hardware proxies and wires them to the {@link PacerController} (port 1:
+ * looper and FX presets) and the {@link DawModeController} (port 2).
  */
 public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSurface, PacerConfiguration>
 {
@@ -53,10 +56,12 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     private final Runnable             requestFlush;
     private final Supplier<BeatClock>  clockFactory;
     private final NoteInputFactory     noteInputFactory;
+    private final Supplier<FxTracks>   fxTracksFactory;
     private final IHwButton []         switches                 = new IHwButton [PacerMap.NUM_SWITCHES];
     private final SwitchLedWriter []   ledWriters               = new SwitchLedWriter [PacerMap.NUM_SWITCHES];
     private final IHwFader []          pedals                   = new IHwFader [PacerConfiguration.NUM_EXPRESSION];
     private LooperController           looper;
+    private PacerController            controller;
     private DawModeController          dawMode;
     /** The looper channel the bindings were created with; changing the setting restarts the extension. */
     private int                        midiChannel              = PacerMap.DEFAULT_MIDI_CHANNEL;
@@ -73,14 +78,16 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
      * @param requestFlush Asks Bitwig to call flush soon (drives the LED blinking)
      * @param clockFactory Creates the transport clock; called during init
      * @param noteInputFactory Creates the note input; called during init
+     * @param fxTracksFactory Creates the FX preset's access to the project's tracks; called during init
      */
-    public PacerControllerSetup (final IHost host, final ISetupFactory factory, final ISettingsUI globalSettings, final ISettingsUI documentSettings, final Runnable requestFlush, final Supplier<BeatClock> clockFactory, final NoteInputFactory noteInputFactory)
+    public PacerControllerSetup (final IHost host, final ISetupFactory factory, final ISettingsUI globalSettings, final ISettingsUI documentSettings, final Runnable requestFlush, final Supplier<BeatClock> clockFactory, final NoteInputFactory noteInputFactory, final Supplier<FxTracks> fxTracksFactory)
     {
         super (factory, host, globalSettings, documentSettings);
 
         this.requestFlush = requestFlush;
         this.clockFactory = clockFactory;
         this.noteInputFactory = noteInputFactory;
+        this.fxTracksFactory = fxTracksFactory;
         this.valueChanger = new TwosComplementValueChanger (128, 1);
 
         this.colorManager = new ColorManager ();
@@ -118,6 +125,8 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         this.model.ensureClip ();
 
         this.looper = new LooperController (this.host, this.model, this.configuration, this.clockFactory.get ());
+        final FxController fx = new FxController (this.host, this.configuration, this.fxTracksFactory.get (), this::getSelectedTrackName);
+        this.controller = new PacerController (this.host, this.configuration, this.looper, fx);
     }
 
 
@@ -134,7 +143,7 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         final IMidiOutput output = midiAccess.createOutput ();
         final IMidiInput input = midiAccess.createInput (null);
         // The looper channel is reserved; everything else the Pacer presets send reaches Bitwig tracks
-        this.looper.setMidiSender (this.noteInputFactory.create (NOTE_INPUT_NAME, MidiFilters.allChannelsExcept (this.midiChannel)));
+        this.controller.setMidiSender (this.noteInputFactory.create (NOTE_INPUT_NAME, MidiFilters.allChannelsExcept (this.midiChannel)));
         this.surfaces.add (new PacerControlSurface (this.host, this.colorManager, this.configuration, output, input));
 
         // Port 2: the Pacer's DAW port
@@ -160,6 +169,15 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         });
         this.configuration.addSettingObserver (PacerConfiguration.EXPRESSION_1, () -> this.bindPedal (0));
         this.configuration.addSettingObserver (PacerConfiguration.EXPRESSION_2, () -> this.bindPedal (1));
+        this.configuration.addSettingObserver (PacerConfiguration.ACTIVE_PRESET, () -> {
+            // The pedals of the two presets have their own targets
+            this.bindPedal (0);
+            this.bindPedal (1);
+            if (!this.running)
+                return;
+            this.controller.presetChanged ();
+            this.getSurface ().forceFlush ();
+        });
         this.configuration.addSettingObserver (PacerConfiguration.DAW_MODE, () -> {
             if (this.running)
                 this.dawMode.update ();
@@ -190,11 +208,11 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         {
             final int index = i;
             final IHwButton button = surface.createButton (ButtonID.get (ButtonID.ROW1_1, i), PacerMap.SWITCH_NAMES[i]);
-            button.bind (new TapHoldCommand ( () -> this.looper.isTapOnPress (index), () -> this.looper.tap (index), () -> this.looper.hold (index), () -> this.looper.release (index), () -> this.scheduleRepaint (index), () -> this.looper.getExtraHoldMillis (index), this.host::scheduleTask).withDoubleTap ( () -> this.looper.doubleTap (index), () -> this.looper.isDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis));
+            button.bind (new TapHoldCommand ( () -> this.controller.isTapOnPress (index), () -> this.controller.tap (index), () -> this.controller.hold (index), () -> this.controller.release (index), () -> this.scheduleRepaint (index), () -> this.controller.getExtraHoldMillis (index), this.host::scheduleTask).withDoubleTap ( () -> this.controller.doubleTap (index), () -> this.controller.isDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis));
             button.bind (input, BindType.CC, this.midiChannel, PacerMap.switchCC (i));
 
             final SwitchLedWriter writer = new SwitchLedWriter (i, this.configuration::getEffectiveLedMode, (cc, value) -> output.sendCCEx (this.midiChannel, cc, value));
-            surface.createLight (null, () -> this.looper.getLedCode (index), writer, code -> LedColour.fromCode (code).getColorEx (), button);
+            surface.createLight (null, () -> this.controller.getLedCode (index), writer, code -> LedColour.fromCode (code).getColorEx (), button);
 
             this.switches[i] = button;
             this.ledWriters[i] = writer;
@@ -204,16 +222,16 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         {
             final int index = i;
             final IHwButton button = surface.createButton (ButtonID.get (ButtonID.FOOTSWITCH1, i), "FS " + (i + 1));
-            button.bind (new TapHoldCommand ( () -> this.looper.isFootswitchTapOnPress (index), () -> this.looper.footswitchTap (index), () -> this.looper.footswitchHold (index), null, null, () -> this.looper.getFootswitchExtraHoldMillis (index), this.host::scheduleTask).withDoubleTap ( () -> this.looper.footswitchDoubleTap (index), () -> this.looper.isFootswitchDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis));
+            button.bind (new TapHoldCommand ( () -> this.controller.isFootswitchTapOnPress (index), () -> this.controller.footswitchTap (index), () -> this.controller.footswitchHold (index), () -> this.controller.footswitchRelease (index), null, () -> this.controller.getFootswitchExtraHoldMillis (index), this.host::scheduleTask).withDoubleTap ( () -> this.controller.footswitchDoubleTap (index), () -> this.controller.isFootswitchDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis));
             button.bind (input, BindType.CC, this.midiChannel, PacerMap.FOOTSWITCH_CC_BASE + i);
         }
 
-        // The looper preset announces itself (and its LED variant, in the CC value) whenever it is selected
+        // Each Pacer4Bitwig preset announces itself (which preset, and its LED variant) whenever it is selected
         final IHwButton presetLoaded = surface.createButton (ButtonID.F1, "Preset loaded");
         presetLoaded.bind ( (event, velocity) -> {
             if (event != ButtonEvent.DOWN)
                 return;
-            this.configuration.setAnnouncedLedMode (LedMode.fromPresetValue (velocity));
+            this.controller.presetAnnounced (velocity);
             surface.forceFlush ();
         });
         presetLoaded.bind (input, BindType.CC, this.midiChannel, PacerMap.PRESET_LOADED_CC);
@@ -230,8 +248,8 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
             final int index = i;
             final IHwFader pedal = surface.createFader (ContinuousID.get (ContinuousID.FADER1, i), "EXP " + (i + 1), true);
             pedal.bind (surface.getMidiInput (), BindType.CC, this.midiChannel, i == 0 ? PacerMap.EXP1_CC : PacerMap.EXP2_CC);
-            // Used whenever no parameter is bound directly: MIDI targets, response curves and ranges
-            pedal.bind ((ContinuousCommand) value -> this.looper.pedalMoved (index, value));
+            // Used whenever no parameter is bound directly: MIDI and FX targets, response curves and ranges
+            pedal.bind ((ContinuousCommand) value -> this.controller.pedalMoved (index, value));
             this.pedals[i] = pedal;
             this.bindPedal (i);
         }
@@ -277,7 +295,8 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         if (this.configuration.getNotificationLevel ().shows (true))
         {
             final String version = PacerControllerSetup.class.getPackage ().getImplementationVersion ();
-            this.host.showNotification ("PACER Looper " + (version == null ? "dev" : version) + " ready on MIDI channel " + (this.midiChannel + 1));
+            final String preset = this.configuration.getActivePreset () == PresetKind.FX ? " (FX preset)" : "";
+            this.host.showNotification ("PACER Looper " + (version == null ? "dev" : version) + " ready on MIDI channel " + (this.midiChannel + 1) + preset);
         }
     }
 
@@ -296,7 +315,7 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     {
         if (!this.running)
             return;
-        this.looper.tick ();
+        this.controller.tick ();
         this.dawMode.flushLeds ();
         this.requestFlush.run ();
         this.host.scheduleTask (this::tick, TICK_MS);
@@ -308,7 +327,14 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         final IHwFader pedal = this.pedals[index];
         if (pedal != null)
             // Null (no parameter) routes the pedal to its command
-            pedal.bind (this.looper.getPedalBinding (index));
+            pedal.bind (this.controller.getPedalBinding (index));
+    }
+
+
+    private String getSelectedTrackName ()
+    {
+        final ICursorTrack cursorTrack = this.model.getCursorTrack ();
+        return cursorTrack.doesExist () ? cursorTrack.getName () : "";
     }
 
 

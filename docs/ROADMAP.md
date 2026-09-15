@@ -11,8 +11,21 @@ Ideas that are not built yet, with what is already known about them. Pick one, o
 - Expression pedals: Bitwig parameters or MIDI (CC 1/2/7/11/74, pressure, pitch bend), response curves
 - Beat-synced two-colour LEDs, experimental multi-colour LEDs, LED test
 - Pacer Studio editor with the Bitwig Looper template and LED Lab
+- FX preset: instrument focus, FX switches on track remote controls or devices, snapshots, momentary holds
+  ([FX-PRESET.md](FX-PRESET.md))
 
 ## Bitwig extension
+
+### Combined looper + FX preset
+
+A third preset mixing both (e.g. loops on SW 1–4, FX 1–2 on SW 5–6, instruments on SW A–C). Every looper and FX
+action is already assignable on both presets, so this is mostly a new CC 119 kind (2), a set of defaults and a
+generator/template variant.
+
+### FX preset ideas
+
+- Loop tracks record the focused instrument (research: can an extension change a track's audio input?).
+- Named snapshots, more than four snapshots, snapshots of the pedal controls.
 
 ### Nektar DAW mode on USB port 2 (replaces Nektar's script)
 

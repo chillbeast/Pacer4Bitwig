@@ -6,8 +6,9 @@ import dev.pacer4bitwig.util.Labelled;
 
 
 /**
- * What an expression pedal controls: either a Bitwig parameter (bound directly) or a MIDI message sent into the
- * extension's note input, which reaches the instruments of every track listening to it.
+ * What an expression pedal controls: a Bitwig parameter (bound directly), a remote control of the FX preset's focused
+ * instrument, or a MIDI message sent into the extension's note input, which reaches the instruments of every track
+ * listening to it.
  */
 public enum ExpressionTarget implements Labelled
 {
@@ -32,6 +33,23 @@ public enum ExpressionTarget implements Labelled
     /** Project remote control 2. */
     PROJECT_REMOTE_2 ("Project remote control 2", Kind.PARAMETER, 0),
 
+    /** Remote control 1 of the FX preset's focused instrument ("Pacer" page). */
+    FOCUSED_REMOTE_1 ("Focused instrument: remote control 1", Kind.FX_REMOTE, 0),
+    /** Remote control 2 of the FX preset's focused instrument ("Pacer" page). */
+    FOCUSED_REMOTE_2 ("Focused instrument: remote control 2", Kind.FX_REMOTE, 1),
+    /** Remote control 3 of the FX preset's focused instrument ("Pacer" page). */
+    FOCUSED_REMOTE_3 ("Focused instrument: remote control 3", Kind.FX_REMOTE, 2),
+    /** Remote control 4 of the FX preset's focused instrument ("Pacer" page). */
+    FOCUSED_REMOTE_4 ("Focused instrument: remote control 4", Kind.FX_REMOTE, 3),
+    /** Remote control 5 of the FX preset's focused instrument ("Pacer" page). */
+    FOCUSED_REMOTE_5 ("Focused instrument: remote control 5", Kind.FX_REMOTE, 4),
+    /** Remote control 6 of the FX preset's focused instrument ("Pacer" page). */
+    FOCUSED_REMOTE_6 ("Focused instrument: remote control 6", Kind.FX_REMOTE, 5),
+    /** Remote control 7 of the FX preset's focused instrument ("Pacer" page). */
+    FOCUSED_REMOTE_7 ("Focused instrument: remote control 7", Kind.FX_REMOTE, 6),
+    /** Remote control 8 of the FX preset's focused instrument ("Pacer" page). */
+    FOCUSED_REMOTE_8 ("Focused instrument: remote control 8", Kind.FX_REMOTE, 7),
+
     /** CC 1. */
     MIDI_MOD_WHEEL ("MIDI: mod wheel (CC 1)", Kind.CC, 1),
     /** CC 2. */
@@ -55,6 +73,8 @@ public enum ExpressionTarget implements Labelled
         NONE,
         /** A Bitwig parameter binding. */
         PARAMETER,
+        /** A remote control of the FX preset's focused instrument. */
+        FX_REMOTE,
         /** A MIDI control change. */
         CC,
         /** MIDI channel pressure. */
@@ -104,6 +124,15 @@ public enum ExpressionTarget implements Labelled
 
 
     /**
+     * @return The remote control (0-7) of a focused instrument target
+     */
+    public int getRemoteIndex ()
+    {
+        return this.controller;
+    }
+
+
+    /**
      * Build the MIDI message for a pedal position.
      *
      * @param value The pedal position, 0-127
@@ -137,7 +166,7 @@ public enum ExpressionTarget implements Labelled
                     bend >> 7
                 };
             }
-            case NONE, PARAMETER -> null;
+            case NONE, PARAMETER, FX_REMOTE -> null;
         };
     }
 }

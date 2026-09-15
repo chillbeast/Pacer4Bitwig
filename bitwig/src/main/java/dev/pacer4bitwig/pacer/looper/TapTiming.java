@@ -28,12 +28,14 @@ public final class TapTiming
 
 
     /**
+     * A momentary hold needs the tap on press: it runs the tap again on release.
+     *
      * @param tap The tap action
      * @param hold The hold action
      * @return True to fire on press
      */
     public static boolean actionTapOnPress (final Action tap, final Action hold)
     {
-        return hold == Action.NONE || tap.isTimingCritical ();
+        return hold == Action.NONE || hold == Action.MOMENTARY || tap.isTimingCritical ();
     }
 }

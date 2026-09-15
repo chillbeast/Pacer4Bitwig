@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { MSG, describeMidiMessage, encodePreset, splitSysex, toHex } from '../src/pacer';
+import { MSG, clonePreset, describeMidiMessage, encodePreset, splitSysex, toHex } from '../src/pacer';
+import { FX_DEFAULT_SLOT, buildBitwigFxPreset } from '../src/templates/bitwigFx';
 import {
   LOOPER_ACTION_CC,
   LOOPER_DEFAULT_SLOT,
@@ -10,6 +11,16 @@ import {
   type LooperLedMode,
 } from '../src/templates/bitwigLooper';
 import { fixture } from './helpers';
+
+const MODES: LooperLedMode[] = ['two-colour', 'multi-colour'];
+
+// Two independent implementations of PACER-MAP.md must agree exactly (order may differ).
+function expectSameMessages(mine: Uint8Array[], theirs: Uint8Array[]): void {
+  expect(mine).toHaveLength(189);
+  expect(theirs).toHaveLength(189);
+  const summarise = (list: Uint8Array[]) => list.map((m) => `${describeMidiMessage(m).summary} [${toHex(m)}]`).sort();
+  expect(summarise(mine)).toEqual(summarise(theirs));
+}
 
 describe('Bitwig Looper template (docs/PACER-MAP.md)', () => {
   it('targets D1 by default', () => {
@@ -24,7 +35,7 @@ describe('Bitwig Looper template (docs/PACER-MAP.md)', () => {
     ]);
   });
 
-  for (const mode of ['two-colour', 'multi-colour'] as LooperLedMode[]) {
+  for (const mode of MODES) {
     describe(mode, () => {
       const preset = buildBitwigLooperPreset(mode);
 
@@ -91,15 +102,36 @@ describe('Bitwig Looper template (docs/PACER-MAP.md)', () => {
         });
       }
 
-      // Two independent implementations of PACER-MAP.md must agree exactly (order may differ).
       it('matches the independent generator (tools/looper-preset.mjs) byte for byte', () => {
-        const mine = encodePreset(preset, LOOPER_DEFAULT_SLOT);
-        const theirs = splitSysex(fixture(`bitwig-looper-${mode}-D1.syx`));
-        expect(mine).toHaveLength(189);
-        expect(theirs).toHaveLength(189);
+        expectSameMessages(encodePreset(preset, LOOPER_DEFAULT_SLOT), splitSysex(fixture(`bitwig-looper-${mode}-D1.syx`)));
+      });
+    });
+  }
+});
 
-        const summarise = (list: Uint8Array[]) => list.map((m) => `${describeMidiMessage(m).summary} [${toHex(m)}]`).sort();
-        expect(summarise(mine)).toEqual(summarise(theirs));
+describe('Bitwig FX template (docs/FX-PRESET.md)', () => {
+  it('targets D2 by default', () => {
+    expect(FX_DEFAULT_SLOT).toBe(0x14);
+  });
+
+  for (const mode of MODES) {
+    describe(mode, () => {
+      const preset = buildBitwigFxPreset(mode);
+
+      it('is the looper preset with name “FX”, its own preset-loaded value and two-colour LEDs', () => {
+        const expected = clonePreset(buildBitwigLooperPreset(mode));
+        expected.name = 'FX   ';
+        // preset-loaded value: FX preset × 16 + variant
+        expected.midi[0].data = [119, mode === 'multi-colour' ? 18 : 17, 0];
+        if (mode === 'two-colour') {
+          // green FX switches 1–6, white A–D
+          LOOPER_SWITCHES.forEach((key, s) => (expected.controls[key].leds![0].onColor = s < 6 ? 0x0d : 0x17));
+        }
+        expect(preset).toEqual(expected);
+      });
+
+      it('matches the independent generator (tools/looper-preset.mjs --preset fx) byte for byte', () => {
+        expectSameMessages(encodePreset(preset, FX_DEFAULT_SLOT), splitSysex(fixture(`bitwig-fx-${mode}-D2.syx`)));
       });
     });
   }

@@ -2,6 +2,16 @@
 
 Ideas that are not built yet, with what is already known about them. Pick one, open an issue to say you are on it.
 
+## Done so far
+
+- Smart loop switches, one-button looper, clear last loop, scene rows, duplicate row
+- Count-in, fixed loop lengths and "match the first loop of the row"
+- Exclusive arm, mute/solo, mute all, fade out/in, double/halve loops
+- Assignable switches and jacks (tap + hold), safer holds for clearing actions
+- Expression pedals: Bitwig parameters or MIDI (CC 1/2/7/11/74, pressure, pitch bend), response curves
+- Beat-synced two-colour LEDs, experimental multi-colour LEDs, LED test
+- Pacer Studio editor with the Bitwig Looper template and LED Lab
+
 ## Bitwig extension
 
 ### Nektar DAW mode on USB port 2 (replaces Nektar's script)
@@ -42,15 +52,16 @@ What Nektar's script (v1.0.2, API 1) does, observed from its behaviour:
 Work needed: second MIDI port pair in `PacerControllerDefinition`, a `DawModeController`, and a hardware session to
 map DAW function numbers to names (log the `0x10` reports while switching DAW presets).
 
-### Looper
+### Looper ideas
 
-- **Sync-to-first-loop:** after the first free-length recording, set the loop length setting (and optionally the
-  tempo) from its length so later loops match.
+- **Free tempo from the first loop:** record the first loop with the transport stopped, then derive the tempo so it
+  is a whole number of bars.
 - **Record into the next free slot** (Bitwig's post-recording action) as an alternative to scene rows for takes.
-- **Double-tap stop:** second tap within ~300 ms stops the loop immediately instead of quantized.
-- **Per-loop volume on EXP while holding a loop switch.**
-- **Count-in** from a stopped transport (`ITransport.setPrerollMeasures`).
+- **Double-tap stop:** a second tap within ~300 ms stops the loop immediately instead of quantized.
+- **Momentary record mode:** hold a loop switch to record, release to close.
+- **Loop progress on the top row:** show the beat position of a recording loop on SW A–D.
 - **Undo last layer only** for launcher overdub on note clips.
+- **Row names:** name new scenes (Verse, Chorus, …) from a list in the settings.
 
 ### Hardware questions (need someone with a Pacer)
 
@@ -66,3 +77,5 @@ map DAW function numbers to names (log the `0x10` reports while switching DAW pr
 - Diff view between device and file, and a "restore from backup" wizard using `backups/*.syx`.
 - Installable offline app (PWA) and a hosted build on GitHub Pages (Web MIDI needs HTTPS).
 - Desktop wrapper (Tauri) for browsers without Web MIDI.
+- Verify the inferred protocol details listed in `editor/README.md` (relay mode labels, preset select values, LED
+  number meaning, colour `0x7F`).

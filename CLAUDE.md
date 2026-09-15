@@ -61,8 +61,20 @@ extension when the file changes.
   targets, exclusive arm (`enforceExclusiveArm`, called from the 40 ms tick).
 - Pure, unit-tested: `looper/` (LoopState, LoopAction, LoopLeds, TapTiming, enums for settings), `led/` (LedClock,
   LedPattern, LedState, SwitchLedWriter), `controller/PacerMap` + `MidiFilters`.
-- Adding an assignable action: constant in `looper/Action`, case in `LooperController.perform` and `.actionLed`.
-  Settings store enum *labels*, so renaming a label resets users' choice to the default.
+- Adding an assignable action: constant in `looper/Action` (mark it `destructive` if it deletes loops), case in
+  `LooperController.perform` and `.actionLed`. Settings store enum *labels*, so renaming a label resets users'
+  choice to the default.
+- `LooperController.tick ()` (every 40 ms) drives count-ins, "match the first loop" (`LoopLengthTracker`), fades
+  (`VolumeFade`) and exclusive arm. Anything that has to watch Bitwig state over time goes there.
+- `TapHoldCommand` owns tap-vs-hold timing, including the extra delay for destructive holds (it tracks press
+  generations so a re-press never inherits an old hold).
+- Fades write `getVolumeParameter ().setNormalizedValue (...)` per tick and remember the original volumes
+  (`IValueChanger.toNormalizedValue (track.getVolume ())`); a fade-out waits for the loops to really stop before
+  restoring them.
+- Double/halve use the launcher cursor clip: `model.ensureClip ()` in `createModel` creates it (init phase); select
+  the slot, then act on `model.getCursorClip ()` ~150 ms later once the cursor has followed.
+- Pedals: a linear parameter target is bound directly (Bitwig binding, take-over etc.); MIDI targets and response
+  curves unbind the parameter so the pedal's `ContinuousCommand` runs (`LooperController.pedalMoved`).
 
 ## Framework notes (DrivenByMoss)
 

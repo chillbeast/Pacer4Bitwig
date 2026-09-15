@@ -64,8 +64,9 @@ not work.
 
 - Four slots (A–D). SW D is the snapshot switch by default; set *FX SW D tap* to *Focus instrument D* for a fourth
   instrument.
-- A slot remembers the track **name**, saved per project, and so does the focused slot. After renaming a track,
-  assign it again. Instruments are found among the first 64 tracks of the project (tracks inside groups count).
+- A slot remembers the track **name**, saved per project, and so does the focused slot. Bitwig shows project
+  settings in the **Studio I/O panel** (right-hand panel), section *PACER FX*. After renaming a track, assign it
+  again. Instruments are found among the first 64 tracks of the project (tracks inside groups count).
 - Assigning uses *Hold time for clearing actions*, so it cannot happen by accident mid-song.
 - Focusing shows a notification ("FX: Guitar"). Setting *Focusing an instrument selects its track in Bitwig*, default
   off.

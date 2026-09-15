@@ -14,9 +14,9 @@ workflow, with LED feedback that follows the beat — and nearly everything abou
      once, through the track you are recording on.
    - **MIDI loops:** instrument tracks work the same way and additionally support launcher overdub (layering notes
      into a playing clip).
-2. If they are not the first tracks of the project, set *Settings > Controllers > PACER Looper > project settings >
-   Loop tracks start at track* — it is saved with the project. Moving the loop track window from the Pacer updates it
-   too.
+2. If they are not the first tracks of the project, set *Loop tracks start at track* — it is saved with the project,
+   and moving the loop track window from the Pacer updates it too. Bitwig shows settings that belong to a project in
+   the **Studio I/O panel** (the right-hand panel), under *PACER Looper* — not in *Settings > Controllers*.
 3. Set the tempo (or tap it with **SW D** — its LED then flashes the beat).
 4. In the extension settings set **Launch quantization = 1 bar**. This is what makes loops land on the grid.
 5. Keep the audio buffer low (64–256 samples); Bitwig compensates recording latency automatically.
@@ -280,7 +280,11 @@ multi-colour preset you should see six different colours — that confirms multi
 | | Loop length | Keep project setting · Free (press again to close) · Match the first loop of the row · 1 / 2 / 4 / 8 bars (assumes 4/4) |
 | Nektar DAW mode | Serve the Track and Transport presets | Off · On |
 | Feedback | Pop-up notifications | All · Only important ones · Off |
-| **Project** (saved in the project) | Loop tracks start at track | 1–128 |
+| **Project: PACER Looper** | Loop tracks start at track | 1–128 |
+| **Project: PACER FX** | Instrument A–D (track name) · Focused instrument | text · A–D |
+
+The last two categories are *project* settings: Bitwig shows them in the **Studio I/O panel** (right-hand panel), not
+in *Settings > Controllers*.
 
 "Only important ones" keeps navigation (rows, loop track window), warnings, count-ins, loop lengths and resets, and
 drops confirmations like "Undo" or "All loops muted".
@@ -311,6 +315,7 @@ How you hear your instrument while looping audio:
 | Pedal set to mod wheel / expression does nothing | The Pacer always shows and sends CC 116/117; the extension converts them inside Bitwig. The instrument's track needs input "PACER" or *All ins* and must be armed (or monitoring), and the patch must respond to that controller. |
 | Track/Transport presets do nothing | Enable *Nektar DAW mode* and assign port 2 (`MIDIIN2 (PACER)` / `MIDIOUT2 (PACER)`). |
 | Loop switches control the wrong tracks | Check *Loop tracks start at track* (per project) and use hold SW A / SW B to move the loop track window. |
+| I cannot find the project settings | They are in Bitwig's **Studio I/O panel** (right-hand panel), sections *PACER Looper* and *PACER FX*, not in *Settings > Controllers*. |
 | I hear my input twice | Several armed tracks with auto monitoring — keep *Exclusive arm* on, or use a dedicated input track. |
 | Nothing changes after editing settings | Most settings apply immediately; *Looper MIDI channel* restarts the extension. Check Bitwig's controller console for errors. |
 

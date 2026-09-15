@@ -33,12 +33,15 @@ import dev.pacer4bitwig.pacer.looper.LoopLeds;
 import dev.pacer4bitwig.pacer.looper.LoopLength;
 import dev.pacer4bitwig.pacer.looper.LoopLengthTracker;
 import dev.pacer4bitwig.pacer.looper.LoopState;
+import dev.pacer4bitwig.pacer.looper.LoopSwitchMode;
+import dev.pacer4bitwig.pacer.looper.MuteTiming;
 import dev.pacer4bitwig.pacer.looper.PedalCurve;
 import dev.pacer4bitwig.pacer.looper.TapTiming;
 import dev.pacer4bitwig.pacer.looper.VolumeFade;
 import dev.pacer4bitwig.pacer.midi.RawMidiSender;
 
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -66,9 +69,12 @@ public class LooperController
     private static final long            CURSOR_CLIP_FOLLOW_MS = 150;
     /** Restore volumes even if the loops never report stopped. */
     private static final long            FADE_STOP_TIMEOUT_MS  = 20000;
+    /** A released hold-to-record that never started recording is forgotten after this. */
+    private static final long            CLOSE_WAIT_MS         = 1000;
     private static final long            LED_TEST_STEP_MS      = 1000;
     private static final int             RECORD_HISTORY        = 64;
     private static final int             BEATS_PER_BAR_4_4     = 4;
+    private static final int             TOP_ROW_SIZE          = 4;
 
     private final IHost                  host;
     private final IModel                 model;
@@ -87,6 +93,12 @@ public class LooperController
     private VolumeFade                   fade;
     private long                         fadeStopRequestedAt   = -1;
     private long                         ledTestStartedAt      = -1;
+    /** Loop switches whose current press started a hold-to-record. */
+    private final boolean []             holdRecording         = new boolean [PacerMap.MAX_LOOP_TRACKS];
+    /** Hold-to-record released before recording started: close as soon as it does (time of the release). */
+    private final long []                closeWhenRecording    = new long [PacerMap.MAX_LOOP_TRACKS];
+    /** Quantized mute changes: track bank position to {target (1 = mute), apply at beats}. */
+    private final Map<Integer, double []> pendingMutes         = new HashMap<> ();
 
 
     /** A recording waiting for its count-in. */
@@ -123,6 +135,7 @@ public class LooperController
         this.model = model;
         this.configuration = configuration;
         this.clock = clock;
+        Arrays.fill (this.closeWhenRecording, -1);
     }
 
 
@@ -144,7 +157,7 @@ public class LooperController
     public boolean isTapOnPress (final int switchIndex)
     {
         if (this.isLoopSwitch (switchIndex))
-            return TapTiming.loopTapOnPress (this.configuration.isLoopOnPress (), this.configuration.getLoopHoldAction ());
+            return this.configuration.getLoopSwitchMode () == LoopSwitchMode.HOLD_TO_RECORD || TapTiming.loopTapOnPress (this.configuration.isLoopOnPress (), this.configuration.getLoopHoldAction ());
         return TapTiming.actionTapOnPress (this.configuration.getSwitchTap (switchIndex), this.configuration.getSwitchHold (switchIndex));
     }
 
@@ -171,10 +184,23 @@ public class LooperController
      */
     public void tap (final int switchIndex)
     {
-        if (this.isLoopSwitch (switchIndex))
-            this.loopTap (this.getTrackBank ().getItem (switchIndex));
-        else
+        if (!this.isLoopSwitch (switchIndex))
+        {
             this.perform (this.configuration.getSwitchTap (switchIndex));
+            return;
+        }
+
+        final ITrack track = this.getTrackBank ().getItem (switchIndex);
+        this.holdRecording[switchIndex] = false;
+        if (this.configuration.getLoopSwitchMode () == LoopSwitchMode.HOLD_TO_RECORD && track.doesExist () && this.getLoopState (track) == LoopState.EMPTY)
+        {
+            if (this.configuration.isSelectOnPress ())
+                track.select ();
+            this.startRecording (track);
+            this.holdRecording[switchIndex] = true;
+            return;
+        }
+        this.loopTap (track);
     }
 
 
@@ -185,10 +211,36 @@ public class LooperController
      */
     public void hold (final int switchIndex)
     {
-        if (this.isLoopSwitch (switchIndex))
-            this.loopHold (this.getTrackBank ().getItem (switchIndex));
-        else
+        if (!this.isLoopSwitch (switchIndex))
+        {
             this.perform (this.configuration.getSwitchHold (switchIndex));
+            return;
+        }
+        // Holding is how hold-to-record records - never delete that recording
+        if (!this.holdRecording[switchIndex])
+            this.loopHold (this.getTrackBank ().getItem (switchIndex));
+    }
+
+
+    /**
+     * A switch was released.
+     *
+     * @param switchIndex 0-9
+     */
+    public void release (final int switchIndex)
+    {
+        if (!this.isLoopSwitch (switchIndex) || !this.holdRecording[switchIndex])
+            return;
+        this.holdRecording[switchIndex] = false;
+
+        final ITrack track = this.getTrackBank ().getItem (switchIndex);
+        if (!track.doesExist ())
+            return;
+        final LoopState state = this.getLoopState (track);
+        if (state == LoopState.RECORDING)
+            this.playLoop (track);
+        else if (state == LoopState.RECORD_QUEUED)
+            this.closeWhenRecording[switchIndex] = System.currentTimeMillis ();
     }
 
 
@@ -292,6 +344,13 @@ public class LooperController
             this.ledTestStartedAt = -1;
         }
 
+        if (switchIndex >= PacerMap.FIRST_TOP_ROW_SWITCH)
+        {
+            final int beatCode = this.getBeatCounterCode (switchIndex - PacerMap.FIRST_TOP_ROW_SWITCH, now);
+            if (beatCode >= 0)
+                return beatCode;
+        }
+
         final LedClock ledClock = this.getLedClock (now);
         final LedState state;
         if (this.isLoopSwitch (switchIndex))
@@ -299,6 +358,32 @@ public class LooperController
         else
             state = this.actionLed (this.configuration.getSwitchTap (switchIndex), ledClock);
         return state.code (ledClock);
+    }
+
+
+    /**
+     * The beat counter on the top row: while counting in (amber) or recording (red) the switch of the current beat
+     * lights up.
+     *
+     * @param topRowIndex 0-3 (SW A-D)
+     * @param now Wall-clock milliseconds
+     * @return The light code, -1 if the counter is not active
+     */
+    private int getBeatCounterCode (final int topRowIndex, final long now)
+    {
+        if (!this.configuration.isCountBeats () || !this.clock.isPlaying ())
+            return -1;
+
+        final LoopState [] states = this.getRowStates ();
+        final boolean recording = contains (states, LoopState.RECORDING);
+        final boolean waiting = this.pendingCountIn != null || contains (states, LoopState.RECORD_QUEUED);
+        if (!recording && !waiting)
+            return -1;
+
+        final LedClock beatClock = new LedClock (now, true, this.clock.getPositionInBeats (), this.clock.getBeatsPerBar ());
+        if (Math.floorMod (beatClock.beatInBar (), TOP_ROW_SIZE) != topRowIndex)
+            return 0;
+        return (recording && this.pendingCountIn == null ? LedColour.RED : LedColour.AMBER).ordinal ();
     }
 
 
@@ -313,12 +398,14 @@ public class LooperController
 
 
     /**
-     * Runs on every tick: count-ins, loop length matching, fades, exclusive arm.
+     * Runs on every tick: count-ins, hold-to-record, loop length matching, quantized mutes, fades, exclusive arm.
      */
     public void tick ()
     {
         this.updateCountIn ();
+        this.updateHoldToRecord ();
         this.updateLoopLengths ();
+        this.updatePendingMutes ();
         this.updateFade ();
         this.enforceExclusiveArm ();
     }
@@ -386,8 +473,12 @@ public class LooperController
             case CLEAR_LAST_LOOP -> this.clearLastLoop ();
             case LOOP_SELECTED -> this.withSelectedTrack (this::loopTap);
             case STOP_SELECTED -> this.withSelectedTrack (track -> track.stop (false));
-            case MUTE_SELECTED -> this.withSelectedTrack (ITrack::toggleMute);
+            case MUTE_SELECTED -> this.withSelectedTrack (track -> this.requestMute (track, !this.isEffectivelyMuted (track)));
             case SOLO_SELECTED -> this.withSelectedTrack (ITrack::toggleSolo);
+            case MONITOR_SELECTED -> this.withSelectedTrack (track -> {
+                this.notify (track.getName () + ": input monitoring " + (track.isMonitor () ? "off" : "on"));
+                track.toggleMonitor ();
+            });
             case CLEAR_SELECTED -> this.withSelectedTrack (this::clearLoop);
             case DOUBLE_SELECTED -> this.withSelectedTrack (track -> this.editLoopClip (track, true));
             case HALVE_SELECTED -> this.withSelectedTrack (track -> this.editLoopClip (track, false));
@@ -405,6 +496,7 @@ public class LooperController
             case MUTE_ALL_TOGGLE -> this.toggleMuteAll ();
             case FADE_OUT -> this.toggleFade (VolumeFade.Direction.OUT);
             case FADE_IN -> this.toggleFade (VolumeFade.Direction.IN);
+            case RESET -> this.reset ();
             case ROW_PREVIOUS -> this.scrollRows (false);
             case ROW_NEXT -> this.scrollRows (true);
             case DUPLICATE_ROW -> this.duplicateRow ();
@@ -453,8 +545,13 @@ public class LooperController
             case CLEAR_LAST_LOOP -> LedState.when (this.anyLoop (false), LedColour.RED);
             case LOOP_SELECTED -> selected.map (this::loopLed).orElse (LedState.DARK);
             case STOP_SELECTED -> LedState.when (selected.isPresent () && selected.get ().isPlaying (), LedColour.WHITE);
-            case MUTE_SELECTED -> LedState.when (selected.isPresent () && selected.get ().isMute (), LedColour.BLUE);
+            case MUTE_SELECTED -> {
+                if (selected.isPresent () && this.pendingMutes.containsKey (Integer.valueOf (selected.get ().getIndex ())))
+                    yield new LedState (LedColour.BLUE, LedPattern.BLINK_FAST);
+                yield LedState.when (selected.isPresent () && selected.get ().isMute (), LedColour.BLUE);
+            }
             case SOLO_SELECTED -> LedState.when (selected.isPresent () && selected.get ().isSolo (), LedColour.AMBER);
+            case MONITOR_SELECTED -> LedState.when (selected.isPresent () && selected.get ().isMonitor (), LedColour.GREEN);
             case CLEAR_SELECTED -> LedState.when (selectedHasLoop, LedColour.RED);
             case DOUBLE_SELECTED, HALVE_SELECTED -> LedState.when (selectedHasLoop, LedColour.WHITE);
             case SELECT_PREVIOUS_LOOP, SELECT_NEXT_LOOP, LED_TEST -> LedState.solid (LedColour.WHITE);
@@ -466,7 +563,11 @@ public class LooperController
             case STOP_ALL -> LedState.when (this.anyLoop (true), LedColour.WHITE);
             case PLAY_ROW -> LedState.when (this.anyLoop (false), LedColour.GREEN);
             case CLEAR_ROW -> LedState.when (this.anyLoop (false), LedColour.RED);
-            case MUTE_ALL_TOGGLE -> LedState.when (this.anyLoopMuted (), LedColour.BLUE);
+            case MUTE_ALL_TOGGLE -> {
+                if (!this.pendingMutes.isEmpty ())
+                    yield new LedState (LedColour.BLUE, LedPattern.BLINK_FAST);
+                yield LedState.when (this.anyLoopMuted (), LedColour.BLUE);
+            }
             case FADE_OUT -> {
                 if (this.fade != null && this.fade.getDirection () == VolumeFade.Direction.OUT)
                     yield new LedState (LedColour.WHITE, LedPattern.BLINK_MEDIUM);
@@ -477,6 +578,7 @@ public class LooperController
                     yield new LedState (LedColour.GREEN, LedPattern.BLINK_MEDIUM);
                 yield LedState.when (this.anyLoop (false) && !this.anyLoop (true), LedColour.GREEN);
             }
+            case RESET -> LedState.when (this.anyLoop (true), LedColour.PURPLE);
             case ROW_PREVIOUS -> LedState.when (trackBank.getSceneBank ().canScrollBackwards (), LedColour.WHITE);
             case ROW_NEXT -> LedState.solid (trackBank.getSceneBank ().canScrollForwards () ? LedColour.WHITE : LedColour.BLUE);
             case DUPLICATE_ROW -> LedState.when (this.anyLoop (false), LedColour.WHITE);
@@ -523,7 +625,7 @@ public class LooperController
             case RECORD -> this.startRecording (track);
             case PLAY -> this.playLoop (track);
             case STOP -> track.stop (false);
-            case TOGGLE_MUTE -> track.toggleMute ();
+            case TOGGLE_MUTE -> this.requestMute (track, !this.isEffectivelyMuted (track));
             case OVERDUB -> {
                 this.armForRecording (track);
                 this.model.getTransport ().toggleLauncherOverdub ();
@@ -555,9 +657,19 @@ public class LooperController
     {
         if (!track.doesExist ())
             return LedState.DARK;
+
+        final LedMode mode = this.configuration.getLedMode ();
+        final double [] pendingMute = this.pendingMutes.get (Integer.valueOf (track.getIndex ()));
+        if (pendingMute != null)
+        {
+            if (mode != LedMode.MULTI_COLOUR)
+                return new LedState (LedColour.RED, LedPattern.BLINK_FAST);
+            return new LedState (pendingMute[0] > 0 ? LedColour.BLUE : LedColour.GREEN, LedPattern.BLINK_FAST);
+        }
+
         final LoopState state = this.getLoopState (track);
         final boolean overdubbing = state == LoopState.PLAYING && this.model.getTransport ().isLauncherOverdub () && track.isRecArm ();
-        return LoopLeds.forLoop (state, overdubbing, track.isMute (), this.configuration.getLedMode ());
+        return LoopLeds.forLoop (state, overdubbing, track.isMute (), mode);
     }
 
 
@@ -610,6 +722,7 @@ public class LooperController
     private void playLoop (final ITrack track)
     {
         // Asking for a loop to play means wanting to hear it
+        this.pendingMutes.remove (Integer.valueOf (track.getIndex ()));
         if (track.isMute ())
             track.setMute (false);
         final ISlot slot = this.getLoopSlot (track);
@@ -658,6 +771,28 @@ public class LooperController
         if (!this.anyLoop (true))
             transport.stop ();
         this.notify ("Count-in cancelled");
+    }
+
+
+    /** Close hold-to-record loops whose switch was released before recording had started. */
+    private void updateHoldToRecord ()
+    {
+        final long now = System.currentTimeMillis ();
+        final ITrackBank trackBank = this.getTrackBank ();
+        for (int i = 0; i < this.closeWhenRecording.length; i++)
+        {
+            if (this.closeWhenRecording[i] < 0)
+                continue;
+            final ITrack track = trackBank.getItem (i);
+            final LoopState state = track.doesExist () ? this.getLoopState (track) : LoopState.EMPTY;
+            if (state == LoopState.RECORDING)
+            {
+                this.closeWhenRecording[i] = -1;
+                this.playLoop (track);
+            }
+            else if (state != LoopState.RECORD_QUEUED && now - this.closeWhenRecording[i] > CLOSE_WAIT_MS)
+                this.closeWhenRecording[i] = -1;
+        }
     }
 
 
@@ -793,6 +928,69 @@ public class LooperController
     }
 
 
+    // ---- Mutes --------------------------------------------------------------------------------------------------
+
+    /** Mute or unmute now, or on the next beat or bar (setting "Mute timing"). */
+    private void requestMute (final ITrack track, final boolean mute)
+    {
+        final Integer index = Integer.valueOf (track.getIndex ());
+        final MuteTiming timing = this.configuration.getMuteTiming ();
+        if (timing == MuteTiming.IMMEDIATE || !this.clock.isPlaying ())
+        {
+            this.pendingMutes.remove (index);
+            track.setMute (mute);
+            return;
+        }
+
+        // Asking again for the state it already has cancels the pending change
+        if (track.isMute () == mute)
+        {
+            this.pendingMutes.remove (index);
+            return;
+        }
+        final double at = MuteTiming.nextBoundary (this.clock.getPositionInBeats (), timing.getUnitBeats (this.clock.getBeatsPerBar ()));
+        this.pendingMutes.put (index, new double []
+        {
+            mute ? 1 : 0,
+            at
+        });
+    }
+
+
+    private boolean isEffectivelyMuted (final ITrack track)
+    {
+        final double [] pending = this.pendingMutes.get (Integer.valueOf (track.getIndex ()));
+        return pending == null ? track.isMute () : pending[0] > 0;
+    }
+
+
+    private void updatePendingMutes ()
+    {
+        if (this.pendingMutes.isEmpty ())
+            return;
+        final boolean running = this.clock.isPlaying ();
+        final double position = this.clock.getPositionInBeats ();
+        this.applyPendingMutes (entry -> !running || position >= entry[1]);
+    }
+
+
+    private void applyPendingMutes (final java.util.function.Predicate<double []> due)
+    {
+        final ITrackBank trackBank = this.getTrackBank ();
+        final Iterator<Map.Entry<Integer, double []>> it = this.pendingMutes.entrySet ().iterator ();
+        while (it.hasNext ())
+        {
+            final Map.Entry<Integer, double []> entry = it.next ();
+            if (!due.test (entry.getValue ()))
+                continue;
+            final ITrack track = trackBank.getItem (entry.getKey ().intValue ());
+            if (track.doesExist ())
+                track.setMute (entry.getValue ()[0] > 0);
+            it.remove ();
+        }
+    }
+
+
     private void toggleMuteAll ()
     {
         final ITrackBank trackBank = this.getTrackBank ();
@@ -800,14 +998,14 @@ public class LooperController
         for (int i = 0; i < this.getLoopCount (); i++)
         {
             final ITrack track = trackBank.getItem (i);
-            if (track.doesExist () && !track.isMute () && this.getLoopSlot (track).hasContent ())
+            if (track.doesExist () && !this.isEffectivelyMuted (track) && this.getLoopSlot (track).hasContent ())
                 anyAudible = true;
         }
         for (int i = 0; i < this.getLoopCount (); i++)
         {
             final ITrack track = trackBank.getItem (i);
             if (track.doesExist ())
-                track.setMute (anyAudible);
+                this.requestMute (track, anyAudible);
         }
         this.notify (anyAudible ? "All loops muted" : "All loops unmuted");
     }
@@ -1013,6 +1211,35 @@ public class LooperController
     }
 
 
+    /** Panic button: stop everything and leave the loop tracks clean. */
+    private void reset ()
+    {
+        if (this.pendingCountIn != null)
+            this.cancelCountIn ();
+        if (this.fade != null)
+            this.restoreFadeVolumes ();
+        this.pendingMutes.clear ();
+        Arrays.fill (this.holdRecording, false);
+        Arrays.fill (this.closeWhenRecording, -1);
+
+        final ITrackBank trackBank = this.getTrackBank ();
+        trackBank.stop (false);
+        for (int i = 0; i < this.getLoopCount (); i++)
+        {
+            final ITrack track = trackBank.getItem (i);
+            if (!track.doesExist ())
+                continue;
+            track.setMute (false);
+            track.setSolo (false);
+            track.setRecArm (false);
+        }
+        this.armedByLooper.clear ();
+        this.lastArmedIndex = -1;
+        this.model.getTransport ().setLauncherOverdub (false);
+        this.notify ("Looper reset: stopped, unmuted, unsoloed, disarmed");
+    }
+
+
     private void scrollRows (final boolean forwards)
     {
         final ISceneBank sceneBank = this.getTrackBank ().getSceneBank ();
@@ -1055,6 +1282,9 @@ public class LooperController
             this.restoreFadeVolumes ();
         if (this.pendingCountIn != null)
             this.cancelCountIn ();
+        this.applyPendingMutes (entry -> true);
+        Arrays.fill (this.holdRecording, false);
+        Arrays.fill (this.closeWhenRecording, -1);
 
         final ITrackBank trackBank = this.getTrackBank ();
         if (forwards)
@@ -1133,6 +1363,15 @@ public class LooperController
             states[i] = track.doesExist () ? this.getLoopState (track) : null;
         }
         return states;
+    }
+
+
+    private static boolean contains (final LoopState [] states, final LoopState wanted)
+    {
+        for (final LoopState state: states)
+            if (state == wanted)
+                return true;
+        return false;
     }
 
 

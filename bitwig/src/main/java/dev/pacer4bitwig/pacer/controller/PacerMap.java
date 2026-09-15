@@ -12,6 +12,8 @@ public final class PacerMap
 
     /** The ten stomp switches: SW 1-6 (indices 0-5), SW A-D (indices 6-9). */
     public static final int      NUM_SWITCHES             = 10;
+    /** Index of SW A, the first switch of the top row. */
+    public static final int      FIRST_TOP_ROW_SWITCH     = 6;
     /** The four footswitch jacks. */
     public static final int      NUM_FOOTSWITCHES         = 4;
     /** The most loop tracks any layout uses. */

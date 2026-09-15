@@ -87,7 +87,7 @@ class WaveThreeTest
     {
         final List<String> events = new ArrayList<> ();
         final List<Runnable> scheduled = new ArrayList<> ();
-        final TapHoldCommand command = new TapHoldCommand ( () -> false, () -> events.add ("tap"), () -> events.add ("hold"), null, () -> 1000, (task, delay) -> scheduled.add (task));
+        final TapHoldCommand command = new TapHoldCommand ( () -> false, () -> events.add ("tap"), () -> events.add ("hold"), null, null, () -> 1000, (task, delay) -> scheduled.add (task));
 
         // Held through the extra time
         command.execute (ButtonEvent.DOWN, 127);

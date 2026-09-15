@@ -28,6 +28,8 @@ public enum Action implements Labelled
     MUTE_SELECTED ("Mute/unmute selected loop", true, false),
     /** Solo/unsolo the selected track. */
     SOLO_SELECTED ("Solo/unsolo selected loop", true, false),
+    /** Input monitoring on the selected track. */
+    MONITOR_SELECTED ("Input monitoring on/off (selected track)", false, false),
     /** Stop and delete the selected track's loop. */
     CLEAR_SELECTED ("Clear selected loop", false, true),
     /** Duplicate the content of the selected loop, doubling its length. */
@@ -53,6 +55,8 @@ public enum Action implements Labelled
     FADE_OUT ("Fade out and stop all loops", false, false),
     /** Play the row, fading the loops in from silence. */
     FADE_IN ("Fade in the row", false, false),
+    /** Stop everything and put the loop tracks back to a clean state. */
+    RESET ("Reset the looper: stop, unmute, unsolo, disarm", true, false),
 
     /** Previous scene row. */
     ROW_PREVIOUS ("Previous row", false, false),

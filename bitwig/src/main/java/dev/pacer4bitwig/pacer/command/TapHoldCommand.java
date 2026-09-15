@@ -12,7 +12,7 @@ import java.util.function.LongSupplier;
 /**
  * A switch with a tap and a hold action. The tap fires either on press (tight timing; a later hold then fires as
  * well) or on release (only if the switch was not held). A hold can require the switch to stay down for longer than
- * the framework's hold time, which protects destructive actions.
+ * the framework's hold time, which protects destructive actions. An optional release action runs on every release.
  */
 public class TapHoldCommand implements TriggerCommand
 {
@@ -31,6 +31,7 @@ public class TapHoldCommand implements TriggerCommand
     private final BooleanSupplier tapOnPress;
     private final Runnable        tap;
     private final Runnable        hold;
+    private final Runnable        release;
     private final Runnable        afterEvent;
     private final LongSupplier    extraHoldMillis;
     private final Scheduler       scheduler;
@@ -50,7 +51,7 @@ public class TapHoldCommand implements TriggerCommand
      */
     public TapHoldCommand (final BooleanSupplier tapOnPress, final Runnable tap, final Runnable hold, final Runnable afterEvent)
     {
-        this (tapOnPress, tap, hold, afterEvent, () -> 0, (task, delay) -> task.run ());
+        this (tapOnPress, tap, hold, null, afterEvent, () -> 0, (task, delay) -> task.run ());
     }
 
 
@@ -60,15 +61,17 @@ public class TapHoldCommand implements TriggerCommand
      * @param tapOnPress True to fire the tap on press, false on release
      * @param tap The tap action
      * @param hold The hold action, may be null
+     * @param release Runs on every release before the tap logic, may be null
      * @param afterEvent Called after every press/release/hold, may be null
      * @param extraHoldMillis How much longer than the framework's hold the switch must stay down
      * @param scheduler Runs the delayed hold check
      */
-    public TapHoldCommand (final BooleanSupplier tapOnPress, final Runnable tap, final Runnable hold, final Runnable afterEvent, final LongSupplier extraHoldMillis, final Scheduler scheduler)
+    public TapHoldCommand (final BooleanSupplier tapOnPress, final Runnable tap, final Runnable hold, final Runnable release, final Runnable afterEvent, final LongSupplier extraHoldMillis, final Scheduler scheduler)
     {
         this.tapOnPress = tapOnPress;
         this.tap = tap;
         this.hold = hold;
+        this.release = release;
         this.afterEvent = afterEvent;
         this.extraHoldMillis = extraHoldMillis;
         this.scheduler = scheduler;
@@ -113,6 +116,8 @@ public class TapHoldCommand implements TriggerCommand
         else if (event == ButtonEvent.UP)
         {
             this.pressed = false;
+            if (this.release != null)
+                this.release.run ();
             if (!this.holdSeen && !this.tapOnPress.getAsBoolean ())
                 this.tap.run ();
             this.holdSeen = false;

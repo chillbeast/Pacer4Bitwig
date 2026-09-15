@@ -11,8 +11,8 @@ import java.util.UUID;
 
 
 /**
- * Controller definition for "PACER Looper". Uses USB MIDI port 1 of the Pacer; port 2 belongs to Nektar's
- * own DAW integration.
+ * Controller definition for "PACER Looper". Port 1 carries the looper preset and every other user preset; port 2 is
+ * the Pacer's DAW port, used by the optional Nektar DAW mode.
  */
 public class PacerControllerDefinition extends DefaultControllerDefinition
 {
@@ -24,7 +24,7 @@ public class PacerControllerDefinition extends DefaultControllerDefinition
      */
     public PacerControllerDefinition ()
     {
-        super (EXTENSION_ID, "PACER Looper", "Nektar", 1, 1);
+        super (EXTENSION_ID, "PACER Looper", "Nektar", 2, 2);
     }
 
 
@@ -36,16 +36,40 @@ public class PacerControllerDefinition extends DefaultControllerDefinition
         switch (os)
         {
             case MAC, MAC_ARM:
-                pairs.add (this.addDeviceDiscoveryPair ("PACER MIDI1", "PACER MIDI1"));
+                pairs.add (this.addDeviceDiscoveryPair (new String []
+                {
+                    "PACER MIDI1",
+                    "PACER MIDI2"
+                }, new String []
+                {
+                    "PACER MIDI1",
+                    "PACER MIDI2"
+                }));
                 break;
 
             case LINUX:
-                pairs.addAll (this.createLinuxDeviceDiscoveryPairs ("PACER", "PACER"));
+                pairs.add (this.addDeviceDiscoveryPair (new String []
+                {
+                    "PACER MIDI 1",
+                    "PACER MIDI 2"
+                }, new String []
+                {
+                    "PACER MIDI 1",
+                    "PACER MIDI 2"
+                }));
                 break;
 
             case WINDOWS:
             default:
-                pairs.add (this.addDeviceDiscoveryPair ("PACER", "PACER"));
+                pairs.add (this.addDeviceDiscoveryPair (new String []
+                {
+                    "PACER",
+                    "MIDIIN2 (PACER)"
+                }, new String []
+                {
+                    "PACER",
+                    "MIDIOUT2 (PACER)"
+                }));
                 break;
         }
         return pairs;

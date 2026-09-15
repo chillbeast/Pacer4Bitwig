@@ -5,8 +5,9 @@ The single source of truth for how the **Pacer preset** (written by the editor) 
 
 ## Transport
 
-- USB MIDI **port 1** of the Pacer (Windows: in `PACER`, out `PACER`). Port 2 (`MIDIIN2/MIDIOUT2 (PACER)`) is
-  Nektar's DAW-integration port — not used by us.
+- USB MIDI **port 1** of the Pacer (Windows: in `PACER`, out `PACER`) carries this contract. Port 2
+  (`MIDIIN2/MIDIOUT2 (PACER)`) is the Pacer's DAW port; the extension only uses it when *Nektar DAW mode* is
+  switched on, with Nektar's protocol (docs/ROADMAP.md), never for the looper.
 - Everything on **MIDI channel 16** (status `0xBF`; SysEx step channel byte `16`, since `0` means "global").
 - Preset slot: **D1** (preset index `0x13`) by default, name `LOOPS`. Never use D6 (`0x18`): the Pacer does not
   answer GET requests for it (known firmware quirk, see `reference/pacer-editor/dumps/README.md`).

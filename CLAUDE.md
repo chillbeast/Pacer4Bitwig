@@ -73,6 +73,15 @@ extension when the file changes.
   restoring them.
 - Double/halve use the launcher cursor clip: `model.ensureClip ()` in `createModel` creates it (init phase); select
   the slot, then act on `model.getCursorClip ()` ~150 ms later once the cursor has followed.
+- `daw/DawModeController` (port 2, opt-in setting): raw `setMidiCallback` / `setSysexCallback` on
+  `midiAccess.createInput (1, null)`, LED feedback as CC 127/0 on channel 16 via `createOutput (1)`. `DawModeSysex`
+  reproduces Nektar's messages byte for byte, including the odd 0x1F "checksum" of the slot-colour message. The
+  controller definition has 2 in / 2 out ports since wave 4, so existing controller instances need port 2 assigned.
+- Hold-to-record: `TapHoldCommand` has a release callback; `LooperController.tap/hold/release` track whether the
+  current press started a recording (`holdRecording`), and a release before recording started closes it as soon as
+  it starts (`closeWhenRecording`, checked in `tick`).
+- Quantized mutes (`pendingMutes`) apply in `tick` at `MuteTiming.nextBoundary`; anything that moves bank positions
+  (track scroll) applies them first.
 - Pedals: a linear parameter target is bound directly (Bitwig binding, take-over etc.); MIDI targets and response
   curves unbind the parameter so the pedal's `ContinuousCommand` runs (`LooperController.pedalMoved`).
 

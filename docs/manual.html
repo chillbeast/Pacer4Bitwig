@@ -1,0 +1,1827 @@
+<title>Pacer4Bitwig</title>
+<meta name="description" content="Setup guide and manual for PACER Looper: the Nektar Pacer as a live looper and FX pedalboard for Bitwig Studio.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Doto:wght@700;900&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+/* ------------------------------------------------------------------ tokens
+   Dark-first: the Pacer is black steel on a stage floor. The six LED colours are
+   the ones the extension actually drives; LEDs always sit in a dark socket, so
+   they keep their real colour in both themes. */
+:root {
+  --ground:      #0C0E10;
+  --surface:     #14171A;
+  --surface-2:   #1B1F23;
+  --line:        #2A3036;
+  --line-soft:   #1F2429;
+  --ink:         #E7E9EB;
+  --ink-dim:     #A3ABB3;
+  --ink-faint:   #6E767E;
+
+  --accent:      #F2A93B;
+  --accent-ink:  #1B1100;
+  --accent-soft: rgba(242, 169, 59, .12);
+
+  --ok:          #3FD68A;
+  --warn:        #F2A93B;
+  --bad:         #FF6A5E;
+
+  --device:      #16191C;
+  --device-edge: #2E343A;
+  --device-ink:  #B9C0C6;
+  --stomp:       #2B3035;
+  --stomp-hi:    #454C53;
+  --socket:      #0A0C0D;
+
+  --led-off:     #262B30;
+  --led-white:   #F2F5F7;
+  --led-red:     #FF4D40;
+  --led-green:   #3FD68A;
+  --led-amber:   #FFB22E;
+  --led-blue:    #4C8DFF;
+  --led-purple:  #B876FF;
+
+  --c-linear:    #E7E9EB;
+  --c-inverted:  #4C8DFF;
+  --c-slow:      #F2A93B;
+  --c-fast:      #3FD68A;
+
+  --shadow: 0 1px 0 rgba(255, 255, 255, .03), 0 18px 40px -24px rgba(0, 0, 0, .9);
+  --radius: 4px;
+  --measure: 66ch;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ground:      #E6E9EB;
+    --surface:     #FFFFFF;
+    --surface-2:   #F2F4F5;
+    --line:        #CCD2D7;
+    --line-soft:   #DDE1E4;
+    --ink:         #121518;
+    --ink-dim:     #48515A;
+    --ink-faint:   #6F7880;
+    --accent:      #9A5700;
+    --accent-ink:  #FFFFFF;
+    --accent-soft: rgba(154, 87, 0, .10);
+    --ok:          #1C7A44;
+    --warn:        #9A5700;
+    --bad:         #B3261E;
+    --device:      #1B1F23;
+    --device-edge: #0E1113;
+    --device-ink:  #B9C0C6;
+    --stomp:       #2E3338;
+    --stomp-hi:    #4A5158;
+    --socket:      #0A0C0D;
+    --c-linear:    #121518;
+    --c-inverted:  #1F5FD1;
+    --c-slow:      #9A5700;
+    --c-fast:      #1C7A44;
+    --shadow: 0 1px 2px rgba(18, 21, 24, .06), 0 16px 34px -24px rgba(18, 21, 24, .45);
+  }
+}
+
+:root[data-theme="light"] {
+  --ground:      #E6E9EB;
+  --surface:     #FFFFFF;
+  --surface-2:   #F2F4F5;
+  --line:        #CCD2D7;
+  --line-soft:   #DDE1E4;
+  --ink:         #121518;
+  --ink-dim:     #48515A;
+  --ink-faint:   #6F7880;
+  --accent:      #9A5700;
+  --accent-ink:  #FFFFFF;
+  --accent-soft: rgba(154, 87, 0, .10);
+  --ok:          #1C7A44;
+  --warn:        #9A5700;
+  --bad:         #B3261E;
+  --device:      #1B1F23;
+  --device-edge: #0E1113;
+  --device-ink:  #B9C0C6;
+  --stomp:       #2E3338;
+  --stomp-hi:    #4A5158;
+  --socket:      #0A0C0D;
+  --c-linear:    #121518;
+  --c-inverted:  #1F5FD1;
+  --c-slow:      #9A5700;
+  --c-fast:      #1C7A44;
+  --shadow: 0 1px 2px rgba(18, 21, 24, .06), 0 16px 34px -24px rgba(18, 21, 24, .45);
+}
+
+:root[data-theme="dark"] {
+  --ground:      #0C0E10;
+  --surface:     #14171A;
+  --surface-2:   #1B1F23;
+  --line:        #2A3036;
+  --line-soft:   #1F2429;
+  --ink:         #E7E9EB;
+  --ink-dim:     #A3ABB3;
+  --ink-faint:   #6E767E;
+  --accent:      #F2A93B;
+  --accent-ink:  #1B1100;
+  --accent-soft: rgba(242, 169, 59, .12);
+  --ok:          #3FD68A;
+  --warn:        #F2A93B;
+  --bad:         #FF6A5E;
+  --device:      #16191C;
+  --device-edge: #2E343A;
+  --stomp:       #2B3035;
+  --stomp-hi:    #454C53;
+  --c-linear:    #E7E9EB;
+  --c-inverted:  #4C8DFF;
+  --c-slow:      #F2A93B;
+  --c-fast:      #3FD68A;
+  --shadow: 0 1px 0 rgba(255, 255, 255, .03), 0 18px 40px -24px rgba(0, 0, 0, .9);
+}
+
+/* ------------------------------------------------------------------ base */
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 20px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16.5px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2 {
+  font-family: "Big Shoulders Display", "Arial Narrow", "Roboto Condensed", Impact, sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  text-wrap: balance;
+  margin: 0;
+  letter-spacing: .01em;
+}
+h1 { font-size: clamp(3.2rem, 9vw, 6rem); line-height: .86; }
+h2 { font-size: clamp(2.1rem, 4.4vw, 2.9rem); line-height: .95; }
+h3 {
+  font-size: 1.12rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0;
+  text-wrap: balance;
+}
+h4 { font-size: .98rem; font-weight: 600; margin: 0; }
+p { margin: 0; }
+ul, ol { margin: 0; padding-left: 1.25em; }
+li + li { margin-top: .35em; }
+a { color: var(--accent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+strong { font-weight: 600; }
+
+code, .mono {
+  font-family: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: .84em;
+  font-variant-ligatures: none;
+}
+code {
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: .06em .32em;
+  overflow-wrap: anywhere;
+}
+pre {
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: .9rem 1rem;
+  overflow-x: auto;
+  font-size: .95rem;
+  line-height: 1.55;
+}
+pre code { background: none; border: 0; padding: 0; overflow-wrap: normal; }
+
+:where(a, button, input, textarea, select, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.eyebrow {
+  font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  font-size: .7rem;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* A switch or jack name, printed like the label on the chassis */
+.sw {
+  display: inline-block;
+  font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  font-size: .78em;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: .02em .4em;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* An LED in its socket */
+.led {
+  --c: var(--led-off);
+  display: inline-block;
+  width: .78em;
+  height: .78em;
+  border-radius: 50%;
+  vertical-align: -.06em;
+  background: var(--c);
+  box-shadow: 0 0 0 2px var(--socket), 0 0 9px -1px var(--c);
+}
+.led[data-c="off"]    { --c: var(--led-off); box-shadow: 0 0 0 2px var(--socket); }
+.led[data-c="white"]  { --c: var(--led-white); }
+.led[data-c="red"]    { --c: var(--led-red); }
+.led[data-c="green"]  { --c: var(--led-green); }
+.led[data-c="amber"]  { --c: var(--led-amber); }
+.led[data-c="blue"]   { --c: var(--led-blue); }
+.led[data-c="purple"] { --c: var(--led-purple); }
+
+/* LED patterns at 120 bpm: a beat is 0.5 s, a 4/4 bar 2 s */
+@keyframes p-dip    { 0%, 6.2%  { opacity: .14; } 6.3%, 100%  { opacity: 1; } }
+@keyframes p-blip   { 0%, 6.2%  { opacity: 1; }   6.3%, 100%  { opacity: .14; } }
+@keyframes p-half   { 0%, 49.9% { opacity: 1; }   50%, 100%   { opacity: .14; } }
+@keyframes p-flash  { 0%, 24.9% { opacity: 1; }   25%, 100%   { opacity: .14; } }
+[data-p="dip"]    { animation: p-dip 2s linear infinite; }
+[data-p="blip"]   { animation: p-blip 2s linear infinite; }
+[data-p="fast"]   { animation: p-half .25s linear infinite; }
+[data-p="medium"] { animation: p-half .5s linear infinite; }
+[data-p="beat"]   { animation: p-flash .5s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  [data-p] { animation: none !important; }
+}
+
+/* ------------------------------------------------------------------ shell */
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-inline: clamp(16px, 4vw, 40px);
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding-block: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+.topbar-links { display: flex; flex-wrap: wrap; gap: .4rem 1.1rem; align-items: center; }
+.topbar-links a { font-size: .9rem; }
+
+.theme-toggle {
+  font: inherit;
+  font-size: .82rem;
+  color: var(--ink-dim);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: .28rem .8rem;
+  cursor: pointer;
+}
+.theme-toggle:hover { color: var(--ink); border-color: var(--ink-faint); }
+
+.masthead {
+  display: grid;
+  gap: 2rem;
+  padding-block: clamp(2.2rem, 6vw, 3.8rem) 2.6rem;
+}
+.lede { display: grid; gap: 1.1rem; max-width: 62ch; }
+.lede p { font-size: 1.08rem; color: var(--ink-dim); }
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1.4rem;
+  font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  font-size: .76rem;
+  color: var(--ink-faint);
+}
+.facts b { color: var(--ink-dim); font-weight: 500; }
+
+.layout { display: grid; gap: 2.5rem; padding-bottom: 5rem; }
+@media (min-width: 1080px) {
+  .layout { grid-template-columns: 200px minmax(0, 1fr); gap: 3.5rem; }
+}
+
+.rail { display: none; }
+@media (min-width: 1080px) {
+  .rail {
+    display: block;
+    position: sticky;
+    top: 20px;
+    align-self: start;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    padding-top: 3.2rem;
+  }
+}
+.rail nav { display: grid; gap: 1.3rem; }
+.rail ul { list-style: none; padding: 0; margin: .45rem 0 0; display: grid; gap: .1rem; }
+.rail li + li { margin-top: 0; }
+.rail a {
+  display: block;
+  color: var(--ink-dim);
+  text-decoration: none;
+  font-size: .9rem;
+  padding: .18rem 0 .18rem .7rem;
+  border-left: 2px solid transparent;
+}
+.rail a:hover { color: var(--ink); }
+.rail a[aria-current="true"] { color: var(--ink); border-left-color: var(--accent); }
+
+main { min-width: 0; }
+
+.part {
+  display: grid;
+  gap: .35rem;
+  padding-block: 3.2rem .6rem;
+}
+.part .eyebrow { color: var(--accent); }
+
+section.chapter {
+  display: grid;
+  gap: 1.15rem;
+  padding-block: 2.4rem;
+  border-top: 1px solid var(--line);
+}
+section.chapter > p, section.chapter > ul, section.chapter > ol, .prose { max-width: var(--measure); }
+.chapter-head { display: grid; gap: .55rem; margin-bottom: .3rem; }
+.chapter-head p { color: var(--ink-dim); max-width: var(--measure); }
+.sub { display: grid; gap: .8rem; margin-top: 1rem; }
+.sub > p, .sub > ul, .sub > ol { max-width: var(--measure); }
+
+/* Asides: a hairline box with a printed label, not a card */
+.aside {
+  display: grid;
+  gap: .3rem;
+  max-width: var(--measure);
+  padding: .8rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.aside .eyebrow { color: var(--ink-dim); }
+.aside.warn { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
+.aside.warn .eyebrow { color: var(--warn); }
+
+/* Steps are a real sequence */
+ol.steps { list-style: none; padding: 0; counter-reset: step; display: grid; gap: 1rem; max-width: var(--measure); }
+ol.steps > li { counter-increment: step; display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: .1rem .8rem; margin: 0; }
+ol.steps > li::before {
+  content: counter(step);
+  font-family: "Big Shoulders Display", Impact, sans-serif;
+  font-weight: 800;
+  font-size: 1.6rem;
+  line-height: 1.05;
+  color: var(--accent);
+  grid-row: span 3;
+}
+ol.steps > li > * { grid-column: 2; }
+ol.steps > li > * + * { margin-top: .45rem; }
+
+/* ------------------------------------------------------------------ tables */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+th, td { text-align: left; vertical-align: top; padding: .55rem .8rem; border-bottom: 1px solid var(--line-soft); }
+tr:last-child > td { border-bottom: 0; }
+thead th {
+  font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  font-size: .68rem;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+td:first-child { white-space: nowrap; }
+td.wrap { white-space: normal; }
+tbody th { font-weight: 600; font-size: .9rem; white-space: nowrap; }
+.num { font-variant-numeric: tabular-nums; }
+.cat-row th {
+  font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  font-size: .7rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--surface-2);
+}
+
+/* Two-column label/value rows */
+dl.pairs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; margin: 0; border-top: 1px solid var(--line-soft); }
+dl.pairs > div { display: grid; gap: .15rem .9rem; padding-block: .7rem; border-bottom: 1px solid var(--line-soft); }
+@media (min-width: 640px) { dl.pairs > div { grid-template-columns: 11rem minmax(0, 1fr); } }
+dl.pairs dt { font-weight: 600; }
+dl.pairs dd { margin: 0; color: var(--ink-dim); max-width: var(--measure); }
+
+/* Setup recipes side by side */
+.recipes { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.recipe { display: grid; gap: .45rem; align-content: start; padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.recipe p, .recipe li { font-size: .93rem; color: var(--ink-dim); }
+
+/* ------------------------------------------------------------------ the Pacer */
+.explorer { display: grid; gap: 1.1rem; }
+@media (min-width: 980px) { .explorer { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: start; } }
+
+.explorer-bar { display: flex; flex-wrap: wrap; gap: .6rem 1rem; align-items: center; justify-content: space-between; grid-column: 1 / -1; }
+.segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--surface); }
+.segmented button {
+  font: inherit;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--ink-dim);
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  padding: .3rem .95rem;
+  cursor: pointer;
+}
+.segmented button[aria-pressed="true"] { background: var(--ink); color: var(--ground); }
+.explorer-note { font-size: .8rem; color: var(--ink-faint); }
+
+.pacer {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--device) 88%, #fff) 0%, var(--device) 9%, var(--device) 100%);
+  border: 1px solid var(--device-edge);
+  border-radius: 12px;
+  padding: 12px clamp(10px, 2.2vw, 22px) 18px;
+  box-shadow: var(--shadow), inset 0 -3px 0 rgba(0, 0, 0, .35);
+  color: var(--device-ink);
+  display: grid;
+  gap: 12px;
+}
+.pacer-rear { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.jack {
+  font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  font-size: .62rem;
+  letter-spacing: .06em;
+  color: var(--device-ink);
+  background: var(--socket);
+  border: 1px solid var(--device-edge);
+  border-radius: 999px;
+  padding: .18rem .55rem;
+  cursor: pointer;
+}
+.jack[aria-pressed="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+
+.pacer-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(6px, 1.6vw, 14px); }
+.readout {
+  grid-column: span 1;
+  align-self: center;
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+}
+.readout-screen {
+  width: 100%;
+  background: #05100C;
+  border: 1px solid #000;
+  border-radius: 3px;
+  padding: .3rem .2rem .22rem;
+  text-align: center;
+  font-family: "Doto", "JetBrains Mono", Consolas, monospace;
+  font-weight: 900;
+  font-size: clamp(.78rem, 2.1vw, 1.12rem);
+  letter-spacing: .06em;
+  color: #9CF5C8;
+  text-shadow: 0 0 6px rgba(120, 240, 180, .55);
+  white-space: pre;
+}
+.readout-label { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; font-size: .55rem; letter-spacing: .1em; color: var(--device-ink); opacity: .75; }
+.brand {
+  align-self: center;
+  justify-self: center;
+  font-family: "Big Shoulders Display", Impact, sans-serif;
+  font-weight: 800;
+  font-size: clamp(.8rem, 2vw, 1.15rem);
+  letter-spacing: .14em;
+  color: var(--device-ink);
+  opacity: .8;
+}
+
+.stomp {
+  --c: var(--led-off);
+  appearance: none;
+  font: inherit;
+  color: var(--device-ink);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.stomp-cap {
+  position: relative;
+  width: min(100%, 64px);
+  aspect-ratio: 1;
+  max-width: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, var(--stomp-hi) 0%, var(--stomp) 58%, #1a1e22 100%);
+  box-shadow: 0 0 0 3px var(--socket), inset 0 2px 3px rgba(255, 255, 255, .12);
+}
+.stomp-ring { position: absolute; inset: -6px; border-radius: 50%; border: 2.5px solid var(--c); box-shadow: 0 0 14px 2px color-mix(in srgb, var(--c) 45%, transparent); pointer-events: none; }
+.stomp[data-c="off"] .stomp-ring { box-shadow: none; }
+.stomp[data-c="white"]  { --c: var(--led-white); }
+.stomp[data-c="red"]    { --c: var(--led-red); }
+.stomp[data-c="green"]  { --c: var(--led-green); }
+.stomp[data-c="amber"]  { --c: var(--led-amber); }
+.stomp[data-c="blue"]   { --c: var(--led-blue); }
+.stomp[data-c="purple"] { --c: var(--led-purple); }
+.stomp-name { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; font-size: .62rem; letter-spacing: .06em; }
+.stomp-role { font-size: .66rem; line-height: 1.2; text-align: center; color: var(--device-ink); opacity: .72; min-height: 2.4em; overflow-wrap: anywhere; }
+.stomp[aria-pressed="true"] .stomp-name { color: var(--accent); }
+.stomp[aria-pressed="true"] .stomp-cap { outline: 2px solid var(--accent); outline-offset: 7px; }
+@media (max-width: 560px) { .stomp-role { display: none; } }
+
+.detail { display: grid; gap: .8rem; padding: 1.1rem 1.2rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.detail-head { display: flex; gap: .7rem; align-items: baseline; flex-wrap: wrap; }
+.detail-head h3 { font-family: "Big Shoulders Display", Impact, sans-serif; font-weight: 800; font-size: 1.7rem; text-transform: uppercase; line-height: 1; }
+.gesture { display: grid; grid-template-columns: 5.6rem minmax(0, 1fr); gap: .6rem; padding-top: .6rem; border-top: 1px solid var(--line-soft); }
+.gesture dt { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); padding-top: .2rem; }
+.gesture dd { margin: 0; }
+.gesture dd.none { color: var(--ink-faint); }
+.detail-note { font-size: .88rem; color: var(--ink-dim); }
+.detail-led { display: flex; gap: .5rem; align-items: center; font-size: .85rem; color: var(--ink-dim); }
+
+/* ------------------------------------------------------------------ LED patterns and the curve chart */
+.patterns { display: grid; gap: .1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.pattern { display: grid; grid-template-columns: 1.4rem minmax(0, 1fr); gap: .1rem .6rem; align-items: center; padding: .6rem .2rem; border-bottom: 1px solid var(--line-soft); }
+.pattern .led { font-size: 1.1rem; }
+.pattern b { font-weight: 600; font-size: .92rem; }
+.pattern span { grid-column: 2; font-size: .85rem; color: var(--ink-dim); }
+
+.chart { display: grid; gap: .6rem; max-width: 620px; }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart .grid-line { stroke: var(--line); stroke-width: 1; }
+.chart .axis-label { fill: var(--ink-faint); font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; font-size: 11px; }
+.chart .curve { fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.legend { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; font-size: .85rem; color: var(--ink-dim); }
+.legend i { display: inline-block; width: 1.2rem; height: 3px; border-radius: 2px; vertical-align: .25em; margin-right: .4rem; }
+
+/* ------------------------------------------------------------------ settings filter */
+.filter { display: flex; flex-wrap: wrap; gap: .6rem 1rem; align-items: center; }
+.filter input {
+  font: inherit;
+  font-size: .95rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: .45rem .7rem;
+  width: min(100%, 22rem);
+}
+.filter output { font-size: .82rem; color: var(--ink-faint); }
+
+/* ------------------------------------------------------------------ checklists */
+.toolbar { display: flex; flex-wrap: wrap; gap: .6rem 1rem; align-items: center; }
+.btn {
+  font: inherit;
+  font-size: .88rem;
+  font-weight: 600;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: .42rem .9rem;
+  cursor: pointer;
+}
+.btn.quiet { color: var(--ink); background: var(--surface); border-color: var(--line); }
+.status { font-size: .82rem; color: var(--ink-faint); }
+
+.group { display: grid; gap: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: .75rem 1rem; border-bottom: 1px solid var(--line); }
+.count { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; font-size: .78rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.check { display: grid; gap: .35rem; padding: .7rem 1rem; border-bottom: 1px solid var(--line-soft); }
+.check:last-child { border-bottom: 0; }
+.check label { display: grid; grid-template-columns: 1.3rem 2rem minmax(0, 1fr); gap: .5rem; align-items: start; cursor: pointer; }
+.check input[type="checkbox"] { width: 1.05rem; height: 1.05rem; margin: .22rem 0 0; accent-color: var(--accent); }
+.check .n { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; font-size: .75rem; color: var(--ink-faint); padding-top: .2rem; font-variant-numeric: tabular-nums; }
+.check input:checked ~ .text { color: var(--ink-dim); }
+.check textarea {
+  margin-left: 3.8rem;
+  width: calc(100% - 3.8rem);
+  min-height: 2.1rem;
+  resize: vertical;
+  font: inherit;
+  font-size: .86rem;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: .3rem .5rem;
+}
+.check textarea:placeholder-shown { background: transparent; border-style: dashed; }
+.fallback textarea { width: 100%; min-height: 12rem; font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; font-size: .8rem; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: .6rem; }
+
+footer { border-top: 1px solid var(--line); padding-block: 2rem 3rem; color: var(--ink-faint); font-size: .85rem; display: grid; gap: .4rem; }
+</style>
+
+<div class="page">
+<header class="topbar">
+  <span class="eyebrow">Manual for PACER Looper 0.3.0</span>
+  <div class="topbar-links">
+    <a href="https://github.com/chillbeast/Pacer4Bitwig">GitHub</a>
+    <a href="https://github.com/chillbeast/Pacer4Bitwig/releases">Downloads</a>
+    <a href="https://chillbeast.github.io/Pacer4Bitwig/">Pacer Studio</a>
+    <button class="theme-toggle" id="theme-toggle" type="button">Theme: system</button>
+  </div>
+</header>
+
+<div class="masthead">
+  <div class="lede">
+    <span class="eyebrow">Nektar Pacer &times; Bitwig Studio</span>
+    <h1>Pacer4Bitwig</h1>
+    <p>The Nektar Pacer as a looper pedal and an effects pedalboard for Bitwig Studio. Every loop is a clip in Bitwig's launcher, so loops always land in time with each other and the project tempo, and the Pacer's LEDs blink with the beat.</p>
+    <div class="facts">
+      <span><b>PACER Looper</b> 0.3.0</span>
+      <span>Presets <b>LOOPS</b> on D1 &middot; <b>FX</b> on D2</span>
+      <span>Talks on MIDI channel <b>16</b></span>
+      <span>Bitwig Studio <b>6</b></span>
+    </div>
+  </div>
+
+  <div class="explorer" id="explorer">
+    <div class="explorer-bar">
+      <div class="segmented" role="group" aria-label="Preset shown on the Pacer">
+        <button type="button" id="show-looper" aria-pressed="true">Looper &middot; D1</button>
+        <button type="button" id="show-fx" aria-pressed="false">FX &middot; D2</button>
+      </div>
+      <span class="explorer-note" id="explorer-note">Default layout, two-colour preset. The LEDs show an example moment at 120 bpm: loop 1 playing, loop 2 stopped.</span>
+    </div>
+
+    <div class="pacer" aria-label="The Pacer seen from above">
+      <div class="pacer-rear" role="group" aria-label="Rear jacks">
+        <button class="jack" type="button" data-id="FS1" aria-pressed="false">FS 1</button>
+        <button class="jack" type="button" data-id="FS2" aria-pressed="false">FS 2</button>
+        <button class="jack" type="button" data-id="FS3" aria-pressed="false">FS 3</button>
+        <button class="jack" type="button" data-id="FS4" aria-pressed="false">FS 4</button>
+        <button class="jack" type="button" data-id="EXP1" aria-pressed="false">EXP 1</button>
+        <button class="jack" type="button" data-id="EXP2" aria-pressed="false">EXP 2</button>
+      </div>
+      <div class="pacer-row">
+        <div class="readout"><div class="readout-screen" id="readout">LOOPS</div><span class="readout-label">PRESET</span></div>
+        <button class="stomp" type="button" data-id="A" data-c="off" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW A</span><span class="stomp-role">Previous row</span></button>
+        <button class="stomp" type="button" data-id="B" data-c="white" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW B</span><span class="stomp-role">Next row</span></button>
+        <button class="stomp" type="button" data-id="C" data-c="off" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW C</span><span class="stomp-role">Overdub</span></button>
+        <button class="stomp" type="button" data-id="D" data-c="white" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring" data-p="beat"></span></span><span class="stomp-name">SW D</span><span class="stomp-role">Tap tempo</span></button>
+        <div class="brand">PACER</div>
+      </div>
+      <div class="pacer-row">
+        <button class="stomp" type="button" data-id="1" data-c="red" aria-pressed="true"><span class="stomp-cap"><span class="stomp-ring" data-p="dip"></span></span><span class="stomp-name">SW 1</span><span class="stomp-role">Loop 1</span></button>
+        <button class="stomp" type="button" data-id="2" data-c="red" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring" data-p="blip"></span></span><span class="stomp-name">SW 2</span><span class="stomp-role">Loop 2</span></button>
+        <button class="stomp" type="button" data-id="3" data-c="off" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW 3</span><span class="stomp-role">Loop 3</span></button>
+        <button class="stomp" type="button" data-id="4" data-c="off" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW 4</span><span class="stomp-role">Loop 4</span></button>
+        <button class="stomp" type="button" data-id="5" data-c="white" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW 5</span><span class="stomp-role">Undo</span></button>
+        <button class="stomp" type="button" data-id="6" data-c="white" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW 6</span><span class="stomp-role">Play / stop all</span></button>
+      </div>
+    </div>
+
+    <div class="detail" id="detail" aria-live="polite">
+      <div class="detail-head"><h3 id="detail-name">SW 1</h3><span class="eyebrow" id="detail-kind">Loop switch &middot; loop track 1</span></div>
+      <dl>
+        <div class="gesture"><dt>Tap</dt><dd id="g-tap">Smart loop: record on an empty slot, close the recording, stop a playing loop, play a stopped one</dd></div>
+        <div class="gesture"><dt>Double-tap</dt><dd id="g-double" class="none">Nothing by default</dd></div>
+        <div class="gesture"><dt>Hold</dt><dd id="g-hold">Delete that loop</dd></div>
+      </dl>
+      <p class="detail-led" id="detail-led"><span class="led" data-c="red" data-p="dip"></span><span>Playing: on, with a short gap on every downbeat</span></p>
+      <p class="detail-note" id="detail-note">Loop switches fire on press, so timing stays tight. See <a href="#smart-loop">Smart loop</a>.</p>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+<aside class="rail" aria-label="Contents">
+  <nav>
+    <div><span class="eyebrow">Set up</span>
+      <ul>
+        <li><a href="#overview">What you get</a></li>
+        <li><a href="#install">Install the extension</a></li>
+        <li><a href="#presets">Presets on the Pacer</a></li>
+        <li><a href="#project">Prepare a project</a></li>
+      </ul>
+    </div>
+    <div><span class="eyebrow">Play</span>
+      <ul>
+        <li><a href="#looper">Looper preset</a></li>
+        <li><a href="#fx">FX preset</a></li>
+        <li><a href="#pedals">Expression pedals</a></li>
+        <li><a href="#leds">LEDs</a></li>
+        <li><a href="#other">Other presets &amp; DAW mode</a></li>
+      </ul>
+    </div>
+    <div><span class="eyebrow">Reference</span>
+      <ul>
+        <li><a href="#settings">Settings</a></li>
+        <li><a href="#midi">MIDI map</a></li>
+        <li><a href="#trouble">Troubleshooting</a></li>
+      </ul>
+    </div>
+    <div><span class="eyebrow">Test</span>
+      <ul>
+        <li><a href="#checklists">Hardware checklists</a></li>
+      </ul>
+    </div>
+  </nav>
+</aside>
+
+<main>
+
+<div class="part"><span class="eyebrow">Part one</span><h2>Set up</h2></div>
+
+<section class="chapter" id="overview">
+  <div class="chapter-head">
+    <h3>What you get</h3>
+    <p>Bitwig has no looper device: the clip launcher is the looper. Pacer4Bitwig gives the Pacer the controls, the presets and the feedback to play it with your feet.</p>
+  </div>
+  <dl class="pairs">
+    <div><dt>PACER Looper</dt><dd>The Bitwig controller extension (<code>Pacer4Bitwig.bwextension</code>). All behaviour lives here, and almost everything is configurable in Bitwig's controller settings.</dd></div>
+    <div><dt>Looper preset</dt><dd><span class="sw">LOOPS</span> on slot D1. Four loop switches, row navigation, undo, tap tempo, and a one-button looper on FS 1.</dd></div>
+    <div><dt>FX preset</dt><dd><span class="sw">FX</span> on slot D2. Effects on/off for the instrument you are playing, instrument switching and snapshots, while the looper keeps running.</dd></div>
+    <div><dt>Pacer Studio</dt><dd>A preset editor that runs in Chrome or Edge, <a href="https://chillbeast.github.io/Pacer4Bitwig/">online</a> or installed. It writes both presets, backs up the Pacer, and has an LED Lab and a MIDI monitor.</dd></div>
+    <div><dt>Command-line tools</dt><dd>In <code>tools/</code>: a read-only backup, the preset generator, a guarded preset writer and a MIDI monitor.</dd></div>
+  </dl>
+  <div class="sub">
+    <h4>You need</h4>
+    <ul>
+      <li>Bitwig Studio 6 and a Nektar Pacer connected over USB.</li>
+      <li>Chrome, Edge or Opera on a desktop to write presets with Pacer Studio (it needs Web MIDI with SysEx).</li>
+    </ul>
+    <p>Tested on Windows 11 with Windows MIDI Services, which lets Bitwig, Pacer Studio and the tools share the Pacer's ports.</p>
+  </div>
+</section>
+
+<section class="chapter" id="install">
+  <div class="chapter-head">
+    <h3>Install the extension</h3>
+    <p>Once per computer. Bitwig reloads the extension by itself whenever the file is replaced.</p>
+  </div>
+  <ol class="steps">
+    <li><p><strong>Download</strong> <code>Pacer4Bitwig.bwextension</code> from the <a href="https://github.com/chillbeast/Pacer4Bitwig/releases">latest release</a>, or build it from source with <code>cd bitwig &amp;&amp; mvn -q install</code>.</p></li>
+    <li><p><strong>Copy it</strong> into <code>Documents/Bitwig Studio/Extensions</code>. A source build does this for you.</p></li>
+    <li><p><strong>Disable Nektar's own PACER script</strong> in <em>Settings &rsaquo; Controllers</em>. It claims the same MIDI port. PACER Looper can take over its Track and Transport presets (see <a href="#other">DAW mode</a>).</p></li>
+    <li>
+      <p><strong>Add the controller:</strong> <em>Settings &rsaquo; Controllers &rsaquo; Add controller &rsaquo; Nektar &rsaquo; PACER Looper</em>, then pick the ports.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Port</th><th>Input</th><th>Output</th><th>Used for</th></tr></thead>
+          <tbody>
+            <tr><td>Port 1</td><td><code>PACER</code></td><td><code>PACER</code></td><td class="wrap">Both presets, LEDs, pedals</td></tr>
+            <tr><td>Port 2</td><td><code>MIDIIN2 (PACER)</code></td><td><code>MIDIOUT2 (PACER)</code></td><td class="wrap">Only the optional Nektar DAW mode</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </li>
+    <li><p><strong>Check the pop-up.</strong> Bitwig shows <em>PACER Looper 0.3.0 ready on MIDI channel 16</em>. No pop-up, or an older version number, means the file did not load.</p></li>
+  </ol>
+  <div class="aside">
+    <span class="eyebrow">Added the controller before 0.2?</span>
+    <p>PACER Looper has two ports since version 0.2. Open its entry in <em>Settings &rsaquo; Controllers</em> and pick the port 2 devices, or remove and re-add the controller.</p>
+  </div>
+</section>
+
+<section class="chapter" id="presets">
+  <div class="chapter-head">
+    <h3>Put the presets on the Pacer</h3>
+    <p>The presets make the Pacer send what the extension listens for: CC 102&ndash;119 on MIDI channel 16. Your other presets stay as they are.</p>
+  </div>
+  <div class="sub">
+    <h4>With Pacer Studio</h4>
+    <ol class="steps">
+      <li><p>Open <a href="https://chillbeast.github.io/Pacer4Bitwig/">Pacer Studio</a> in Chrome or Edge, click the connection pill, then <em>Allow MIDI access</em>.</p></li>
+      <li><p>Choose <em>Templates &rsaquo; Bitwig Looper</em> for D1, or <em>Bitwig FX</em> for D2. Keep the LED strategy on <em>two-colour</em> for now.</p></li>
+      <li><p>Click <em>Send changes</em>. Before the first write of a session Pacer Studio asks you to save a full backup: save it, it is your undo.</p></li>
+    </ol>
+  </div>
+  <div class="sub">
+    <h4>From a terminal</h4>
+    <p>The writer refuses a file that targets a different slot than <code>--confirm</code> names, and backs that slot up to <code>backups/</code> before writing.</p>
+<pre><code>cd tools
+node pacer-backup.mjs
+node looper-preset.mjs
+node pacer-send.mjs ../presets/bitwig-looper-two-colour-D1.syx --confirm D1
+node pacer-send.mjs ../presets/bitwig-fx-two-colour-D2.syx --confirm D2</code></pre>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Slot</th><th>Display</th><th>Preset</th><th>Announces itself with</th></tr></thead>
+      <tbody>
+        <tr><td>D1</td><td><code>LOOPS</code></td><td class="wrap">Looper</td><td class="wrap">CC 119 = 127 (two-colour) or 2 (multi-colour)</td></tr>
+        <tr><td>D2</td><td><code>FX</code></td><td class="wrap">FX pedalboard</td><td class="wrap">CC 119 = 17 (two-colour) or 18 (multi-colour)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="aside">
+    <span class="eyebrow">Two-colour or multi-colour</span>
+    <p>Two-colour presets use the Pacer's documented LED behaviour: each switch is on or off, and the extension shows state with blink patterns. Multi-colour presets try to show six colours per switch and are experimental. Start with two-colour; switch once the <a href="#leds">LED test</a> shows six colours on your Pacer.</p>
+  </div>
+  <div class="aside">
+    <span class="eyebrow">Keep off D6</span>
+    <p>The Pacer never answers read requests for D6, so that slot cannot be backed up on its own.</p>
+  </div>
+</section>
+
+<section class="chapter" id="project">
+  <div class="chapter-head">
+    <h3>Prepare a Bitwig project</h3>
+    <p>Loops need tracks to live on, and launch quantization to land on the grid.</p>
+  </div>
+  <ol class="steps">
+    <li><p><strong>Create the loop tracks</strong> next to each other, e.g. <em>Loop 1&ndash;4</em>. The looper manages 1&ndash;6 tracks (setting <em>Loop tracks</em>). Audio tracks take your interface input; instrument tracks work too, and can overdub notes into a playing clip.</p></li>
+    <li><p><strong>Tell the extension where they are</strong> if they are not the first tracks: <em>PACER Looper &rsaquo; Loop tracks start at track</em>. It is saved with the project, and moving the loop track window from the Pacer updates it.</p></li>
+    <li><p><strong>Set Launch quantization to 1 bar</strong> in the extension settings. That is what makes loops start and end on the grid.</p></li>
+    <li><p><strong>Set the tempo</strong>, or tap it with <span class="sw">SW D</span>.</p></li>
+    <li><p><strong>Keep the audio buffer low</strong>, 64&ndash;256 samples. Bitwig compensates recording latency itself.</p></li>
+  </ol>
+  <div class="sub">
+    <h4>How you hear yourself</h4>
+    <div class="recipes">
+      <div class="recipe">
+        <span class="eyebrow">Recommended for guitar and vocals</span>
+        <h4>Dedicated input track</h4>
+        <p>One track per instrument with the interface input, monitoring <em>On</em> and your live effects. Set each loop track's input to that track (post-FX) and its monitoring to <em>Off</em>. You always hear the live sound, loops record what you hear, and arming never changes it. These are the tracks the FX preset controls.</p>
+      </div>
+      <div class="recipe">
+        <span class="eyebrow">Simplest</span>
+        <h4>Monitor through the loop tracks</h4>
+        <p>Loop tracks take the interface input with monitoring <em>Auto</em>. The looper arms the track it records on; <em>Exclusive arm</em> keeps only the latest one armed, so you hear your input once, through that track's effects.</p>
+      </div>
+      <div class="recipe">
+        <span class="eyebrow">Synths</span>
+        <h4>MIDI loops</h4>
+        <p>Instrument tracks with input <em>PACER</em> or your keyboard. Arm follows the loop you record, and launcher overdub layers notes into a playing clip.</p>
+      </div>
+    </div>
+  </div>
+  <div class="aside">
+    <span class="eyebrow">Playing a Push at the same time</span>
+    <p>The looper selects the loop track it records on, and a Push follows Bitwig's selection. Pin the Push's track (DrivenByMoss: press <em>Select</em>, then <em>Pin Track</em>), or switch off <em>Select the track on press</em>. The FX preset never changes the selection.</p>
+  </div>
+</section>
+
+<div class="part"><span class="eyebrow">Part two</span><h2>Play</h2></div>
+
+<section class="chapter" id="looper">
+  <div class="chapter-head">
+    <h3>The looper preset</h3>
+    <p>Select <span class="sw">D1</span> on the Pacer: the display reads <code>LOOPS</code> and Bitwig shows <em>Looper preset</em>. Each loop switch runs one loop track like a looper pedal, the rest of the Pacer moves you around the song.</p>
+  </div>
+
+  <div class="sub">
+    <h4>Three gestures on every switch</h4>
+    <dl class="pairs">
+      <div><dt>Tap</dt><dd>Runs on press whenever timing matters (loops, the one-button looper, tap tempo) or when the switch has no hold action; otherwise on release, so a hold never runs the tap first.</dd></div>
+      <div><dt>Double-tap</dt><dd>The first tap always runs straight away. A second tap within the <em>Double-tap speed</em> window (0.25, 0.35 or 0.5 s) runs the double-tap action instead of a second tap. Nothing is assigned by default.</dd></div>
+      <div><dt>Hold</dt><dd>Half a second. Actions that delete loops can ask for 1.5 or 2.5 s (<em>Hold time for clearing actions</em>), so a heavy foot never clears a take.</dd></div>
+    </dl>
+  </div>
+
+  <div class="sub">
+    <h4>Default layout</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Control</th><th>Tap</th><th>Hold</th></tr></thead>
+        <tbody>
+          <tr><td><span class="sw">SW 1</span>&ndash;<span class="sw">SW 4</span></td><td class="wrap">Smart loop on loop track 1&ndash;4</td><td class="wrap">Delete that loop</td></tr>
+          <tr><td><span class="sw">SW 5</span></td><td class="wrap">Undo</td><td class="wrap">Redo</td></tr>
+          <tr><td><span class="sw">SW 6</span></td><td class="wrap">Stop all loops, or play the whole row when nothing plays</td><td class="wrap">Clear every loop in the row</td></tr>
+          <tr><td><span class="sw">SW A</span></td><td class="wrap">Previous scene row</td><td class="wrap">Move the loop track window left</td></tr>
+          <tr><td><span class="sw">SW B</span></td><td class="wrap">Next scene row, adding one after the last</td><td class="wrap">Move the loop track window right</td></tr>
+          <tr><td><span class="sw">SW C</span></td><td class="wrap">Launcher overdub on/off</td><td class="wrap">Metronome on/off</td></tr>
+          <tr><td><span class="sw">SW D</span></td><td class="wrap">Tap tempo (its LED flashes the beat)</td><td class="wrap">Transport play/stop</td></tr>
+          <tr><td><span class="sw">FS 1</span></td><td class="wrap">One-button looper: record the next layer</td><td class="wrap">Clear the last recorded loop</td></tr>
+          <tr><td><span class="sw">FS 2</span></td><td class="wrap">Stop all loops / play the row</td><td class="wrap">Clear every loop in the row</td></tr>
+          <tr><td><span class="sw">FS 3</span></td><td class="wrap">Focus the next FX instrument</td><td class="wrap">&ndash;</td></tr>
+          <tr><td><span class="sw">FS 4</span></td><td class="wrap">Next FX snapshot</td><td class="wrap">&ndash;</td></tr>
+          <tr><td><span class="sw">EXP 1</span></td><td class="wrap" colspan="2">Volume of the selected track</td></tr>
+          <tr><td><span class="sw">EXP 2</span></td><td class="wrap" colspan="2">Master volume</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Every tap, double-tap and hold of the switches that are not loop switches, SW A&ndash;D and the jacks can be reassigned in the settings. The footswitch jacks behave the same on both presets.</p>
+  </div>
+
+  <div class="sub" id="smart-loop">
+    <h4>Smart loop</h4>
+    <p>One switch per loop. What a tap does depends on the slot in the current scene row:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>The slot is</th><th>A tap</th><th>LED, two-colour</th></tr></thead>
+        <tbody>
+          <tr><td>empty</td><td class="wrap">arms the track and records from the next quantization point, or after the count-in</td><td><span class="led" data-c="off"></span> off</td></tr>
+          <tr><td>recording</td><td class="wrap">closes the loop: stops recording and plays it</td><td><span class="led" data-c="red" data-p="medium"></span> blinks every beat</td></tr>
+          <tr><td>playing</td><td class="wrap">stops it (or, by setting, mutes/unmutes it, toggles overdub, or does nothing)</td><td><span class="led" data-c="red" data-p="dip"></span> on, gap on the downbeat</td></tr>
+          <tr><td>stopped</td><td class="wrap">plays it, and unmutes the track if it was muted</td><td><span class="led" data-c="red" data-p="blip"></span> flash on the downbeat</td></tr>
+          <tr><td>waiting, counting in</td><td class="wrap">cancels</td><td><span class="led" data-c="red" data-p="fast"></span> fast blink</td></tr>
+          <tr><td>waiting to stop</td><td class="wrap">keeps it playing</td><td><span class="led" data-c="red" data-p="fast"></span> fast blink</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Loop switches fire on press. A hold therefore runs the tap first, which is harmless with the default hold: whatever the tap started is deleted.</p>
+  </div>
+
+  <div class="sub">
+    <h4>Shaping the loop switches</h4>
+    <dl class="pairs">
+      <div><dt>How many</dt><dd><em>Loop switches</em>: none, SW 1, SW 1&ndash;2 up to SW 1&ndash;6, and separately <em>Loop tracks</em>: 1&ndash;6. A switch is a loop switch when its number is within both. With <em>None</em> the Pacer becomes a fully custom Bitwig pedalboard, while FS 1 and the row actions still run the loops.</dd></div>
+      <div><dt>Hold to record</dt><dd><em>Loop switch mode = Hold to record, release to close</em>: press and hold an empty loop to record, let go to close it, like a punch-in. Let go before recording started and it closes one quantization step after it starts. Loops that already exist keep tap and hold.</dd></div>
+      <div><dt>Double-tap</dt><dd><em>Double-tap a loop switch</em>: stop, mute/unmute, clear or undo. <em>Clear</em> turns an accidental record into "never mind".</dd></div>
+      <div><dt>When not loop switches</dt><dd>SW 1 one-button looper / clear last loop, SW 2 mute all / fade out, SW 3 smart loop on the selected track / clear it, SW 4 next / previous loop track.</dd></div>
+    </dl>
+  </div>
+
+  <div class="sub">
+    <h4>Building a performance</h4>
+    <dl class="pairs">
+      <div><dt>One-button looper</dt><dd>The classic single-pedal looper spread over the loop tracks: each tap closes the loop that is recording, or starts one on the first empty track of the row. Hold clears the most recent loop.</dd></div>
+      <div><dt>Mute, don't stop</dt><dd><em>Tap on a playing loop = Mute/unmute</em> keeps the clip running silently, so it comes back exactly in time. <em>Mute/unmute all loops</em> makes a break; <em>Solo/unsolo selected loop</em> isolates a layer.</dd></div>
+      <div><dt>Mute on the one</dt><dd><em>Mute timing = On the next beat / bar</em> holds a mute until the next beat or downbeat, even if your foot is early. A waiting mute blinks fast; tap again to cancel it.</dd></div>
+      <div><dt>Count-in</dt><dd><em>Count-in from a stopped transport = 1 or 2 bars</em> starts the transport with the metronome, counts in and records on the next bar. Tap the same switch again to cancel.</dd></div>
+      <div><dt>Beat counter</dt><dd>While counting in or waiting to record (amber) and while recording (red), SW A&ndash;D show the beat of the bar: A = 1, B = 2, C = 3, D = 4.</dd></div>
+      <div><dt>Match the first loop</dt><dd><em>Loop length = Match the first loop of the row</em>: the first loop of a row is free, and its length in bars becomes the length of every later loop in that row, which then close by themselves.</dd></div>
+      <div><dt>Double and halve</dt><dd><em>Double selected loop</em> duplicates the clip's content (2 bars become 4 of the same material); <em>Halve</em> shortens the loop to its first half.</dd></div>
+      <div><dt>Rows as song sections</dt><dd>Each scene row is a set of loops. Record the verse in row 1, tap SW B and record the chorus in row 2, launch rows with SW 6. <em>Duplicate row</em> copies a row with its loops and moves there.</dd></div>
+      <div><dt>Row names</dt><dd><em>Names for new rows</em> such as <code>Intro, Verse, Chorus, Bridge, Outro</code> name rows created from the Pacer by position, and notifications show them: <em>Row 3: Chorus</em>.</dd></div>
+      <div><dt>Fades</dt><dd><em>Fade out and stop all loops</em> ramps the loop tracks down over the <em>Fade length</em> (1, 2, 4 or 8 bars), stops them and restores their volumes. <em>Fade in the row</em> launches it from silence. Tap again during a fade to cancel.</dd></div>
+      <div><dt>Status at a glance</dt><dd><em>Show looper status</em> pops up <code>Row 2: Verse | 1 &#9654; (muted) 2 &#9679; 3 &#9632; 4 &ndash;</code>: &#9654; playing, &#9679; recording, &#9632; stopped, &ndash; empty. It shows even with notifications off.</dd></div>
+      <div><dt>Panic</dt><dd><em>Reset the looper</em> stops every loop, cancels count-ins, fades and waiting mutes, unmutes, unsolos and disarms the loop tracks and turns launcher overdub off.</dd></div>
+    </dl>
+  </div>
+
+  <div class="sub">
+    <h4>Actions you can assign</h4>
+    <p>Available as tap, double-tap and hold on every switch that is not a loop switch, on both presets, and on the jacks.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Group</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td>Loops</td><td class="wrap">One-button looper &middot; clear the last recorded loop &middot; smart loop, stop, mute, solo or clear the selected track &middot; input monitoring on/off &middot; double / halve the selected loop &middot; select previous / next loop track</td></tr>
+          <tr><td>Row</td><td class="wrap">Play row / stop all &middot; stop all &middot; play row &middot; clear row &middot; mute/unmute all loops &middot; fade out and stop &middot; fade in the row &middot; reset the looper</td></tr>
+          <tr><td>Navigation</td><td class="wrap">Previous / next row &middot; duplicate row &middot; move loop tracks left / right</td></tr>
+          <tr><td>Transport</td><td class="wrap">Undo &middot; redo &middot; launcher overdub &middot; metronome &middot; tap tempo &middot; transport play/stop &middot; show looper status &middot; test the LEDs</td></tr>
+          <tr><td>FX</td><td class="wrap">FX 1&ndash;6 on/off &middot; focus instrument A&ndash;D &middot; focus next / previous instrument &middot; mute/unmute instrument A&ndash;D or the focused one &middot; assign the selected track to instrument A&ndash;D &middot; next snapshot &middot; back to snapshot 1 &middot; store the snapshot</td></tr>
+          <tr><td>Hold only</td><td class="wrap"><em>Momentary: tap again on release</em> turns any on/off tap into a momentary switch</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="chapter" id="fx">
+  <div class="chapter-head">
+    <h3>The FX preset</h3>
+    <p>Select <span class="sw">D2</span>: the display reads <code>FX</code> and Bitwig shows <em>FX preset</em> with the instrument you are on. The Pacer becomes a pedalboard for whatever you play through Bitwig, and your loops keep playing.</p>
+  </div>
+
+  <dl class="pairs">
+    <div><dt>One preset, many instruments</dt><dd>Switching instrument is one tap on the top row, so you can put the guitar back on the stand and pick up the bass mid-song.</dd></div>
+    <div><dt>The meaning lives in Bitwig</dt><dd>A switch controls the focused instrument's track remote controls page named <em>Pacer</em>, or, without one, the devices of its chain in order. Changing an effects rack never needs a new preset.</dd></div>
+    <div><dt>Hands off your selection</dt><dd>The FX preset follows instruments with its own cursor, so it never changes Bitwig's selected track, and neither the mouse nor a pinned Push moves it.</dd></div>
+  </dl>
+
+  <div class="sub">
+    <h4>Set up your instruments</h4>
+    <ol class="steps">
+      <li><p><strong>One track per live instrument</strong>, e.g. <em>Vocal</em>, <em>Guitar</em>, <em>Bass</em>, with the interface input, monitoring <em>On</em> and its effects: the <a href="#project">dedicated input track</a> setup.</p></li>
+      <li>
+        <p><strong>Optional: add a remote controls page named Pacer</strong> to each track and map</p>
+        <ul>
+          <li>slots 1&ndash;6 to what SW 1&ndash;6 switch, such as an effect's mix or a chain's volume. The mapping's range is what the switch toggles between, so <em>delay mix 0&ndash;35 %</em> is set up in Bitwig;</li>
+          <li>slots 7&ndash;8 to what EXP 1 and EXP 2 move: wah frequency, delay feedback, reverb size.</li>
+        </ul>
+        <p>Save the track as a preset (<em>Guitar rig</em>, <em>Bass rig</em>, <em>Vocal chain</em>) to bring it to any project.</p>
+      </li>
+      <li><p><strong>Assign the tracks:</strong> select the guitar track in Bitwig and hold <span class="sw">SW A</span> until Bitwig shows <em>Instrument A is now Guitar</em>. Repeat with SW B and SW C.</p></li>
+    </ol>
+  </div>
+
+  <div class="sub">
+    <h4>Default layout</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Control</th><th>Tap</th><th>Double-tap</th><th>Hold</th></tr></thead>
+        <tbody>
+          <tr><td><span class="sw">SW 1</span>&ndash;<span class="sw">SW 6</span></td><td class="wrap">FX 1&ndash;6 on/off</td><td class="wrap">&ndash;</td><td class="wrap">On only while held</td></tr>
+          <tr><td><span class="sw">SW A</span>&ndash;<span class="sw">SW C</span></td><td class="wrap">Focus instrument A&ndash;C</td><td class="wrap">Mute/unmute that instrument</td><td class="wrap">Assign the track selected in Bitwig</td></tr>
+          <tr><td><span class="sw">SW D</span></td><td class="wrap">Next snapshot</td><td class="wrap">Back to snapshot 1</td><td class="wrap">Store the current sound</td></tr>
+          <tr><td><span class="sw">FS 1</span>, <span class="sw">FS 2</span></td><td class="wrap" colspan="3">Same as on the looper preset: one-button looper and play/stop all, so you can keep looping</td></tr>
+          <tr><td><span class="sw">FS 3</span>, <span class="sw">FS 4</span></td><td class="wrap" colspan="3">Focus the next instrument &middot; next snapshot</td></tr>
+          <tr><td><span class="sw">EXP 1</span>, <span class="sw">EXP 2</span></td><td class="wrap" colspan="3">Remote controls 7 and 8 of the focused instrument's Pacer page</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Every switch has its own settings on this preset (<em>FX preset: SW 1-6</em> and <em>SW A-D</em>). Set <em>FX SW D tap</em> to <em>Focus instrument D</em> for a fourth instrument.</p>
+  </div>
+
+  <div class="sub">
+    <h4>What an FX switch controls</h4>
+    <div class="recipes">
+      <div class="recipe">
+        <span class="eyebrow">The track has a Pacer page</span>
+        <h4>Remote controls</h4>
+        <p>SW N toggles remote control N between the two ends of its mapping, and counts as on from the middle of the range. A slot you did not map does nothing, and devices are left alone.</p>
+      </div>
+      <div class="recipe">
+        <span class="eyebrow">No Pacer page</span>
+        <h4>Devices in order</h4>
+        <p>SW N switches the Nth device of the track's chain on and off. Only top-level devices count, so a container is one device; devices after the sixth are out of reach.</p>
+      </div>
+    </div>
+    <p><strong>Tap latches, hold is momentary</strong>, on the same switch: the effect flips on press with no delay, and if you held the switch longer than half a second it flips back when you let go. That is a delay throw on one word of a vocal.</p>
+  </div>
+
+  <div class="sub">
+    <h4>Snapshots</h4>
+    <dl class="pairs">
+      <div><dt>What is stored</dt><dd>The state of SW 1&ndash;6 for the focused instrument: each device on or off, or each remote control's exact value, so a delay mix set to 35 % with a knob comes back at 35 %. Remote controls 7&ndash;8 stay with the pedals.</dd></div>
+      <div><dt>How many</dt><dd><em>Snapshots per instrument</em>: 2 by default (an A/B pair such as rhythm and lead), up to 4. Saved per project.</dd></div>
+      <div><dt>Using them</dt><dd>Tap SW D for the next snapshot, double-tap to go back to the first, hold to store the current sound in the snapshot you are on. An empty snapshot changes nothing until you store into it.</dd></div>
+      <div><dt>Changed since</dt><dd>SW D blinks when you have switched something since the snapshot was recalled or stored.</dd></div>
+    </dl>
+  </div>
+
+  <div class="sub">
+    <h4>Instruments</h4>
+    <dl class="pairs">
+      <div><dt>By name</dt><dd>An instrument is remembered by its track name, saved with the project. After renaming a track, assign it again. Instruments are found among the first 64 tracks, group members included.</dd></div>
+      <div><dt>Safe assignments</dt><dd>Assigning uses <em>Hold time for clearing actions</em>, so choose <em>Long</em> if you tend to rest a foot on a switch.</dd></div>
+      <div><dt>Swapping guitars</dt><dd>Double-tap the instrument's switch to mute its track while you unplug; its LED blinks until you unmute.</dd></div>
+      <div><dt>Selecting too</dt><dd>Switch on <em>Focusing an instrument selects its track in Bitwig</em> if you want the mixer and devices to follow.</dd></div>
+    </dl>
+  </div>
+
+  <div class="sub">
+    <h4>Example Pacer pages</h4>
+    <p>Starting points only; map whatever your rig uses.</p>
+    <div class="recipes">
+      <div class="recipe">
+        <span class="eyebrow">Example</span>
+        <h4>Guitar</h4>
+        <ul><li>1 drive, 2 chorus, 3 delay, 4 reverb, 5 boost, 6 octave</li><li>EXP 1 wah frequency, EXP 2 volume</li><li>Snapshots: rhythm, lead</li></ul>
+      </div>
+      <div class="recipe">
+        <span class="eyebrow">Example</span>
+        <h4>Bass</h4>
+        <ul><li>1 compressor, 2 fuzz blend (FX Layer mix), 3 octaver, 4 envelope filter</li><li>EXP 1 filter cutoff</li><li>Snapshots: clean, dirty</li></ul>
+      </div>
+      <div class="recipe">
+        <span class="eyebrow">Example</span>
+        <h4>Vocal</h4>
+        <ul><li>1 delay throw and 2 reverb throw (hold them), 3 doubler, 4 harmonizer, 5 megaphone</li><li>EXP 1 delay feedback</li><li>Snapshots: verse, chorus</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="chapter" id="pedals">
+  <div class="chapter-head">
+    <h3>Expression pedals</h3>
+    <p>Each pedal has a target on each preset, plus a response curve and a range that apply to both.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Kind</th><th>Targets</th></tr></thead>
+      <tbody>
+        <tr><td>Bitwig parameters</td><td class="wrap">Selected track volume, pan, send 1, send 2 &middot; master volume &middot; selected device remote controls 1&ndash;2 &middot; project remote controls 1&ndash;2</td></tr>
+        <tr><td>Focused instrument</td><td class="wrap">Remote controls 1&ndash;8 of its Pacer page (FX preset defaults: 7 and 8)</td></tr>
+        <tr><td>MIDI</td><td class="wrap">Mod wheel (CC 1) &middot; breath (CC 2) &middot; channel volume (CC 7) &middot; expression (CC 11) &middot; brightness / MPE timbre (CC 74) &middot; channel pressure &middot; pitch bend up (heel centre, toe full up)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>MIDI targets go into the note input <em>PACER</em>, on the channel set in <em>MIDI channel for pedal messages</em> (default 1). An instrument only hears them on a track whose input is <em>PACER</em> or <em>All ins</em>, armed or monitoring. The Pacer's display keeps showing CC 116 and 117: that is correct, the extension converts them inside Bitwig.</p>
+
+  <figure class="chart" aria-labelledby="curve-caption">
+    <svg viewBox="0 0 420 262" role="img" aria-label="Output against pedal position for the four response curves">
+      <line class="grid-line" x1="48" y1="20" x2="400" y2="20"></line>
+      <line class="grid-line" x1="48" y1="70" x2="400" y2="70"></line>
+      <line class="grid-line" x1="48" y1="120" x2="400" y2="120"></line>
+      <line class="grid-line" x1="48" y1="170" x2="400" y2="170"></line>
+      <line class="grid-line" x1="48" y1="220" x2="400" y2="220"></line>
+      <line class="grid-line" x1="48" y1="20" x2="48" y2="220"></line>
+      <line class="grid-line" x1="224" y1="20" x2="224" y2="220"></line>
+      <line class="grid-line" x1="400" y1="20" x2="400" y2="220"></line>
+      <text class="axis-label" x="40" y="24" text-anchor="end">100 %</text>
+      <text class="axis-label" x="40" y="124" text-anchor="end">50 %</text>
+      <text class="axis-label" x="40" y="224" text-anchor="end">0 %</text>
+      <text class="axis-label" x="48" y="240" text-anchor="start">heel</text>
+      <text class="axis-label" x="224" y="240" text-anchor="middle">half way</text>
+      <text class="axis-label" x="400" y="240" text-anchor="end">toe</text>
+      <text class="axis-label" x="224" y="258" text-anchor="middle">pedal position</text>
+      <polyline class="curve" style="stroke: var(--c-linear)" points="48,220 400,20"></polyline>
+      <polyline class="curve" style="stroke: var(--c-inverted)" points="48,20 400,220"></polyline>
+      <polyline class="curve" style="stroke: var(--c-slow)" points="48,220 65.6,219.5 83.2,218 100.8,215.5 118.4,212 136,207.5 153.6,202 171.2,195.5 188.8,188 206.4,179.5 224,170 241.6,159.5 259.2,148 276.8,135.5 294.4,122 312,107.5 329.6,92 347.2,75.5 364.8,58 382.4,39.5 400,20"></polyline>
+      <polyline class="curve" style="stroke: var(--c-fast)" points="48,220 51.5,200 56.8,188.4 65.6,175.3 83.2,156.8 100.8,142.5 118.4,130.6 136,120 153.6,109.5 171.2,101.7 188.8,93.5 206.4,85.8 224,78.6 241.6,71.7 259.2,65.1 276.8,58.8 294.4,52.7 312,46.8 329.6,41.1 347.2,35.6 364.8,30.3 382.4,25.1 400,20"></polyline>
+      <polyline class="curve" style="stroke: var(--c-linear); stroke-dasharray: 5 5; stroke-width: 1.6" points="48,180 400,80"></polyline>
+    </svg>
+    <div class="legend">
+      <span><i style="background: var(--c-linear)"></i>Linear</span>
+      <span><i style="background: var(--c-inverted)"></i>Inverted</span>
+      <span><i style="background: var(--c-slow)"></i>Slow start (output = position&sup2;)</span>
+      <span><i style="background: var(--c-fast)"></i>Fast start (output = &radic;position)</span>
+      <span><i style="background: repeating-linear-gradient(90deg, var(--c-linear) 0 5px, transparent 5px 10px)"></i>Linear, heel 20 %, toe 70 %</span>
+    </div>
+    <figcaption class="explorer-note" id="curve-caption">Slow start gives fine control near the heel, good for volume swells; fast start near the toe. Heel and toe set the range, e.g. 20&ndash;70 % keeps a filter in its sweet spot; a heel above the toe reverses the pedal.</figcaption>
+  </figure>
+  <p>A parameter target with a linear response and the full range is bound directly, so Bitwig's own pickup behaviour applies. Every other combination is calculated by the extension, and the first move after switching jumps the target to the pedal position.</p>
+</section>
+
+<section class="chapter" id="leds">
+  <div class="chapter-head">
+    <h3>LEDs</h3>
+    <p>While the transport runs, blinking follows the beat (setting <em>Blink in time with the transport</em>); when it is stopped, LEDs blink on the wall clock. The demos below run at 120 bpm.</p>
+  </div>
+  <div class="patterns">
+    <div class="pattern"><span class="led" data-c="white"></span><b>Solid</b><span>On</span></div>
+    <div class="pattern"><span class="led" data-c="white" data-p="dip"></span><b>Gap on the downbeat</b><span>Playing loop</span></div>
+    <div class="pattern"><span class="led" data-c="white" data-p="medium"></span><b>Blink every beat</b><span>Recording or overdubbing</span></div>
+    <div class="pattern"><span class="led" data-c="white" data-p="fast"></span><b>Fast blink, eighth notes</b><span>Waiting for its quantization point, counting in, a mute waiting for its beat</span></div>
+    <div class="pattern"><span class="led" data-c="white" data-p="blip"></span><b>Flash on the downbeat</b><span>Stopped or muted loop, an assigned instrument that is not focused</span></div>
+    <div class="pattern"><span class="led" data-c="white" data-p="beat"></span><b>Flash every beat</b><span>Tap tempo</span></div>
+  </div>
+
+  <div class="sub">
+    <h4>Loop switches</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Loop</th><th>Two-colour preset</th><th>Multi-colour preset</th></tr></thead>
+        <tbody>
+          <tr><td>empty</td><td><span class="led" data-c="off"></span> off</td><td><span class="led" data-c="off"></span> off</td></tr>
+          <tr><td>stopped</td><td><span class="led" data-c="red" data-p="blip"></span> flash on the downbeat</td><td><span class="led" data-c="amber"></span> amber</td></tr>
+          <tr><td>playing</td><td><span class="led" data-c="red" data-p="dip"></span> on, gap on the downbeat</td><td><span class="led" data-c="green" data-p="dip"></span> green, gap on the downbeat</td></tr>
+          <tr><td>muted</td><td><span class="led" data-c="red" data-p="blip"></span> flash on the downbeat</td><td><span class="led" data-c="blue"></span> blue</td></tr>
+          <tr><td>recording, overdubbing</td><td><span class="led" data-c="red" data-p="medium"></span> blink every beat</td><td><span class="led" data-c="red" data-p="dip"></span> red</td></tr>
+          <tr><td>waiting</td><td><span class="led" data-c="red" data-p="fast"></span> fast blink</td><td><span class="led" data-c="green" data-p="fast"></span> fast blink in the colour it is heading for</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The four multi-colour loop colours can be changed in <em>Pacer LEDs</em>. On a two-colour preset the colour is fixed by the preset: red for loop switches, white for the rest.</p>
+  </div>
+
+  <div class="sub">
+    <h4>Assignable switches</h4>
+    <p>A switch lights when its tap action has something to do: undo or redo possible, loops playing (play/stop all is green while playing, amber when loops are loaded), another row to go to (next row shows blue when it would add a scene), overdub on (red), metronome on, transport running (green), a loop muted (blue), the selected loop soloed (amber), input monitoring on (green), something to reset (purple). The one-button looper shows the loop it is busy with; fade actions blink while a fade runs. The beat counter takes over SW A&ndash;D while counting in and recording.</p>
+  </div>
+
+  <div class="sub">
+    <h4>FX preset</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Switch</th><th>Two-colour preset</th><th>Multi-colour preset</th></tr></thead>
+        <tbody>
+          <tr><td>FX on</td><td><span class="led" data-c="green"></span> on</td><td><span class="led" data-c="green"></span> green</td></tr>
+          <tr><td>FX off, or nothing to control</td><td><span class="led" data-c="off"></span> off</td><td><span class="led" data-c="off"></span> off</td></tr>
+          <tr><td>Instrument focused</td><td><span class="led" data-c="white"></span> on</td><td><span class="led" data-c="amber"></span> nearest Pacer colour to the track colour</td></tr>
+          <tr><td>Instrument assigned</td><td><span class="led" data-c="white" data-p="blip"></span> flash on the downbeat</td><td><span class="led" data-c="blue" data-p="blip"></span> flash in the track colour</td></tr>
+          <tr><td>Instrument muted</td><td><span class="led" data-c="white" data-p="medium"></span> blinking</td><td><span class="led" data-c="red" data-p="medium"></span> red, blinking</td></tr>
+          <tr><td>Snapshot 1 / 2 / 3 / 4</td><td><span class="led" data-c="off"></span> off, then <span class="led" data-c="white"></span> on</td><td><span class="led" data-c="white"></span> <span class="led" data-c="red"></span> <span class="led" data-c="green"></span> <span class="led" data-c="amber"></span></td></tr>
+          <tr><td>Snapshot changed since</td><td><span class="led" data-c="white" data-p="medium"></span> blinking</td><td><span class="led" data-c="red" data-p="medium"></span> blinking in its colour</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="aside">
+    <span class="eyebrow">LED test</span>
+    <p><em>Settings &rsaquo; Pacer LEDs &rsaquo; Test the LEDs</em>, or the <em>Test the LEDs</em> action, lights every switch white, red, green, amber, blue and purple for a second each. On a two-colour preset every step just looks on; on a multi-colour preset you should see six colours, which confirms multi-colour mode works on your Pacer.</p>
+  </div>
+</section>
+
+<section class="chapter" id="other">
+  <div class="chapter-head">
+    <h3>Other presets and Nektar DAW mode</h3>
+    <p>Your other Pacer presets keep working next to PACER Looper.</p>
+  </div>
+  <dl class="pairs">
+    <div><dt>Channel 16 is the looper's</dt><dd>PACER Looper only reacts to MIDI channel 16 on port 1. Everything else the Pacer sends reaches Bitwig through the note input <em>PACER</em>: pick it or <em>All ins</em> as a track input to play instruments, or use it for MIDI mapping. Keep other presets off channel 16, where CC 20&ndash;69 and 102&ndash;119 belong to the looper.</dd></div>
+    <div><dt>Switching presets</dt><dd>Selecting D1 or D2 tells the extension which preset is active; any other preset leaves it as it was. If the switch functions ever stay on the wrong preset, set <em>FX preset &rsaquo; Active preset</em> by hand.</dd></div>
+  </dl>
+
+  <div class="sub">
+    <h4>Nektar DAW mode</h4>
+    <p>Switch on <em>Nektar DAW mode (USB port 2) &rsaquo; Serve the Track and Transport presets</em> and assign port 2. The Pacer's built-in DAW presets then work as they did with Nektar's script.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Pacer DAW function</th><th>In Bitwig</th><th>LED</th></tr></thead>
+        <tbody>
+          <tr><td>Play &middot; Stop &middot; Record</td><td class="wrap">Transport play/stop &middot; stop &middot; arranger record</td><td class="wrap">Playing &middot; stopped &middot; recording</td></tr>
+          <tr><td>Loop &middot; Metronome &middot; Pre-roll &middot; Overdub</td><td class="wrap">Arranger loop &middot; metronome &middot; pre-roll off or 1 bar &middot; arranger overdub</td><td class="wrap">On/off</td></tr>
+          <tr><td>Rewind &middot; Fast forward</td><td class="wrap">Move the play position, repeating while held</td><td class="wrap">While held</td></tr>
+          <tr><td>Go to loop start</td><td class="wrap">Stop and jump to the loop start</td><td class="wrap">&ndash;</td></tr>
+          <tr><td>Mute &middot; Solo &middot; Arm</td><td class="wrap">Selected track</td><td class="wrap">State</td></tr>
+          <tr><td>Undo</td><td class="wrap">Undo</td><td class="wrap">&ndash;</td></tr>
+          <tr><td>Track &minus; / +</td><td class="wrap">Previous / next track, repeating while held</td><td class="wrap">While held</td></tr>
+          <tr><td>Patch &minus; / +</td><td class="wrap">Previous / next device (Nektar's script browsed presets)</td><td class="wrap">While held</td></tr>
+          <tr><td>Track / master volume</td><td class="wrap">Selected track / master volume</td><td class="wrap">&ndash;</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Moving the loop region left or right is not supported yet.</p>
+  </div>
+</section>
+
+<div class="part"><span class="eyebrow">Part three</span><h2>Reference</h2></div>
+
+<section class="chapter" id="settings">
+  <div class="chapter-head">
+    <h3>Settings</h3>
+    <p>Bitwig: <em>Settings &rsaquo; Controllers &rsaquo; PACER Looper</em>. Project settings are saved with each project.</p>
+  </div>
+  <div class="filter">
+    <label for="settings-filter" class="eyebrow">Find a setting</label>
+    <input id="settings-filter" type="search" placeholder="e.g. hold, snapshot, channel" autocomplete="off">
+    <output id="settings-count" for="settings-filter"></output>
+  </div>
+  <div class="table-wrap">
+    <table id="settings-table">
+      <thead><tr><th>Setting</th><th>Options</th></tr></thead>
+      <tbody>
+        <tr class="cat-row"><th colspan="2">Looper</th></tr>
+        <tr><td class="wrap">Looper MIDI channel (must match the Pacer preset)</td><td class="wrap">1&ndash;16, default 16. Changing it restarts the extension.</td></tr>
+        <tr><td class="wrap">Loop tracks</td><td class="wrap">1&ndash;6, default 4</td></tr>
+        <tr><td class="wrap">Loop switches</td><td class="wrap">None &middot; SW 1 &middot; SW 1-2 &middot; &hellip; &middot; SW 1-6, default SW 1-4</td></tr>
+        <tr><td class="wrap">Loop switch mode</td><td class="wrap">Tap to record, tap again to close &middot; Hold to record, release to close</td></tr>
+        <tr><td class="wrap">Loop switch fires on press (off: on release)</td><td class="wrap">On &middot; Off</td></tr>
+        <tr><td class="wrap">Tap on a playing loop</td><td class="wrap">Stop &middot; Mute/unmute &middot; Toggle launcher overdub (note clips) &middot; Nothing</td></tr>
+        <tr><td class="wrap">Hold a loop switch</td><td class="wrap">Delete the clip &middot; Stop &middot; Nothing</td></tr>
+        <tr><td class="wrap">Double-tap a loop switch</td><td class="wrap">Nothing &middot; Stop &middot; Mute/unmute &middot; Clear &middot; Undo</td></tr>
+        <tr><td class="wrap">Double-tap speed</td><td class="wrap">Fast (0.25 s) &middot; Normal (0.35 s) &middot; Relaxed (0.5 s)</td></tr>
+        <tr><td class="wrap">Hold time for clearing actions</td><td class="wrap">Normal (0.5 s) &middot; Long (1.5 s) &middot; Very long (2.5 s). Also used for assigning FX instruments and storing snapshots.</td></tr>
+        <tr><td class="wrap">Arm the track when recording</td><td class="wrap">On &middot; Off</td></tr>
+        <tr><td class="wrap">Exclusive arm (disarm finished loops)</td><td class="wrap">On &middot; Off</td></tr>
+        <tr><td class="wrap">Select the track on press</td><td class="wrap">On &middot; Off. Pedals aimed at the selected track follow it.</td></tr>
+        <tr><td class="wrap">Count-in from a stopped transport</td><td class="wrap">Off &middot; 1 bar &middot; 2 bars</td></tr>
+        <tr><td class="wrap">Mute timing</td><td class="wrap">Immediately &middot; On the next beat &middot; On the next bar</td></tr>
+        <tr><td class="wrap">Fade length</td><td class="wrap">1 &middot; 2 &middot; 4 &middot; 8 bars</td></tr>
+        <tr><td class="wrap">Names for new rows (comma separated)</td><td class="wrap">Text, e.g. Intro, Verse, Chorus</td></tr>
+        <tr class="cat-row"><th colspan="2">Looper preset switches</th></tr>
+        <tr><td class="wrap">SW 1&ndash;6 tap / double-tap / hold (when not loop switches)</td><td class="wrap">Any action</td></tr>
+        <tr><td class="wrap">SW A&ndash;D tap / double-tap / hold</td><td class="wrap">Any action</td></tr>
+        <tr class="cat-row"><th colspan="2">FX preset</th></tr>
+        <tr><td class="wrap">Active preset (follows the preset selected on the Pacer)</td><td class="wrap">Looper preset &middot; FX preset</td></tr>
+        <tr><td class="wrap">Snapshots per instrument</td><td class="wrap">2 &middot; 3 &middot; 4</td></tr>
+        <tr><td class="wrap">Focusing an instrument selects its track in Bitwig</td><td class="wrap">Off &middot; On</td></tr>
+        <tr><td class="wrap">Remote controls page name</td><td class="wrap">Text, default Pacer</td></tr>
+        <tr><td class="wrap">FX SW 1&ndash;6, FX SW A&ndash;D tap / double-tap / hold</td><td class="wrap">Any action</td></tr>
+        <tr class="cat-row"><th colspan="2">Footswitch jacks (both presets)</th></tr>
+        <tr><td class="wrap">FS 1&ndash;4 tap / double-tap / hold</td><td class="wrap">Any action</td></tr>
+        <tr class="cat-row"><th colspan="2">Expression pedals</th></tr>
+        <tr><td class="wrap">EXP 1, EXP 2</td><td class="wrap">Any pedal target, on the looper preset</td></tr>
+        <tr><td class="wrap">EXP 1, EXP 2 on the FX preset</td><td class="wrap">Any pedal target, default focused instrument remote control 7 / 8</td></tr>
+        <tr><td class="wrap">EXP 1, EXP 2 response</td><td class="wrap">Linear &middot; Inverted &middot; Slow start &middot; Fast start</td></tr>
+        <tr><td class="wrap">EXP 1, EXP 2 heel (minimum) / toe (maximum)</td><td class="wrap">0&ndash;100 %</td></tr>
+        <tr><td class="wrap">MIDI channel for pedal messages</td><td class="wrap">1&ndash;16, default 1</td></tr>
+        <tr class="cat-row"><th colspan="2">Pacer LEDs</th></tr>
+        <tr><td class="wrap">LED mode</td><td class="wrap">Automatic (the looper preset tells) &middot; Two-colour (safe) &middot; Multi-colour (experimental)</td></tr>
+        <tr><td class="wrap">Blink in time with the transport</td><td class="wrap">On &middot; Off</td></tr>
+        <tr><td class="wrap">Count beats on SW A-D (count-in and recording)</td><td class="wrap">On &middot; Off</td></tr>
+        <tr><td class="wrap">Multi-colour: stopped / playing / recording / muted loop</td><td class="wrap">White &middot; Red &middot; Green &middot; Amber &middot; Blue &middot; Purple</td></tr>
+        <tr><td class="wrap">Cycle every LED through all colours</td><td class="wrap">Button: Test the LEDs</td></tr>
+        <tr class="cat-row"><th colspan="2">Clip launcher (pushed into the project)</th></tr>
+        <tr><td class="wrap">Launch quantization</td><td class="wrap">Keep project setting &middot; None &middot; 1/16 &middot; 1/8 &middot; 1/4 &middot; 1/2 &middot; 1 bar &middot; 2 bars &middot; 4 bars &middot; 8 bars</td></tr>
+        <tr><td class="wrap">Loop length</td><td class="wrap">Keep project setting &middot; Free: press again to close the loop &middot; Match the first loop of the row &middot; 1 / 2 / 4 / 8 bars (4/4)</td></tr>
+        <tr class="cat-row"><th colspan="2">Nektar DAW mode (USB port 2)</th></tr>
+        <tr><td class="wrap">Serve the Track and Transport presets (replaces Nektar's script)</td><td class="wrap">Off &middot; On</td></tr>
+        <tr class="cat-row"><th colspan="2">Feedback</th></tr>
+        <tr><td class="wrap">Pop-up notifications</td><td class="wrap">All &middot; Only important ones &middot; Off. "Only important ones" keeps navigation, warnings, count-ins, loop lengths, resets and focus changes.</td></tr>
+        <tr class="cat-row"><th colspan="2">Project: PACER Looper</th></tr>
+        <tr><td class="wrap">Loop tracks start at track</td><td class="wrap">1&ndash;128</td></tr>
+        <tr class="cat-row"><th colspan="2">Project: PACER FX</th></tr>
+        <tr><td class="wrap">Instrument A&ndash;D (track name)</td><td class="wrap">Text; holding a switch on the FX preset fills it in</td></tr>
+        <tr><td class="wrap">Focused instrument</td><td class="wrap">A &middot; B &middot; C &middot; D</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="chapter" id="midi">
+  <div class="chapter-head">
+    <h3>MIDI map</h3>
+    <p>What the presets send, for anyone building their own preset or script. Everything is on MIDI channel 16 (configurable), port 1. The CC numbers never change.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Control</th><th>CC</th><th>Colour-slot CCs</th><th>Looper preset</th><th>FX preset</th></tr></thead>
+      <tbody>
+        <tr><td><span class="sw">SW 1</span></td><td class="num">102</td><td class="num">20&ndash;24</td><td class="wrap">Loop 1</td><td class="wrap">FX 1</td></tr>
+        <tr><td><span class="sw">SW 2</span></td><td class="num">103</td><td class="num">25&ndash;29</td><td class="wrap">Loop 2</td><td class="wrap">FX 2</td></tr>
+        <tr><td><span class="sw">SW 3</span></td><td class="num">104</td><td class="num">30&ndash;34</td><td class="wrap">Loop 3</td><td class="wrap">FX 3</td></tr>
+        <tr><td><span class="sw">SW 4</span></td><td class="num">105</td><td class="num">35&ndash;39</td><td class="wrap">Loop 4</td><td class="wrap">FX 4</td></tr>
+        <tr><td><span class="sw">SW 5</span></td><td class="num">106</td><td class="num">40&ndash;44</td><td class="wrap">Undo &middot; hold: redo</td><td class="wrap">FX 5</td></tr>
+        <tr><td><span class="sw">SW 6</span></td><td class="num">107</td><td class="num">45&ndash;49</td><td class="wrap">Play / stop all &middot; hold: clear row</td><td class="wrap">FX 6</td></tr>
+        <tr><td><span class="sw">SW A</span></td><td class="num">108</td><td class="num">50&ndash;54</td><td class="wrap">Previous row</td><td class="wrap">Instrument A</td></tr>
+        <tr><td><span class="sw">SW B</span></td><td class="num">109</td><td class="num">55&ndash;59</td><td class="wrap">Next row</td><td class="wrap">Instrument B</td></tr>
+        <tr><td><span class="sw">SW C</span></td><td class="num">110</td><td class="num">60&ndash;64</td><td class="wrap">Overdub</td><td class="wrap">Instrument C</td></tr>
+        <tr><td><span class="sw">SW D</span></td><td class="num">111</td><td class="num">65&ndash;69</td><td class="wrap">Tap tempo</td><td class="wrap">Snapshots</td></tr>
+        <tr><td><span class="sw">FS 1</span>&ndash;<span class="sw">FS 4</span></td><td class="num">112&ndash;115</td><td>&ndash;</td><td class="wrap" colspan="2">Shared by both presets</td></tr>
+        <tr><td><span class="sw">EXP 1</span>, <span class="sw">EXP 2</span></td><td class="num">116, 117</td><td>&ndash;</td><td class="wrap" colspan="2">0&ndash;127</td></tr>
+        <tr><td>Preset loaded</td><td class="num">119</td><td>&ndash;</td><td class="wrap">127 two-colour &middot; 2 multi-colour</td><td class="wrap">17 two-colour &middot; 18 multi-colour</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul>
+    <li>Switches send <em>CC Trigger</em>: 127 on press, 0 on release. The extension measures holds itself, so both edges matter.</li>
+    <li>LEDs: the extension echoes a switch's own CC back, 127 for the on colour and 0 for the off colour. Multi-colour presets add five colour-slot steps per switch.</li>
+    <li>New preset-loaded values follow <em>kind &times; 16 + variant</em> (kind 0 looper, 1 FX; variant 1 two-colour, 2 multi-colour); 127 is the looper's original value.</li>
+    <li>The full contract, including the SysEx layout of a preset, is <a href="https://github.com/chillbeast/Pacer4Bitwig/blob/main/docs/PACER-MAP.md">docs/PACER-MAP.md</a>.</li>
+  </ul>
+</section>
+
+<section class="chapter" id="trouble">
+  <div class="chapter-head">
+    <h3>Troubleshooting</h3>
+    <p>Most problems are a port, a channel or a track input.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Symptom</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td class="wrap">"MIDI input PACER is currently being used"</td><td class="wrap">Nektar's own PACER script, or another controller, holds the port. Disable it in <em>Settings &rsaquo; Controllers</em>.</td></tr>
+        <tr><td class="wrap">The pop-up shows an older version</td><td class="wrap">Bitwig loaded an old file. Replace <code>Pacer4Bitwig.bwextension</code> in <code>Documents/Bitwig Studio/Extensions</code>; Bitwig reloads it.</td></tr>
+        <tr><td class="wrap">Switches do nothing</td><td class="wrap">Is the Pacer on D1 or D2? Does <em>Looper MIDI channel</em> match the preset (16)? Is port 1 set to <code>PACER</code>?</td></tr>
+        <tr><td class="wrap">Switches do the other preset's job</td><td class="wrap">Select the preset again on the Pacer so it announces itself, or set <em>FX preset &rsaquo; Active preset</em> by hand.</td></tr>
+        <tr><td class="wrap">LEDs never light</td><td class="wrap">Keep <em>LED mode</em> on <em>Automatic</em>, select the preset again, and run <em>Test the LEDs</em>.</td></tr>
+        <tr><td class="wrap">LEDs show odd colours</td><td class="wrap">Multi-colour mode with a two-colour preset, or multi-colour does not work on your Pacer. Use two-colour.</td></tr>
+        <tr><td class="wrap">Loop switches control the wrong tracks</td><td class="wrap">Check <em>Loop tracks start at track</em> for this project, or move the window with a hold on SW A / SW B.</td></tr>
+        <tr><td class="wrap">I hear my input twice</td><td class="wrap">Several armed tracks with auto monitoring. Keep <em>Exclusive arm</em> on, or use a <a href="#project">dedicated input track</a>.</td></tr>
+        <tr><td class="wrap">My Push jumps to the loop track</td><td class="wrap">The looper selects the track it records on. Pin the Push's track, or switch off <em>Select the track on press</em>.</td></tr>
+        <tr><td class="wrap">Other presets do not reach instruments</td><td class="wrap">The track's input must be <em>PACER</em> or <em>All ins</em>, and the preset must not use channel 16.</td></tr>
+        <tr><td class="wrap">A pedal set to mod wheel or expression does nothing</td><td class="wrap">The Pacer always shows CC 116/117; the conversion happens in Bitwig. The instrument's track needs input <em>PACER</em> or <em>All ins</em>, must be armed or monitoring, and the patch must respond to that controller.</td></tr>
+        <tr><td class="wrap">FX switches are all dark</td><td class="wrap">No instrument is focused, or its track was renamed. Select the track and hold SW A again.</td></tr>
+        <tr><td class="wrap">An FX switch does nothing</td><td class="wrap">The track has a Pacer page and that slot is not mapped, or the track has fewer devices than the switch number.</td></tr>
+        <tr><td class="wrap">Track and Transport presets do nothing</td><td class="wrap">Switch on <em>Nektar DAW mode</em> and assign port 2 (<code>MIDIIN2 (PACER)</code> / <code>MIDIOUT2 (PACER)</code>).</td></tr>
+        <tr><td class="wrap">A setting does not seem to apply</td><td class="wrap">Most apply immediately; <em>Looper MIDI channel</em> restarts the extension. Check Bitwig's controller console for errors.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="part"><span class="eyebrow">Part four</span><h2>Test</h2></div>
+
+<section class="chapter" id="checklists">
+  <div class="chapter-head">
+    <h3>Hardware checklists</h3>
+    <p>Run these once with the Pacer next to you. Tick what works, and write down what you saw when something does not, so it can be fixed.</p>
+  </div>
+  <div class="toolbar">
+    <button class="btn" id="copy-md" type="button">Copy results as Markdown</button>
+    <span class="status" id="save-status" role="status">Saved in this browser</span>
+  </div>
+  <div class="fallback" id="fallback" hidden>
+    <label class="eyebrow" for="fallback-text">Copy the results from here</label>
+    <textarea id="fallback-text" readonly></textarea>
+  </div>
+
+  <div id="checklist" class="sub">
+    <div class="group" data-group="Looper: basics">
+      <div class="group-head"><h4>Looper preset (D1): basics</h4><span class="count">0/10</span></div>
+      <div class="check"><label><input type="checkbox" id="c-l1" data-k="l1"><span class="n">1</span><span class="text">Every switch does something in Bitwig (SW 1&ndash;6, A&ndash;D).</span></label><textarea id="t-l1" data-k="l1" placeholder="Notes" aria-label="Notes for looper item 1"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l2" data-k="l2"><span class="n">2</span><span class="text">SW 1 on an empty slot: the LED blinks fast, then blinks on the beat while recording; a second tap makes it on, with a gap on each downbeat, while playing.</span></label><textarea id="t-l2" data-k="l2" placeholder="Notes" aria-label="Notes for looper item 2"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l3" data-k="l3"><span class="n">3</span><span class="text">Record loop 1, then loop 2: after loop 1 is closed its track disarms by itself; only loop 2 stays armed.</span></label><textarea id="t-l3" data-k="l3" placeholder="Notes" aria-label="Notes for looper item 3"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l4" data-k="l4"><span class="n">4</span><span class="text">Hold SW 1 for about half a second: the clip disappears and the LED goes dark.</span></label><textarea id="t-l4" data-k="l4" placeholder="Notes" aria-label="Notes for looper item 4"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l5" data-k="l5"><span class="n">5</span><span class="text">SW 6 stops everything; tapping again replays the row.</span></label><textarea id="t-l5" data-k="l5" placeholder="Notes" aria-label="Notes for looper item 5"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l6" data-k="l6"><span class="n">6</span><span class="text">SW A / SW B move the highlighted scene row in Bitwig; SW B past the last row adds a scene.</span></label><textarea id="t-l6" data-k="l6" placeholder="Notes" aria-label="Notes for looper item 6"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l7" data-k="l7"><span class="n">7</span><span class="text">SW D flashes on every beat while the transport runs; while recording, SW A&ndash;D count the beats.</span></label><textarea id="t-l7" data-k="l7" placeholder="Notes" aria-label="Notes for looper item 7"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l8" data-k="l8"><span class="n">8</span><span class="text">EXP 1 moves the selected track's volume; EXP 2 set to mod wheel moves an instrument's mod wheel; Inverted flips it; heel 20 % / toe 70 % limits it.</span></label><textarea id="t-l8" data-k="l8" placeholder="Notes" aria-label="Notes for looper item 8"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l9" data-k="l9"><span class="n">9</span><span class="text">Switch to another Pacer preset and back to D1: all LEDs repaint and Bitwig shows "Looper preset".</span></label><textarea id="t-l9" data-k="l9" placeholder="Notes" aria-label="Notes for looper item 9"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l10" data-k="l10"><span class="n">10</span><span class="text">Another preset sending notes on channel 1 plays an instrument track whose input is PACER.</span></label><textarea id="t-l10" data-k="l10" placeholder="Notes" aria-label="Notes for looper item 10"></textarea></div>
+    </div>
+
+    <div class="group" data-group="Looper: performance">
+      <div class="group-head"><h4>Looper preset: performance features</h4><span class="count">0/10</span></div>
+      <div class="check"><label><input type="checkbox" id="c-l11" data-k="l11"><span class="n">11</span><span class="text">FS 1 (one-button looper): tap, tap, tap, tap records loop 1 then loop 2; hold clears loop 2.</span></label><textarea id="t-l11" data-k="l11" placeholder="Notes" aria-label="Notes for looper item 11"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l12" data-k="l12"><span class="n">12</span><span class="text">Count-in 1 bar from a stopped transport: recording starts on bar 2.</span></label><textarea id="t-l12" data-k="l12" placeholder="Notes" aria-label="Notes for looper item 12"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l13" data-k="l13"><span class="n">13</span><span class="text">Loop length "Match the first loop": a 2-bar first loop makes the next loop close by itself after 2 bars.</span></label><textarea id="t-l13" data-k="l13" placeholder="Notes" aria-label="Notes for looper item 13"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l14" data-k="l14"><span class="n">14</span><span class="text">Fade out and stop: loops fade over the fade length, stop, and play at full volume on the next launch.</span></label><textarea id="t-l14" data-k="l14" placeholder="Notes" aria-label="Notes for looper item 14"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l15" data-k="l15"><span class="n">15</span><span class="text">Duplicate row: a new row with the same loops appears below and becomes the current row.</span></label><textarea id="t-l15" data-k="l15" placeholder="Notes" aria-label="Notes for looper item 15"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l16" data-k="l16"><span class="n">16</span><span class="text">Double selected loop on a 1-bar loop makes it 2 bars long.</span></label><textarea id="t-l16" data-k="l16" placeholder="Notes" aria-label="Notes for looper item 16"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l17" data-k="l17"><span class="n">17</span><span class="text">Hold time for clearing actions = Long: holding SW 1 for one second does not delete; two seconds does.</span></label><textarea id="t-l17" data-k="l17" placeholder="Notes" aria-label="Notes for looper item 17"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l18" data-k="l18"><span class="n">18</span><span class="text">Loop switch mode = Hold to record: hold SW 2 for two bars and release, and a 2-bar loop plays.</span></label><textarea id="t-l18" data-k="l18" placeholder="Notes" aria-label="Notes for looper item 18"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l19" data-k="l19"><span class="n">19</span><span class="text">Mute timing = On the next bar: tapping mute mid-bar blinks, then mutes exactly on the downbeat.</span></label><textarea id="t-l19" data-k="l19" placeholder="Notes" aria-label="Notes for looper item 19"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l20" data-k="l20"><span class="n">20</span><span class="text">Reset the looper stops, unmutes and disarms everything.</span></label><textarea id="t-l20" data-k="l20" placeholder="Notes" aria-label="Notes for looper item 20"></textarea></div>
+    </div>
+
+    <div class="group" data-group="Looper: settings, DAW mode, LEDs">
+      <div class="group-head"><h4>Looper preset: settings, DAW mode and LEDs</h4><span class="count">0/8</span></div>
+      <div class="check"><label><input type="checkbox" id="c-l21" data-k="l21"><span class="n">21</span><span class="text">Loop switches = SW 1-2: SW 3 and SW 4 now run their assigned actions.</span></label><textarea id="t-l21" data-k="l21" placeholder="Notes" aria-label="Notes for looper item 21"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l22" data-k="l22"><span class="n">22</span><span class="text">Double-tap a loop switch = Clear: tap an empty loop, tap again quickly, and nothing is left.</span></label><textarea id="t-l22" data-k="l22" placeholder="Notes" aria-label="Notes for looper item 22"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l23" data-k="l23"><span class="n">23</span><span class="text">Loop tracks start at track = 5 in one project: the loop switches control tracks 5&ndash;8; another project keeps its own value.</span></label><textarea id="t-l23" data-k="l23" placeholder="Notes" aria-label="Notes for looper item 23"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l24" data-k="l24"><span class="n">24</span><span class="text">Names for new rows = Intro, Verse: SW B past the last row creates a row named Verse (if it is row 2).</span></label><textarea id="t-l24" data-k="l24" placeholder="Notes" aria-label="Notes for looper item 24"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l25" data-k="l25"><span class="n">25</span><span class="text">Show looper status pops up the row and loop overview.</span></label><textarea id="t-l25" data-k="l25" placeholder="Notes" aria-label="Notes for looper item 25"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l26" data-k="l26"><span class="n">26</span><span class="text">Nektar DAW mode on, port 2 assigned: the Pacer's Transport preset starts and stops Bitwig and its LEDs follow.</span></label><textarea id="t-l26" data-k="l26" placeholder="Notes" aria-label="Notes for looper item 26"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l27" data-k="l27"><span class="n">27</span><span class="text">Test the LEDs with the multi-colour preset shows six colours; setting "Multi-colour: playing loop" to blue turns playing loops blue.</span></label><textarea id="t-l27" data-k="l27" placeholder="Notes" aria-label="Notes for looper item 27"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-l28" data-k="l28"><span class="n">28</span><span class="text">Pressing a switch in multi-colour mode does not leave a wrong colour behind.</span></label><textarea id="t-l28" data-k="l28" placeholder="Notes" aria-label="Notes for looper item 28"></textarea></div>
+    </div>
+
+    <div class="group" data-group="FX preset">
+      <div class="group-head"><h4>FX preset (D2)</h4><span class="count">0/12</span></div>
+      <div class="check"><label><input type="checkbox" id="c-f1" data-k="f1"><span class="n">1</span><span class="text">Select D2: Bitwig shows "FX preset: &hellip;" and Active preset switches to FX preset. D1 shows "Looper preset" and the looper works as before.</span></label><textarea id="t-f1" data-k="f1" placeholder="Notes" aria-label="Notes for FX item 1"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-f2" data-k="f2"><span class="n">2</span><span class="text">Select a track in Bitwig and hold SW A: "Instrument A is now &hellip;", and SW A lights.</span></label><textarea id="t-f2" data-k="f2" placeholder="Notes" aria-label="Notes for FX item 2"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-f3" data-k="f3"><span class="n">3</span><span class="text">Assign a second instrument to SW B. Tapping SW A / SW B switches the focus without changing Bitwig's selection or the Push's track.</span></label><textarea id="t-f3" data-k="f3" placeholder="Notes" aria-label="Notes for FX item 3"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-f4" data-k="f4"><span class="n">4</span><span class="text">Track without a Pacer page: SW 1 switches its first device on and off, and the LED follows, also when you click the device's power button in Bitwig.</span></label><textarea id="t-f4" data-k="f4" placeholder="Notes" aria-label="Notes for FX item 4"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-f5" data-k="f5"><span class="n">5</span><span class="text">Add a Pacer page and map slot 1 to a delay mix with range 0&ndash;35 %: SW 1 toggles between 0 and 35 %, and no device is switched any more.</span></label><textarea id="t-f5" data-k="f5" placeholder="Notes" aria-label="Notes for FX item 5"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-f6" data-k="f6"><span class="n">6</span><span class="text">Hold SW 2 for a second, then release: the effect is on only while held.</span></label><textarea id="t-f6" data-k="f6" placeholder="Notes" aria-label="Notes for FX item 6"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-f7" data-k="f7"><span class="n">7</span><span class="text">Double-tap SW B: its track mutes and the LED blinks; again unmutes.</span></label><textarea id="t-f7" data-k="f7" placeholder="Notes" aria-label="Notes for FX item 7"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-f8" data-k="f8"><span class="n">8</span><span class="text">Hold SW D: "snapshot 1 stored". Change an effect and SW D blinks. Tap SW D, store snapshot 2 too; SW D now switches between both sounds, double-tap returns to snapshot 1.</span></label><textarea id="t-f8" data-k="f8" placeholder="Notes" aria-label="Notes for FX item 8"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-f9" data-k="f9"><span class="n">9</span><span class="text">Save, close and reopen the project: instruments, focus and snapshots are still there.</span></label><textarea id="t-f9" data-k="f9" placeholder="Notes" aria-label="Notes for FX item 9"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-f10" data-k="f10"><span class="n">10</span><span class="text">EXP 1 moves remote control 7 of the focused instrument's Pacer page.</span></label><textarea id="t-f10" data-k="f10" placeholder="Notes" aria-label="Notes for FX item 10"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-f11" data-k="f11"><span class="n">11</span><span class="text">FS 1 records loops while on the FX preset; FS 3 cycles through the instruments.</span></label><textarea id="t-f11" data-k="f11" placeholder="Notes" aria-label="Notes for FX item 11"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-f12" data-k="f12"><span class="n">12</span><span class="text">The extension picking the Pacer page does not change the page shown in Bitwig or on the Push.</span></label><textarea id="t-f12" data-k="f12" placeholder="Notes" aria-label="Notes for FX item 12"></textarea></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p><strong>Pacer4Bitwig</strong> &middot; <a href="https://github.com/chillbeast/Pacer4Bitwig">github.com/chillbeast/Pacer4Bitwig</a></p>
+  <p>The extension builds on <a href="https://github.com/git-moss/DrivenByMoss">DrivenByMoss</a> by J&uuml;rgen Mo&szlig;graber (LGPL-3.0). Pacer Studio is derived from <a href="https://github.com/francoisgeorgy/pacer-editor">pacer-editor</a> by Fran&ccedil;ois Georgy (GPL-3.0).</p>
+  <p>"Nektar" and "Pacer" are trademarks of Nektar Technology, Inc. This project is not affiliated with or endorsed by Nektar.</p>
+</footer>
+
+</main>
+</div>
+</div>
+
+<style>[hidden] { display: none !important; }</style>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------- theme */
+  var root = document.documentElement;
+  var themeButton = document.getElementById("theme-toggle");
+  var THEME_KEY = "pacer4bitwig-manual-theme";
+  var THEMES = ["system", "dark", "light"];
+
+  function showTheme() {
+    themeButton.textContent = "Theme: " + (root.getAttribute("data-theme") || "system");
+  }
+  function applyTheme(name) {
+    if (name === "system") root.removeAttribute("data-theme");
+    else root.setAttribute("data-theme", name);
+    showTheme();
+  }
+  try {
+    var storedTheme = window.localStorage.getItem(THEME_KEY);
+    if (storedTheme === "dark" || storedTheme === "light") applyTheme(storedTheme);
+  } catch (err) { /* no storage: follow the viewer */ }
+  showTheme();
+  themeButton.addEventListener("click", function () {
+    var now = root.getAttribute("data-theme") || "system";
+    var next = THEMES[(THEMES.indexOf(now) + 1) % THEMES.length];
+    applyTheme(next);
+    try { window.localStorage.setItem(THEME_KEY, next); } catch (err) { /* ignore */ }
+  });
+
+  /* ---------------------------------------------------------------- the Pacer explorer */
+  var NAMES = { "1": "SW 1", "2": "SW 2", "3": "SW 3", "4": "SW 4", "5": "SW 5", "6": "SW 6", A: "SW A", B: "SW B", C: "SW C", D: "SW D",
+    FS1: "FS 1", FS2: "FS 2", FS3: "FS 3", FS4: "FS 4", EXP1: "EXP 1", EXP2: "EXP 2" };
+
+  var SMART = "Smart loop: record on an empty slot, close a recording, stop a playing loop, play a stopped one";
+  var LOOP_NOTE = 'Loop switches fire on press, so timing stays tight. See <a href="#smart-loop">Smart loop</a>.';
+  var JACKS = {
+    FS1: { kind: "Footswitch jack · both presets", tap: "One-button looper: close the recording loop, or record on the first empty loop track", hold: "Clear the last recorded loop" },
+    FS2: { kind: "Footswitch jack · both presets", tap: "Stop all loops, or play the row when nothing plays", hold: "Clear every loop in the row" },
+    FS3: { kind: "Footswitch jack · both presets", tap: "Focus the next FX instrument", hold: "" },
+    FS4: { kind: "Footswitch jack · both presets", tap: "Next snapshot of the focused instrument", hold: "" }
+  };
+  function jack(id, extra) {
+    var d = {};
+    Object.keys(JACKS[id]).forEach(function (k) { d[k] = JACKS[id][k]; });
+    Object.keys(extra || {}).forEach(function (k) { d[k] = extra[k]; });
+    d.note = "Plug a footswitch into the jack on the back. Every gesture can be reassigned under Footswitch jacks.";
+    return d;
+  }
+
+  var PRESETS = {
+    looper: {
+      readout: "LOOPS",
+      note: "Default layout, two-colour preset. The LEDs show an example moment at 120 bpm: loop 1 playing, loop 2 stopped.",
+      controls: {
+        "1": { role: "Loop 1", kind: "Loop switch · loop track 1", c: "red", p: "dip", tap: SMART, hold: "Delete that loop", led: "Playing: on, with a short gap on every downbeat", note: LOOP_NOTE },
+        "2": { role: "Loop 2", kind: "Loop switch · loop track 2", c: "red", p: "blip", tap: SMART, hold: "Delete that loop", led: "Stopped: a short flash on every downbeat", note: LOOP_NOTE },
+        "3": { role: "Loop 3", kind: "Loop switch · loop track 3", c: "off", tap: SMART, hold: "Delete that loop", led: "Empty: off", note: LOOP_NOTE },
+        "4": { role: "Loop 4", kind: "Loop switch · loop track 4", c: "off", tap: SMART, hold: "Delete that loop", led: "Empty: off", note: LOOP_NOTE },
+        "5": { role: "Undo", kind: "Assignable switch", c: "white", tap: "Undo", hold: "Redo", led: "On while there is something to undo" },
+        "6": { role: "Play / stop all", kind: "Assignable switch", c: "white", tap: "Stop all loops, or play the whole row when nothing plays", hold: "Clear every loop in the row", led: "On while loops are loaded (multi-colour: green playing, amber loaded)" },
+        A: { role: "Previous row", kind: "Assignable switch", c: "off", tap: "Previous scene row", hold: "Move the loop track window left", led: "Off: already on the first row", note: "While counting in or recording, SW A–D count the beats of the bar instead." },
+        B: { role: "Next row", kind: "Assignable switch", c: "white", tap: "Next scene row, adding one after the last", hold: "Move the loop track window right", led: "On: there is a row to move to", note: "While counting in or recording, SW A–D count the beats of the bar instead." },
+        C: { role: "Overdub", kind: "Assignable switch", c: "off", tap: "Launcher overdub on/off", hold: "Metronome on/off", led: "Off: overdub is off" },
+        D: { role: "Tap tempo", kind: "Assignable switch", c: "white", p: "beat", tap: "Tap tempo", hold: "Transport play/stop", led: "Flashes every beat while the transport runs" },
+        FS1: jack("FS1"), FS2: jack("FS2"), FS3: jack("FS3"), FS4: jack("FS4"),
+        EXP1: { kind: "Expression pedal", move: "Volume of the selected track", note: 'Response curve and range: see <a href="#pedals">Expression pedals</a>.' },
+        EXP2: { kind: "Expression pedal", move: "Master volume", note: 'Response curve and range: see <a href="#pedals">Expression pedals</a>.' }
+      }
+    },
+    fx: {
+      readout: "FX   ",
+      note: "Default layout, two-colour preset. Example: Guitar, Bass and Vocal assigned, Guitar focused, FX 1 and 3 on, snapshot 2.",
+      controls: {
+        "1": { role: "FX 1", kind: "FX switch · focused instrument", c: "green", tap: "FX 1 on/off: remote control 1 of the Pacer page, or the first device", hold: "On only while held", led: "On: the effect is on", note: "Tap latches, hold is momentary, on the same switch." },
+        "2": { role: "FX 2", kind: "FX switch · focused instrument", c: "off", tap: "FX 2 on/off: remote control 2, or the second device", hold: "On only while held", led: "Off: the effect is off", note: "Tap latches, hold is momentary, on the same switch." },
+        "3": { role: "FX 3", kind: "FX switch · focused instrument", c: "green", tap: "FX 3 on/off: remote control 3, or the third device", hold: "On only while held", led: "On: the effect is on", note: "Tap latches, hold is momentary, on the same switch." },
+        "4": { role: "FX 4", kind: "FX switch · focused instrument", c: "off", tap: "FX 4 on/off: remote control 4, or the fourth device", hold: "On only while held", led: "Off: the effect is off", note: "Tap latches, hold is momentary, on the same switch." },
+        "5": { role: "FX 5", kind: "FX switch · focused instrument", c: "off", tap: "FX 5 on/off: remote control 5, or the fifth device", hold: "On only while held", led: "Off: the effect is off", note: "Tap latches, hold is momentary, on the same switch." },
+        "6": { role: "FX 6", kind: "FX switch · focused instrument", c: "off", tap: "FX 6 on/off: remote control 6, or the sixth device", hold: "On only while held", led: "Off: the effect is off", note: "Tap latches, hold is momentary, on the same switch." },
+        A: { role: "Guitar", kind: "Instrument A", c: "white", tap: "Focus instrument A", dbl: "Mute/unmute its track", hold: "Assign the track selected in Bitwig", led: "On: the focused instrument (multi-colour: its track colour)", note: 'Assigning uses Hold time for clearing actions. See <a href="#fx">The FX preset</a>.' },
+        B: { role: "Bass", kind: "Instrument B", c: "white", p: "blip", tap: "Focus instrument B", dbl: "Mute/unmute its track", hold: "Assign the track selected in Bitwig", led: "Flash on the downbeat: assigned, not focused" },
+        C: { role: "Vocal", kind: "Instrument C", c: "white", p: "blip", tap: "Focus instrument C", dbl: "Mute/unmute its track", hold: "Assign the track selected in Bitwig", led: "Flash on the downbeat: assigned, not focused" },
+        D: { role: "Snapshot 2", kind: "Snapshots · focused instrument", c: "white", tap: "Next snapshot", dbl: "Back to snapshot 1", hold: "Store the current sound in this snapshot", led: "On: snapshot 2 (snapshot 1 is off; blinks after a change)" },
+        FS1: jack("FS1"), FS2: jack("FS2"), FS3: jack("FS3"), FS4: jack("FS4"),
+        EXP1: { kind: "Expression pedal", move: "Remote control 7 of the focused instrument's Pacer page", note: 'Set per preset under Expression pedals: <em>EXP 1 on the FX preset</em>.' },
+        EXP2: { kind: "Expression pedal", move: "Remote control 8 of the focused instrument's Pacer page", note: 'Set per preset under Expression pedals: <em>EXP 2 on the FX preset</em>.' }
+      }
+    }
+  };
+
+  var currentPreset = "looper";
+  var selectedControl = "1";
+  var stomps = Array.prototype.slice.call(document.querySelectorAll(".stomp"));
+  var jacks = Array.prototype.slice.call(document.querySelectorAll(".jack"));
+  var gestureRows = document.querySelectorAll("#detail .gesture");
+
+  function setGesture(index, label, text) {
+    var row = gestureRows[index];
+    row.hidden = text === null;
+    if (text === null) return;
+    row.querySelector("dt").textContent = label;
+    var dd = row.querySelector("dd");
+    dd.textContent = text || "Nothing by default";
+    dd.classList.toggle("none", !text);
+  }
+
+  function renderDetail() {
+    var d = PRESETS[currentPreset].controls[selectedControl];
+    document.getElementById("detail-name").textContent = NAMES[selectedControl];
+    document.getElementById("detail-kind").textContent = d.kind;
+    if (d.move) {
+      setGesture(0, "Moves", d.move);
+      setGesture(1, "", null);
+      setGesture(2, "", null);
+    } else {
+      setGesture(0, "Tap", d.tap);
+      setGesture(1, "Double-tap", d.dbl || "");
+      setGesture(2, "Hold", d.hold || "");
+    }
+    var ledLine = document.getElementById("detail-led");
+    ledLine.hidden = !d.led;
+    if (d.led) {
+      var dot = ledLine.querySelector(".led");
+      dot.setAttribute("data-c", d.c || "off");
+      if (d.p) dot.setAttribute("data-p", d.p); else dot.removeAttribute("data-p");
+      ledLine.querySelector("span:last-child").textContent = d.led;
+    }
+    var note = document.getElementById("detail-note");
+    note.hidden = !d.note;
+    note.innerHTML = d.note || "";
+    stomps.concat(jacks).forEach(function (el) {
+      el.setAttribute("aria-pressed", String(el.dataset.id === selectedControl));
+    });
+  }
+
+  function renderPreset() {
+    var preset = PRESETS[currentPreset];
+    document.getElementById("readout").textContent = preset.readout;
+    document.getElementById("explorer-note").textContent = preset.note;
+    stomps.forEach(function (el) {
+      var d = preset.controls[el.dataset.id];
+      el.setAttribute("data-c", d.c || "off");
+      var ring = el.querySelector(".stomp-ring");
+      if (d.p) ring.setAttribute("data-p", d.p); else ring.removeAttribute("data-p");
+      el.querySelector(".stomp-role").textContent = d.role;
+    });
+    document.getElementById("show-looper").setAttribute("aria-pressed", String(currentPreset === "looper"));
+    document.getElementById("show-fx").setAttribute("aria-pressed", String(currentPreset === "fx"));
+    renderDetail();
+  }
+
+  stomps.concat(jacks).forEach(function (el) {
+    el.addEventListener("click", function () {
+      selectedControl = el.dataset.id;
+      renderDetail();
+    });
+  });
+  document.getElementById("show-looper").addEventListener("click", function () { currentPreset = "looper"; renderPreset(); });
+  document.getElementById("show-fx").addEventListener("click", function () { currentPreset = "fx"; renderPreset(); });
+
+  /* ---------------------------------------------------------------- contents rail */
+  var railLinks = Array.prototype.slice.call(document.querySelectorAll(".rail a"));
+  if ("IntersectionObserver" in window) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        railLinks.forEach(function (link) {
+          link.setAttribute("aria-current", String(link.getAttribute("href") === "#" + entry.target.id));
+        });
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    railLinks.forEach(function (link) {
+      var target = document.querySelector(link.getAttribute("href"));
+      if (target) observer.observe(target);
+    });
+  }
+
+  /* ---------------------------------------------------------------- settings filter */
+  var filterInput = document.getElementById("settings-filter");
+  var filterCount = document.getElementById("settings-count");
+  var settingGroups = [];
+  Array.prototype.forEach.call(document.querySelectorAll("#settings-table tbody tr"), function (row) {
+    if (row.classList.contains("cat-row")) settingGroups.push({ head: row, rows: [] });
+    else if (settingGroups.length) settingGroups[settingGroups.length - 1].rows.push(row);
+  });
+  function applyFilter() {
+    var q = filterInput.value.trim().toLowerCase();
+    var shown = 0;
+    var total = 0;
+    settingGroups.forEach(function (group) {
+      var headMatch = q && group.head.textContent.toLowerCase().indexOf(q) >= 0;
+      var any = false;
+      group.rows.forEach(function (row) {
+        total++;
+        var match = !q || headMatch || row.textContent.toLowerCase().indexOf(q) >= 0;
+        row.hidden = !match;
+        if (match) { shown++; any = true; }
+      });
+      group.head.hidden = !any;
+    });
+    filterCount.textContent = q ? shown + " of " + total + " settings" : total + " settings";
+  }
+  filterInput.addEventListener("input", applyFilter);
+  applyFilter();
+
+  /* ---------------------------------------------------------------- checklists */
+  var STORE_KEY = "pacer4bitwig-checklists-v1";
+  var DOC_PATH = "checklists/results";
+  var list = document.getElementById("checklist");
+  var statusEl = document.getElementById("save-status");
+  var docRef = null;
+  var saveTimer = 0;
+  var dirty = false;
+  var saving = false;
+  var saveAgain = false;
+  var lastSynced = "";
+
+  function readState() {
+    var state = { checks: {}, notes: {} };
+    list.querySelectorAll('input[type="checkbox"]').forEach(function (box) {
+      if (box.checked) state.checks[box.dataset.k] = true;
+    });
+    list.querySelectorAll("textarea").forEach(function (area) {
+      if (area.value.trim()) state.notes[area.dataset.k] = area.value;
+    });
+    return state;
+  }
+
+  function applyState(state) {
+    if (!state) return;
+    var checks = state.checks || {};
+    var notes = state.notes || {};
+    list.querySelectorAll('input[type="checkbox"]').forEach(function (box) { box.checked = !!checks[box.dataset.k]; });
+    list.querySelectorAll("textarea").forEach(function (area) { area.value = typeof notes[area.dataset.k] === "string" ? notes[area.dataset.k] : ""; });
+    updateCounts();
+  }
+
+  function updateCounts() {
+    list.querySelectorAll(".group").forEach(function (group) {
+      var all = group.querySelectorAll('input[type="checkbox"]').length;
+      var done = group.querySelectorAll('input[type="checkbox"]:checked').length;
+      group.querySelector(".count").textContent = done + "/" + all;
+    });
+  }
+
+  function saveLocal(state) {
+    try {
+      window.localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function loadLocal() {
+    try {
+      var raw = window.localStorage.getItem(STORE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function save() {
+    dirty = false;
+    var state = readState();
+    var json = JSON.stringify(state);
+    var local = saveLocal(state);
+    if (!docRef) {
+      statusEl.textContent = local ? "Saved in this browser" : "Not saved: copy the results as Markdown";
+      return;
+    }
+    if (saving) { saveAgain = true; return; }
+    saving = true;
+    statusEl.textContent = "Saving…";
+    docRef.set({ checks: state.checks, notes: state.notes, updatedAt: new Date().toISOString() }).then(function () {
+      lastSynced = json;
+      statusEl.textContent = "Saved with this page at " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }).catch(function (err) {
+      var code = err && err.code;
+      if (code === "not_granted" || code === "capability_disabled" || code === "capability_removed" || code === "revoked") {
+        docRef = null;
+        statusEl.textContent = local ? "Saved in this browser only" : "Not saved: copy the results as Markdown";
+      } else if (code === "resource_exhausted") {
+        statusEl.textContent = "Saving too often; your next change saves again";
+      } else {
+        statusEl.textContent = local ? "Could not save with the page; kept in this browser" : "Not saved: copy the results as Markdown";
+      }
+    }).then(function () {
+      saving = false;
+      if (saveAgain) { saveAgain = false; save(); }
+    });
+  }
+
+  function queueSave() {
+    dirty = true;
+    statusEl.textContent = "Unsaved changes";
+    window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(save, 1200);
+  }
+
+  list.addEventListener("change", function (event) {
+    if (event.target.matches('input[type="checkbox"]')) updateCounts();
+    queueSave();
+  });
+  list.addEventListener("input", function (event) {
+    if (event.target.matches("textarea")) queueSave();
+  });
+
+  applyState(loadLocal());
+
+  if (window.claude && typeof window.claude.use === "function") {
+    window.claude.use("db").then(function (db) {
+      if (!db) return;
+      docRef = db.doc(DOC_PATH);
+      statusEl.textContent = "Results are saved with this page";
+      docRef.onSnapshot(function (snap) {
+        if (!snap.exists || snap.metadata.hasPendingWrites || dirty || saving) return;
+        var data = snap.data() || {};
+        var state = { checks: data.checks || {}, notes: data.notes || {} };
+        var json = JSON.stringify(state);
+        if (json === lastSynced) return;
+        lastSynced = json;
+        applyState(state);
+        saveLocal(state);
+      }, function () {
+        docRef = null;
+        statusEl.textContent = "Saved in this browser only";
+      });
+    });
+  }
+
+  function toMarkdown() {
+    var lines = ["## Pacer4Bitwig hardware test, " + new Date().toISOString().slice(0, 10), ""];
+    list.querySelectorAll(".group").forEach(function (group) {
+      lines.push("**" + group.querySelector("h4").textContent + "** (" + group.querySelector(".count").textContent + ")", "");
+      group.querySelectorAll(".check").forEach(function (row) {
+        var box = row.querySelector('input[type="checkbox"]');
+        var entry = "- [" + (box.checked ? "x" : " ") + "] " + row.querySelector(".n").textContent + ". " + row.querySelector(".text").textContent.replace(/\s+/g, " ").trim();
+        var note = row.querySelector("textarea").value.trim();
+        if (note) entry += "\n  " + note.replace(/\n/g, "\n  ");
+        lines.push(entry);
+      });
+      lines.push("");
+    });
+    return lines.join("\n");
+  }
+
+  document.getElementById("copy-md").addEventListener("click", function () {
+    var text = toMarkdown();
+    var box = document.getElementById("fallback");
+    var area = document.getElementById("fallback-text");
+    function showFallback() {
+      area.value = text;
+      box.hidden = false;
+      area.focus();
+      area.select();
+      statusEl.textContent = "Copy the results from the box below";
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        box.hidden = true;
+        statusEl.textContent = "Results copied as Markdown";
+      }).catch(showFallback);
+    } else {
+      showFallback();
+    }
+  });
+})();
+</script>

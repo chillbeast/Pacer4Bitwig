@@ -37,6 +37,20 @@ jobs:
           # Project pages are served from https://<owner>.github.io/<repo>/
           VITE_BASE: /${{ github.event.repository.name }}/
 
+      # docs/manual.html is written in Artifact format (no doctype, html or head tags) so it can also be published
+      # as a claude.ai Artifact; wrap it into a standalone page at /<repo>/manual/.
+      - name: Add the manual
+        working-directory: .
+        run: |
+          mkdir -p editor/dist/manual
+          {
+            printf '<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+            printf '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+            printf '<meta name="color-scheme" content="dark light">\n'
+            cat docs/manual.html
+            printf '\n</html>\n'
+          } > editor/dist/manual/index.html
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3

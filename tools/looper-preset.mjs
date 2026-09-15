@@ -1,8 +1,8 @@
 // Generates the "Bitwig Looper" Pacer preset described in docs/PACER-MAP.md as .syx files.
 // Does not talk to the Pacer - use pacer-send.mjs (or Pacer Studio) to write the result.
 //
-//   node looper-preset.mjs                       both variants for D1 -> ../presets/
-//   node looper-preset.mjs --slot C6 --mode multi
+//   node looper-preset.mjs                                  both variants for D1 on channel 16 -> ../presets/
+//   node looper-preset.mjs --slot C6 --mode multi --channel 5
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -15,11 +15,13 @@ import {
 
 // ---- The contract (docs/PACER-MAP.md) ---------------------------------------------------------------------------
 
-export const CHANNEL = 16;
+export const DEFAULT_CHANNEL = 16;
 export const SWITCH_CC_BASE = 102;
 export const FOOTSWITCH_CC_BASE = 112;
 export const EXP_CC_BASE = 116;
 export const PRESET_LOADED_CC = 119;
+/** The preset-loaded CC value tells the extension which LED variant this preset is. */
+export const PRESET_LOADED_VALUE = { two: 127, multi: 2 };
 export const COLOUR_SLOT_CC_BASE = 20;
 export const PRESET_NAME = 'LOOPS';
 
@@ -70,18 +72,21 @@ const name = (idx, text) => {
     return message ([CMD_SET, TGT_PRESET, idx, OBJ_NAME, 0x01, chars.length, ...[...chars].map (c => c.charCodeAt (0))]);
 };
 
-export function buildLooperPreset (slot, mode)
+export function buildLooperPreset (slot, mode, channel = DEFAULT_CHANNEL)
 {
+    if (!Number.isInteger (channel) || channel < 1 || channel > 16)
+        throw new Error (`Invalid MIDI channel ${channel} (expected 1..16)`);
+
     const idx = presetIndex (slot);
     const multi = mode === 'multi';
     const out = [name (idx, PRESET_NAME)];
 
     SWITCH_OBJECTS.forEach ((obj, s) => {
         out.push (controlMode (idx, obj));
-        out.push (step (idx, obj, 1, { channel: CHANNEL, type: MSG_CC_TRIGGER, data: [SWITCH_CC_BASE + s, 127, 0], active: 1 }));
+        out.push (step (idx, obj, 1, { channel, type: MSG_CC_TRIGGER, data: [SWITCH_CC_BASE + s, 127, 0], active: 1 }));
         for (let n = 2; n <= 6; n++)
             out.push (multi
-                ? step (idx, obj, n, { channel: CHANNEL, type: MSG_CC_TRIGGER, data: [colourSlotCC (s, n), 127, 0], active: 1 })
+                ? step (idx, obj, n, { channel, type: MSG_CC_TRIGGER, data: [colourSlotCC (s, n), 127, 0], active: 1 })
                 : step (idx, obj, n, { data: [0, 127, 0] }));
 
         const onColour = multi ? SLOT_COLOURS[0] : (s < LOOP_SWITCHES ? COLOUR.RED : COLOUR.WHITE);
@@ -92,7 +97,7 @@ export function buildLooperPreset (slot, mode)
 
     FOOTSWITCH_OBJECTS.forEach ((obj, f) => {
         out.push (controlMode (idx, obj));
-        out.push (step (idx, obj, 1, { channel: CHANNEL, type: MSG_CC_TRIGGER, data: [FOOTSWITCH_CC_BASE + f, 127, 0], active: 1 }));
+        out.push (step (idx, obj, 1, { channel, type: MSG_CC_TRIGGER, data: [FOOTSWITCH_CC_BASE + f, 127, 0], active: 1 }));
         // Same shape as the factory's unused steps
         for (let n = 2; n <= 6; n++)
             out.push (step (idx, obj, n, { data: [0, 127, 0] }));
@@ -100,13 +105,13 @@ export function buildLooperPreset (slot, mode)
 
     EXPRESSION_OBJECTS.forEach ((obj, e) => {
         out.push (controlMode (idx, obj));
-        out.push (step (idx, obj, 1, { channel: CHANNEL, type: MSG_CC, data: [EXP_CC_BASE + e, 0, 127], active: 1 }));
+        out.push (step (idx, obj, 1, { channel, type: MSG_CC, data: [EXP_CC_BASE + e, 0, 127], active: 1 }));
         // Same shape as the factory's unused pedal steps
         for (let n = 2; n <= 6; n++)
             out.push (step (idx, obj, n, { type: MSG_CC, data: [0, 0, 127] }));
     });
 
-    out.push (midiSetting (idx, 1, { channel: CHANNEL, type: MSG_LOAD_CC, data: [PRESET_LOADED_CC, 127, 0] }));
+    out.push (midiSetting (idx, 1, { channel, type: MSG_LOAD_CC, data: [PRESET_LOADED_CC, PRESET_LOADED_VALUE[multi ? 'multi' : 'two'], 0] }));
     for (let n = 2; n <= 16; n++)
         out.push (midiSetting (idx, n, {}));
 
@@ -118,8 +123,10 @@ export function buildLooperPreset (slot, mode)
 if (process.argv[1] && fileURLToPath (import.meta.url) === process.argv[1])
 {
     const args = process.argv.slice (2);
-    const slot = (args.includes ('--slot') ? args[args.indexOf ('--slot') + 1] : 'D1').toUpperCase ();
-    const modeArg = args.includes ('--mode') ? args[args.indexOf ('--mode') + 1] : 'both';
+    const option = (flag, fallback) => (args.includes (flag) ? args[args.indexOf (flag) + 1] : fallback);
+    const slot = option ('--slot', 'D1').toUpperCase ();
+    const modeArg = option ('--mode', 'both');
+    const channel = Number (option ('--channel', String (DEFAULT_CHANNEL)));
     const modes = modeArg === 'both' ? ['two', 'multi'] : [modeArg];
 
     if (slot === 'D6')
@@ -130,11 +137,12 @@ if (process.argv[1] && fileURLToPath (import.meta.url) === process.argv[1])
 
     for (const mode of modes)
     {
-        const messages = buildLooperPreset (slot, mode);
+        const messages = buildLooperPreset (slot, mode, channel);
         const invalid = messages.filter (m => !isValidPacerMessage (m)).length;
         if (messages.length !== 189 || invalid > 0)
             throw new Error (`Self-check failed: ${messages.length} messages (expected 189), ${invalid} invalid`);
-        const file = join (root, `bitwig-looper-${mode}-colour-${slot}.syx`);
+        const suffix = channel === DEFAULT_CHANNEL ? '' : `-ch${channel}`;
+        const file = join (root, `bitwig-looper-${mode}-colour-${slot}${suffix}.syx`);
         writeFileSync (file, concat (messages));
         console.log (`${file}: ${messages.length} messages`);
     }

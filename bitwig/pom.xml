@@ -4,7 +4,7 @@
 
 	<groupId>dev.pacer4bitwig</groupId>
 	<artifactId>Pacer4Bitwig</artifactId>
-	<version>0.1.0</version>
+	<version>0.2.0</version>
 	<packaging>jar</packaging>
 	<name>Pacer4Bitwig</name>
 	<description>Nektar Pacer live-looper controller extension for Bitwig Studio, built on the DrivenByMoss framework.</description>

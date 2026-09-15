@@ -43,7 +43,7 @@ import java.util.function.Consumer;
  */
 public class PacerConfiguration extends AbstractConfiguration
 {
-    /** Setting ID: LED mode. */
+    /** Setting ID: LED mode (the setting or the variant announced by the preset). */
     public static final Integer              LED_MODE             = Integer.valueOf (1000);
     /** Setting ID: launch quantization. */
     public static final Integer              LAUNCH_QUANTIZATION  = Integer.valueOf (1001);
@@ -59,6 +59,8 @@ public class PacerConfiguration extends AbstractConfiguration
     public static final Integer              DAW_MODE             = Integer.valueOf (1006);
     /** Setting ID: the project's loop track position. */
     public static final Integer              LOOP_TRACK_START     = Integer.valueOf (1007);
+    /** Setting ID: the looper MIDI channel. */
+    public static final Integer              LOOPER_CHANNEL       = Integer.valueOf (1008);
 
     /** Number of expression pedal jacks. */
     public static final int                  NUM_EXPRESSION       = 2;
@@ -161,6 +163,7 @@ public class PacerConfiguration extends AbstractConfiguration
             LOOP_TRACK_COUNTS[i] = Integer.toString (i + 1);
     }
 
+    private volatile int                     looperMidiChannel    = PacerMap.DEFAULT_MIDI_CHANNEL;
     private volatile int                     loopTrackCount       = 4;
     private volatile LoopSwitchCount         loopSwitchCount      = LoopSwitchCount.FOUR;
     private volatile LoopSwitchMode          loopSwitchMode       = LoopSwitchMode.TAP;
@@ -188,7 +191,8 @@ public class PacerConfiguration extends AbstractConfiguration
     private final int []                     pedalMinimum         = new int [NUM_EXPRESSION];
     private final int []                     pedalMaximum         = new int [NUM_EXPRESSION];
     private volatile int                     pedalMidiChannel     = 0;
-    private volatile LedMode                 ledMode              = LedMode.TWO_COLOUR;
+    private volatile LedMode                 ledMode              = LedMode.AUTO;
+    private volatile LedMode                 announcedLedMode     = LedMode.TWO_COLOUR;
     private volatile boolean                 beatSyncedLeds       = true;
     private volatile boolean                 countBeats           = true;
     private volatile LoopColours.Choice      colourStopped        = LoopColours.Choice.of (LoopColours.DEFAULT.stopped ());
@@ -267,6 +271,14 @@ public class PacerConfiguration extends AbstractConfiguration
 
     private void initLooper (final ISettingsUI settings)
     {
+        // Read during init (the setting fires its stored value right away): MIDI bindings are created with it
+        final IEnumSetting channelSetting = settings.getEnumSetting ("Looper MIDI channel (must match the Pacer preset)", CATEGORY_LOOPER, MIDI_CHANNELS, MIDI_CHANNELS[PacerMap.DEFAULT_MIDI_CHANNEL]);
+        channelSetting.addValueObserver (value -> {
+            final int index = Arrays.asList (MIDI_CHANNELS).indexOf (value);
+            this.looperMidiChannel = index < 0 ? PacerMap.DEFAULT_MIDI_CHANNEL : index;
+            this.notifyObservers (LOOPER_CHANNEL);
+        });
+
         final IEnumSetting trackCountSetting = settings.getEnumSetting ("Loop tracks", CATEGORY_LOOPER, LOOP_TRACK_COUNTS, LOOP_TRACK_COUNTS[3]);
         trackCountSetting.addValueObserver (value -> this.loopTrackCount = Math.max (0, Arrays.asList (LOOP_TRACK_COUNTS).indexOf (value)) + 1);
         enumSetting (settings, "Loop switches", CATEGORY_LOOPER, LoopSwitchCount.values (), LoopSwitchCount.FOUR, value -> this.loopSwitchCount = value);
@@ -341,7 +353,7 @@ public class PacerConfiguration extends AbstractConfiguration
 
     private void initLeds (final ISettingsUI settings)
     {
-        enumSetting (settings, "LED mode", CATEGORY_LEDS, LedMode.values (), LedMode.TWO_COLOUR, value -> {
+        enumSetting (settings, "LED mode", CATEGORY_LEDS, LedMode.values (), LedMode.AUTO, value -> {
             this.ledMode = value;
             this.notifyObservers (LED_MODE);
         });
@@ -366,6 +378,15 @@ public class PacerConfiguration extends AbstractConfiguration
     {
         final IEnumSetting setting = settings.getEnumSetting (label, category, ON_OFF, initial ? ON_OFF[0] : ON_OFF[1]);
         setting.addValueObserver (value -> observer.accept (Boolean.valueOf (ON_OFF[0].equals (value))));
+    }
+
+
+    /**
+     * @return The MIDI channel (0-15) of the looper preset
+     */
+    public int getLooperMidiChannel ()
+    {
+        return this.looperMidiChannel;
     }
 
 
@@ -603,11 +624,34 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
-     * @return The LED mode
+     * @return The LED mode setting, may be AUTO
      */
     public LedMode getLedMode ()
     {
         return this.ledMode;
+    }
+
+
+    /**
+     * @return The mode LEDs are driven in: the setting, or the variant the looper preset announced
+     */
+    public LedMode getEffectiveLedMode ()
+    {
+        return LedMode.resolve (this.ledMode, this.announcedLedMode);
+    }
+
+
+    /**
+     * Remember the LED variant the looper preset announced when it was loaded.
+     *
+     * @param announced TWO_COLOUR or MULTI_COLOUR
+     */
+    public void setAnnouncedLedMode (final LedMode announced)
+    {
+        final LedMode before = this.getEffectiveLedMode ();
+        this.announcedLedMode = announced;
+        if (this.getEffectiveLedMode () != before)
+            this.notifyObservers (LED_MODE);
     }
 
 

@@ -10,7 +10,14 @@ Turn a **Nektar Pacer** into a live-looper pedalboard for **Bitwig Studio**, and
 | [`docs/LOOPER.md`](docs/LOOPER.md) | User guide: Bitwig setup, switch functions, LEDs, settings, test checklist |
 | [`docs/PACER-MAP.md`](docs/PACER-MAP.md) | The MIDI contract between the Pacer preset and the extension |
 
-## Quick start
+## Download
+
+Grab `Pacer4Bitwig.bwextension` and the looper presets from the
+[latest release](https://github.com/chillbeast/Pacer4Bitwig/releases) (or from the artifacts of any CI run), copy the
+extension into `Documents/Bitwig Studio/Extensions` and follow [docs/LOOPER.md](docs/LOOPER.md). What changed:
+[CHANGELOG.md](CHANGELOG.md).
+
+## Quick start (from source)
 
 ```bash
 # 1. Back up the Pacer (read-only)

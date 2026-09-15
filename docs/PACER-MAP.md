@@ -8,7 +8,12 @@ The single source of truth for how the **Pacer preset** (written by the editor) 
 - USB MIDI **port 1** of the Pacer (Windows: in `PACER`, out `PACER`) carries this contract. Port 2
   (`MIDIIN2/MIDIOUT2 (PACER)`) is the Pacer's DAW port; the extension only uses it when *Nektar DAW mode* is
   switched on, with Nektar's protocol (docs/ROADMAP.md), never for the looper.
-- Everything on **MIDI channel 16** (status `0xBF`; SysEx step channel byte `16`, since `0` means "global").
+- Everything on **MIDI channel 16** by default (status `0xBF`; SysEx step channel byte `16`, since `0` means
+  "global"). The channel is configurable: extension setting *Looper MIDI channel*, `tools/looper-preset.mjs
+  --channel N`, and the channel picker of Pacer Studio's Bitwig Looper template — all three must agree. The CC
+  numbers never change.
+- The preset-loaded message (CC 119) carries the LED variant in its value: **127 = two-colour preset, 2 =
+  multi-colour preset**. With the extension's LED mode on *Automatic* the LEDs follow the preset.
 - Preset slot: **D1** (preset index `0x13`) by default, name `LOOPS`. Never use D6 (`0x18`): the Pacer does not
   answer GET requests for it (known firmware quirk, see `reference/pacer-editor/dumps/README.md`).
 

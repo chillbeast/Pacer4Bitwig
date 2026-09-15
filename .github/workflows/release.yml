@@ -1,0 +1,61 @@
+name: Release
+
+# Push a version tag (e.g. `git tag v0.2.0 && git push origin v0.2.0`) to publish a GitHub release with the
+# ready-to-install extension and the looper presets attached.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      # Keep in sync with ci.yml and drivenbymoss.version in bitwig/pom.xml
+      DRIVENBYMOSS_REF: bc3c7b593942236670eb1e8a4b037006a23c47cf
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Build DrivenByMoss into the local Maven repository
+        run: |
+          git init DrivenByMoss
+          cd DrivenByMoss
+          git remote add origin https://github.com/git-moss/DrivenByMoss.git
+          git fetch --depth 1 origin "$DRIVENBYMOSS_REF"
+          git checkout FETCH_HEAD
+          mvn -B -q install -DskipTests -Dbitwig.extension.directory=target/ext
+
+      - name: Build and test the extension
+        working-directory: bitwig
+        run: |
+          mvn -B verify
+          cp target/Pacer4Bitwig.jar ../Pacer4Bitwig.bwextension
+
+      - name: Generate the looper presets
+        working-directory: tools
+        run: node looper-preset.mjs
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            Pacer4Bitwig.bwextension \
+            presets/bitwig-looper-two-colour-D1.syx \
+            presets/bitwig-looper-multi-colour-D1.syx \
+            --title "Pacer4Bitwig $GITHUB_REF_NAME" \
+            --notes "Install: copy Pacer4Bitwig.bwextension into Documents/Bitwig Studio/Extensions, then follow docs/LOOPER.md. Changes: see CHANGELOG.md." \
+            --generate-notes

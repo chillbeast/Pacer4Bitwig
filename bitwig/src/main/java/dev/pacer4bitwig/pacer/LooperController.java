@@ -750,7 +750,7 @@ public class LooperController
         if (!track.doesExist ())
             return LedState.DARK;
 
-        final LedMode mode = this.configuration.getLedMode ();
+        final LedMode mode = this.configuration.getEffectiveLedMode ();
         final LoopColours colours = this.configuration.getLoopColours ();
         final double [] pendingMute = this.pendingMutes.get (Integer.valueOf (track.getIndex ()));
         if (pendingMute != null)
@@ -958,7 +958,7 @@ public class LooperController
         final int focus = LayerPlanner.focus (states);
         if (focus >= 0)
             return this.loopLed (this.getTrackBank ().getItem (focus));
-        final LedMode mode = this.configuration.getLedMode ();
+        final LedMode mode = this.configuration.getEffectiveLedMode ();
         final LoopColours colours = this.configuration.getLoopColours ();
         if (this.anyLoop (true))
             return LoopLeds.forLoop (LoopState.PLAYING, false, false, mode, colours);

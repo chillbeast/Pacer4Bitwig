@@ -241,7 +241,8 @@ multi-colour preset you should see six different colours — that confirms multi
 
 | Category | Setting | Options |
 |----------|---------|---------|
-| Looper | Loop tracks | 1–6 |
+| Looper | Looper MIDI channel (must match the Pacer preset) | 1–16 (default 16; changing it restarts the extension) |
+| | Loop tracks | 1–6 |
 | | Loop switches | None · SW 1 · SW 1-2 · … · SW 1-6 |
 | | Loop switch mode | Tap to record, tap again to close · Hold to record, release to close |
 | | Loop switch fires on press | On (tight timing) · Off (on release; hold no longer runs the tap) |
@@ -264,7 +265,7 @@ multi-colour preset you should see six different colours — that confirms multi
 | | EXP 1, EXP 2 response | Linear · Inverted · Slow start · Fast start |
 | | EXP 1, EXP 2 heel (minimum) / toe (maximum) | 0–100 % |
 | | MIDI channel for pedal messages | 1–16 |
-| Pacer LEDs | LED mode | Two-colour (safe) · Multi-colour (experimental) |
+| Pacer LEDs | LED mode | Automatic (the looper preset tells — default) · Two-colour (safe) · Multi-colour (experimental) |
 | | Blink in time with the transport | On · Off |
 | | Count beats on SW A-D (count-in and recording) | On · Off |
 | | Multi-colour: stopped / playing / recording / muted loop | White · Red · Green · Amber · Blue · Purple |
@@ -278,7 +279,35 @@ multi-colour preset you should see six different colours — that confirms multi
 "Only important ones" keeps navigation (rows, loop track window), warnings, count-ins, loop lengths and resets, and
 drops confirmations like "Undo" or "All loops muted".
 
-## 8. Hardware test checklist
+## 8. Monitoring setups
+
+How you hear your instrument while looping audio:
+
+- **Dedicated input track (recommended for guitar/vocals):** one track *Input* with your interface input, monitoring
+  *On* and your live effects. Set each loop track's audio input to the *Input* track (post-FX) and its monitoring to
+  *Off*. You always hear the live signal through *Input*, loops record what you hear, and arming never changes what
+  you hear.
+- **Monitoring through the loop tracks:** loop tracks take the interface input with monitoring *Auto*. The looper
+  arms the track it records on; with *Exclusive arm* the most recently recorded loop track stays armed until the next
+  recording starts, so the input stays audible — through that track's effects.
+- **MIDI loops:** instrument tracks with input "PACER" or your keyboard; arm follows the loop you record, the rest is
+  like audio.
+
+## 9. Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| "MIDI input PACER is currently being used" | Nektar's own PACER script (or another controller) holds the port — disable it in *Settings > Controllers*. |
+| Switches do nothing | Pacer on the looper preset (D1)? *Looper MIDI channel* equal to the preset's channel? Port 1 = `PACER`? |
+| LEDs never light | LED mode *Automatic* or matching the preset variant; select the looper preset again (it announces itself); run *Test the LEDs*. |
+| LEDs show odd colours | You are in multi-colour mode with the two-colour preset (or the multi-colour hypothesis does not hold on your Pacer) — use two-colour. |
+| Other presets do not reach instruments | The track's input must be "PACER" or *All ins*, and the preset must not use the looper channel. |
+| Track/Transport presets do nothing | Enable *Nektar DAW mode* and assign port 2 (`MIDIIN2 (PACER)` / `MIDIOUT2 (PACER)`). |
+| Loop switches control the wrong tracks | Check *Loop tracks start at track* (per project) and use hold SW A / SW B to move the loop track window. |
+| I hear my input twice | Several armed tracks with auto monitoring — keep *Exclusive arm* on, or use a dedicated input track. |
+| Nothing changes after editing settings | Most settings apply immediately; *Looper MIDI channel* restarts the extension. Check Bitwig's controller console for errors. |
+
+## 10. Hardware test checklist
 
 Run these once with the Pacer on preset D1 and the controller added in Bitwig.
 

@@ -7,8 +7,8 @@ package dev.pacer4bitwig.pacer.controller;
  */
 public final class PacerMap
 {
-    /** MIDI channel 16 (0-based). */
-    public static final int      MIDI_CHANNEL             = 15;
+    /** MIDI channel 16 (0-based), the default of the "Looper MIDI channel" setting. */
+    public static final int      DEFAULT_MIDI_CHANNEL     = 15;
 
     /** The ten stomp switches: SW 1-6 (indices 0-5), SW A-D (indices 6-9). */
     public static final int      NUM_SWITCHES             = 10;

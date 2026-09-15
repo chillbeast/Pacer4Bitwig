@@ -81,6 +81,11 @@ extension when the file changes.
   `LooperController.applyLoopTrackStart` scrolls the bank to it, and moving the window from the Pacer writes it back.
 - Notifications go through `notify` (confirmations, level "All" only) or `notifyImportant` (navigation, warnings,
   count-ins, loop lengths, resets). "Show looper status" always shows.
+- The looper MIDI channel is a setting read during init (DrivenByMoss' `EnumSettingImpl.addValueObserver` fires the
+  stored value immediately); bindings, LED writers and note input filters use the channel captured in
+  `createSurface`, and changing the setting later calls `host.restart ()`.
+- LED mode `AUTO` resolves to the variant announced by the preset-loaded CC value (127 two-colour, 2 multi-colour);
+  always use `PacerConfiguration.getEffectiveLedMode ()` when driving LEDs.
 - `daw/DawModeController` (port 2, opt-in setting): raw `setMidiCallback` / `setSysexCallback` on
   `midiAccess.createInput (1, null)`, LED feedback as CC 127/0 on channel 16 via `createOutput (1)`. `DawModeSysex`
   reproduces Nektar's messages byte for byte, including the odd 0x1F "checksum" of the slot-colour message. The

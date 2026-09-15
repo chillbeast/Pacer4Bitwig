@@ -55,7 +55,7 @@ class LedTest
     @Test
     void passThroughFiltersHoldBackTheLooperChannel ()
     {
-        final List<String> filters = Arrays.asList (MidiFilters.allChannelsExcept (PacerMap.MIDI_CHANNEL));
+        final List<String> filters = Arrays.asList (MidiFilters.allChannelsExcept (PacerMap.DEFAULT_MIDI_CHANNEL));
         assertEquals (7 * 15, filters.size ());
         assertTrue (filters.contains ("90????"));
         assertTrue (filters.contains ("BE????"));

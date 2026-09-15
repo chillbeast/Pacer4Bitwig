@@ -73,6 +73,14 @@ extension when the file changes.
   restoring them.
 - Double/halve use the launcher cursor clip: `model.ensureClip ()` in `createModel` creates it (init phase); select
   the slot, then act on `model.getCursorClip ()` ~150 ms later once the cursor has followed.
+- Loop tracks (1-6, `getLoopTrackCount`) and loop switches (0-6, `LoopSwitchCount`) are separate settings: a switch
+  is a loop switch if its index is below both. Every other switch uses its tap / double-tap / hold `Action`s.
+- Double-tap never delays the tap (`TapHoldCommand.withDoubleTap`): a second tap inside the window runs the double-tap
+  action instead of a second tap. Holds reset the double-tap window.
+- The loop track position is a *document* setting (`documentSettings.getRangeSetting`, saved per project);
+  `LooperController.applyLoopTrackStart` scrolls the bank to it, and moving the window from the Pacer writes it back.
+- Notifications go through `notify` (confirmations, level "All" only) or `notifyImportant` (navigation, warnings,
+  count-ins, loop lengths, resets). "Show looper status" always shows.
 - `daw/DawModeController` (port 2, opt-in setting): raw `setMidiCallback` / `setSysexCallback` on
   `midiAccess.createInput (1, null)`, LED feedback as CC 127/0 on channel 16 via `createOutput (1)`. `DawModeSysex`
   reproduces Nektar's messages byte for byte, including the odd 0x1F "checksum" of the slot-colour message. The

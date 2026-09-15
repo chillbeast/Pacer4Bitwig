@@ -55,16 +55,6 @@ class LoopLogicTest
 
 
     @Test
-    void layouts ()
-    {
-        assertTrue (SwitchLayout.FOUR_LOOPS.isLoopSwitch (3));
-        assertFalse (SwitchLayout.FOUR_LOOPS.isLoopSwitch (4));
-        assertTrue (SwitchLayout.SIX_LOOPS.isLoopSwitch (5));
-        assertFalse (SwitchLayout.SIX_LOOPS.isLoopSwitch (6));
-    }
-
-
-    @Test
     void tapTiming ()
     {
         assertTrue (TapTiming.loopTapOnPress (true, HoldAction.DELETE));
@@ -89,7 +79,17 @@ class LoopLogicTest
             HoldAction.values (),
             LoopLength.values (),
             QuantizationChoice.values (),
-            SwitchLayout.values (),
+            LoopSwitchCount.values (),
+            LoopSwitchMode.values (),
+            LoopDoubleTap.values (),
+            DoubleTapWindow.values (),
+            NotificationLevel.values (),
+            LoopColours.Choice.values (),
+            PedalCurve.values (),
+            ClearHoldTime.values (),
+            FadeLength.values (),
+            CountIn.values (),
+            MuteTiming.values (),
             LedMode.values ()
         })
         {

@@ -81,6 +81,8 @@ public enum Action implements Labelled
     TAP_TEMPO ("Tap tempo", true, false),
     /** Start or stop the transport. */
     TRANSPORT_PLAY_STOP ("Transport play/stop", true, false),
+    /** Pop up a one-line overview of the row and every loop. */
+    SHOW_STATUS ("Show looper status", false, false),
     /** Cycle every switch LED through all colours. */
     LED_TEST ("Test the LEDs", false, false);
 

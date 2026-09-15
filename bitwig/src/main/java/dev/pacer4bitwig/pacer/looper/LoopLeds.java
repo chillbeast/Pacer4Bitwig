@@ -20,7 +20,7 @@ public final class LoopLeds
 
 
     /**
-     * Get the LED state of a loop switch.
+     * Get the LED state of a loop switch with the default colours.
      *
      * @param state The slot state
      * @param overdubbing The clip plays while the launcher overdub records into it
@@ -30,20 +30,36 @@ public final class LoopLeds
      */
     public static LedState forLoop (final LoopState state, final boolean overdubbing, final boolean muted, final LedMode mode)
     {
+        return forLoop (state, overdubbing, muted, mode, LoopColours.DEFAULT);
+    }
+
+
+    /**
+     * Get the LED state of a loop switch.
+     *
+     * @param state The slot state
+     * @param overdubbing The clip plays while the launcher overdub records into it
+     * @param muted The track is muted
+     * @param mode The LED mode
+     * @param colours The multi-colour palette
+     * @return The LED state
+     */
+    public static LedState forLoop (final LoopState state, final boolean overdubbing, final boolean muted, final LedMode mode, final LoopColours colours)
+    {
         if (mode == LedMode.MULTI_COLOUR)
             return switch (state)
             {
                 case EMPTY -> LedState.DARK;
-                case STOPPED -> LedState.solid (LedColour.AMBER);
+                case STOPPED -> LedState.solid (colours.stopped ());
                 case PLAYING -> {
                     if (muted)
-                        yield LedState.solid (LedColour.BLUE);
-                    yield new LedState (overdubbing ? LedColour.RED : LedColour.GREEN, LedPattern.SOLID_DIP);
+                        yield LedState.solid (colours.muted ());
+                    yield new LedState (overdubbing ? colours.recording () : colours.playing (), LedPattern.SOLID_DIP);
                 }
-                case PLAY_QUEUED -> new LedState (LedColour.GREEN, LedPattern.BLINK_FAST);
-                case STOP_QUEUED -> new LedState (LedColour.AMBER, LedPattern.BLINK_FAST);
-                case RECORD_QUEUED -> new LedState (LedColour.RED, LedPattern.BLINK_FAST);
-                case RECORDING -> new LedState (LedColour.RED, LedPattern.SOLID_DIP);
+                case PLAY_QUEUED -> new LedState (colours.playing (), LedPattern.BLINK_FAST);
+                case STOP_QUEUED -> new LedState (colours.stopped (), LedPattern.BLINK_FAST);
+                case RECORD_QUEUED -> new LedState (colours.recording (), LedPattern.BLINK_FAST);
+                case RECORDING -> new LedState (colours.recording (), LedPattern.SOLID_DIP);
             };
 
         // Two-colour: only on/off reaches the Pacer, the colour is for Bitwig's simulator

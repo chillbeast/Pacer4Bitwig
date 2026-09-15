@@ -29,13 +29,16 @@ import dev.pacer4bitwig.pacer.looper.ExpressionTarget;
 import dev.pacer4bitwig.pacer.looper.HoldAction;
 import dev.pacer4bitwig.pacer.looper.LayerPlanner;
 import dev.pacer4bitwig.pacer.looper.LoopAction;
+import dev.pacer4bitwig.pacer.looper.LoopColours;
+import dev.pacer4bitwig.pacer.looper.LoopDoubleTap;
 import dev.pacer4bitwig.pacer.looper.LoopLeds;
 import dev.pacer4bitwig.pacer.looper.LoopLength;
 import dev.pacer4bitwig.pacer.looper.LoopLengthTracker;
 import dev.pacer4bitwig.pacer.looper.LoopState;
 import dev.pacer4bitwig.pacer.looper.LoopSwitchMode;
+import dev.pacer4bitwig.pacer.looper.LooperText;
 import dev.pacer4bitwig.pacer.looper.MuteTiming;
-import dev.pacer4bitwig.pacer.looper.PedalCurve;
+import dev.pacer4bitwig.pacer.looper.PedalResponse;
 import dev.pacer4bitwig.pacer.looper.TapTiming;
 import dev.pacer4bitwig.pacer.looper.VolumeFade;
 import dev.pacer4bitwig.pacer.midi.RawMidiSender;
@@ -49,56 +52,58 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 
 /**
  * All looper behaviour: what switches, jacks and pedals do and what the LEDs show. The setup only wires hardware
  * to these methods; {@link #tick()} runs every few tens of milliseconds for everything that watches state.
  * <p>
- * Each loop switch controls the slot of the track with the same index in the current scene row (the track bank is
- * one scene high, so scrolling its scene bank moves the row for every loop).
+ * The looper manages the first "loop tracks" of the track bank (1-6). Each loop switch controls the slot of the
+ * track with the same number in the current scene row (the track bank is one scene high, so scrolling its scene
+ * bank moves the row for every loop).
  */
 public class LooperController
 {
-    private static final long            NOTIFY_DELAY_MS       = 150;
+    private static final long             NOTIFY_DELAY_MS       = 150;
     /** Bitwig reports a changed arm state asynchronously; do not trust "not armed" before this. */
-    private static final long            ARM_SETTLE_MS         = 500;
+    private static final long             ARM_SETTLE_MS         = 500;
     /** Give up a count-in if the transport has not started by then. */
-    private static final long            COUNT_IN_START_MS     = 2000;
+    private static final long             COUNT_IN_START_MS     = 2000;
     /** Give the launcher cursor clip time to follow a newly selected slot. */
-    private static final long            CURSOR_CLIP_FOLLOW_MS = 150;
+    private static final long             CURSOR_CLIP_FOLLOW_MS = 150;
     /** Restore volumes even if the loops never report stopped. */
-    private static final long            FADE_STOP_TIMEOUT_MS  = 20000;
+    private static final long             FADE_STOP_TIMEOUT_MS  = 20000;
     /** A released hold-to-record that never started recording is forgotten after this. */
-    private static final long            CLOSE_WAIT_MS         = 1000;
-    private static final long            LED_TEST_STEP_MS      = 1000;
-    private static final int             RECORD_HISTORY        = 64;
-    private static final int             BEATS_PER_BAR_4_4     = 4;
-    private static final int             TOP_ROW_SIZE          = 4;
+    private static final long             CLOSE_WAIT_MS         = 1000;
+    private static final long             LED_TEST_STEP_MS      = 1000;
+    private static final int              RECORD_HISTORY        = 64;
+    private static final int              BEATS_PER_BAR_4_4     = 4;
+    private static final int              TOP_ROW_SIZE          = 4;
 
-    private final IHost                  host;
-    private final IModel                 model;
-    private final PacerConfiguration     configuration;
-    private final BeatClock              clock;
-    private RawMidiSender                midiSender            = RawMidiSender.NONE;
+    private final IHost                   host;
+    private final IModel                  model;
+    private final PacerConfiguration      configuration;
+    private final BeatClock               clock;
+    private RawMidiSender                 midiSender            = RawMidiSender.NONE;
 
     /** Track bank positions the looper armed itself, with the time it did so. */
-    private final Map<Integer, Long>     armedByLooper         = new HashMap<> ();
-    private int                          lastArmedIndex        = -1;
+    private final Map<Integer, Long>      armedByLooper         = new HashMap<> ();
+    private int                           lastArmedIndex        = -1;
     /** Recordings in order: {scene row, track bank position}. */
-    private final Deque<int []>          recordHistory         = new ArrayDeque<> ();
-    private final LoopLengthTracker      lengthTracker         = new LoopLengthTracker (PacerMap.MAX_LOOP_TRACKS);
-    private int                          matchedBars;
-    private PendingCountIn               pendingCountIn;
-    private VolumeFade                   fade;
-    private long                         fadeStopRequestedAt   = -1;
-    private long                         ledTestStartedAt      = -1;
+    private final Deque<int []>           recordHistory         = new ArrayDeque<> ();
+    private final LoopLengthTracker       lengthTracker         = new LoopLengthTracker (PacerMap.MAX_LOOP_TRACKS);
+    private int                           matchedBars;
+    private PendingCountIn                pendingCountIn;
+    private VolumeFade                    fade;
+    private long                          fadeStopRequestedAt   = -1;
+    private long                          ledTestStartedAt      = -1;
     /** Loop switches whose current press started a hold-to-record. */
-    private final boolean []             holdRecording         = new boolean [PacerMap.MAX_LOOP_TRACKS];
+    private final boolean []              holdRecording         = new boolean [PacerMap.MAX_LOOP_TRACKS];
     /** Hold-to-record released before recording started: close as soon as it does (time of the release). */
-    private final long []                closeWhenRecording    = new long [PacerMap.MAX_LOOP_TRACKS];
+    private final long []                 closeWhenRecording    = new long [PacerMap.MAX_LOOP_TRACKS];
     /** Quantized mute changes: track bank position to {target (1 = mute), apply at beats}. */
-    private final Map<Integer, double []> pendingMutes         = new HashMap<> ();
+    private final Map<Integer, double []> pendingMutes          = new HashMap<> ();
 
 
     /** A recording waiting for its count-in. */
@@ -148,7 +153,7 @@ public class LooperController
     }
 
 
-    // ---- Hardware entry points ----------------------------------------------------------------------------------
+    // ---- Stomp switches -----------------------------------------------------------------------------------------
 
     /**
      * @param switchIndex 0-9
@@ -178,6 +183,18 @@ public class LooperController
 
 
     /**
+     * @param switchIndex 0-9
+     * @return True if a double-tap action is assigned to the switch
+     */
+    public boolean isDoubleTapEnabled (final int switchIndex)
+    {
+        if (this.isLoopSwitch (switchIndex))
+            return this.configuration.getLoopDoubleTap () != LoopDoubleTap.NOTHING;
+        return this.configuration.getSwitchDoubleTap (switchIndex) != Action.NONE;
+    }
+
+
+    /**
      * A switch was tapped.
      *
      * @param switchIndex 0-9
@@ -201,6 +218,37 @@ public class LooperController
             return;
         }
         this.loopTap (track);
+    }
+
+
+    /**
+     * A switch was double-tapped (the first tap has already run).
+     *
+     * @param switchIndex 0-9
+     */
+    public void doubleTap (final int switchIndex)
+    {
+        if (!this.isLoopSwitch (switchIndex))
+        {
+            this.perform (this.configuration.getSwitchDoubleTap (switchIndex));
+            return;
+        }
+
+        final ITrack track = this.getTrackBank ().getItem (switchIndex);
+        if (!track.doesExist ())
+            return;
+        switch (this.configuration.getLoopDoubleTap ())
+        {
+            case STOP -> track.stop (false);
+            case MUTE -> this.requestMute (track, !this.isEffectivelyMuted (track));
+            case CLEAR -> {
+                this.holdRecording[switchIndex] = false;
+                this.closeWhenRecording[switchIndex] = -1;
+                this.clearLoop (track);
+            }
+            case UNDO -> this.perform (Action.UNDO);
+            case NOTHING -> this.tap (switchIndex);
+        }
     }
 
 
@@ -244,6 +292,8 @@ public class LooperController
     }
 
 
+    // ---- Footswitch jacks ---------------------------------------------------------------------------------------
+
     /**
      * @param index 0-3
      * @return True if the footswitch jack fires its tap on press
@@ -265,6 +315,16 @@ public class LooperController
 
 
     /**
+     * @param index 0-3
+     * @return True if a double-tap action is assigned to the jack
+     */
+    public boolean isFootswitchDoubleTapEnabled (final int index)
+    {
+        return this.configuration.getFootswitchDoubleTap (index) != Action.NONE;
+    }
+
+
+    /**
      * A footswitch jack was tapped.
      *
      * @param index 0-3
@@ -272,6 +332,17 @@ public class LooperController
     public void footswitchTap (final int index)
     {
         this.perform (this.configuration.getFootswitchTap (index));
+    }
+
+
+    /**
+     * A footswitch jack was double-tapped.
+     *
+     * @param index 0-3
+     */
+    public void footswitchDoubleTap (final int index)
+    {
+        this.perform (this.configuration.getFootswitchDoubleTap (index));
     }
 
 
@@ -286,9 +357,11 @@ public class LooperController
     }
 
 
+    // ---- Expression pedals --------------------------------------------------------------------------------------
+
     /**
-     * The parameter a pedal is bound to directly. Only linear parameter targets are bound; everything else (MIDI
-     * targets, curves) goes through {@link #pedalMoved(int, int)}.
+     * The parameter a pedal is bound to directly. Only parameter targets with a linear, full-range response are bound;
+     * everything else (MIDI targets, curves, ranges) goes through {@link #pedalMoved(int, int)}.
      *
      * @param index 0-1
      * @return The parameter, or null to route the pedal through its command
@@ -296,7 +369,7 @@ public class LooperController
     public IParameter getPedalBinding (final int index)
     {
         final ExpressionTarget target = this.configuration.getExpressionTarget (index);
-        if (target.getKind () != ExpressionTarget.Kind.PARAMETER || this.configuration.getPedalCurve (index) != PedalCurve.LINEAR)
+        if (target.getKind () != ExpressionTarget.Kind.PARAMETER || !this.configuration.getPedalResponse (index).isIdentity ())
             return null;
         return this.getExpressionParameter (target);
     }
@@ -311,11 +384,11 @@ public class LooperController
     public void pedalMoved (final int index, final int value)
     {
         final ExpressionTarget target = this.configuration.getExpressionTarget (index);
-        final PedalCurve curve = this.configuration.getPedalCurve (index);
+        final PedalResponse response = this.configuration.getPedalResponse (index);
 
         if (target.isMidi ())
         {
-            final int [] message = target.toMidi (curve.apply (value), this.configuration.getPedalMidiChannel ());
+            final int [] message = target.toMidi (response.map (value), this.configuration.getPedalMidiChannel ());
             if (message != null)
                 this.midiSender.send (message[0], message[1], message[2]);
             return;
@@ -323,9 +396,11 @@ public class LooperController
 
         final IParameter parameter = this.getExpressionParameter (target);
         if (parameter != null)
-            parameter.setNormalizedValue (curve.apply (value / 127.0));
+            parameter.setNormalizedValue (response.map (value / 127.0));
     }
 
+
+    // ---- LEDs ---------------------------------------------------------------------------------------------------
 
     /**
      * Get the light code of a switch right now.
@@ -393,9 +468,11 @@ public class LooperController
     public void startLedTest ()
     {
         this.ledTestStartedAt = System.currentTimeMillis ();
-        this.notify ("LED test: white, red, green, amber, blue, purple");
+        this.notifyImportant ("LED test: white, red, green, amber, blue, purple");
     }
 
+
+    // ---- Periodic and settings-driven work ----------------------------------------------------------------------
 
     /**
      * Runs on every tick: count-ins, hold-to-record, loop length matching, quantized mutes, fades, exclusive arm.
@@ -443,6 +520,20 @@ public class LooperController
             }
             default -> this.setFixedLength (length.getBars (), BEATS_PER_BAR_4_4);
         }
+    }
+
+
+    /**
+     * Move the loop tracks to the position stored in the project.
+     */
+    public void applyLoopTrackStart ()
+    {
+        final ITrackBank trackBank = this.getTrackBank ();
+        final int wanted = this.configuration.getLoopTrackStart () - 1;
+        if (trackBank.getScrollPosition () == wanted)
+            return;
+        this.prepareForTrackScroll ();
+        trackBank.scrollTo (wanted);
     }
 
 
@@ -526,6 +617,7 @@ public class LooperController
                 else
                     transport.play ();
             }
+            case SHOW_STATUS -> this.showStatus ();
             case LED_TEST -> this.startLedTest ();
         }
     }
@@ -554,7 +646,7 @@ public class LooperController
             case MONITOR_SELECTED -> LedState.when (selected.isPresent () && selected.get ().isMonitor (), LedColour.GREEN);
             case CLEAR_SELECTED -> LedState.when (selectedHasLoop, LedColour.RED);
             case DOUBLE_SELECTED, HALVE_SELECTED -> LedState.when (selectedHasLoop, LedColour.WHITE);
-            case SELECT_PREVIOUS_LOOP, SELECT_NEXT_LOOP, LED_TEST -> LedState.solid (LedColour.WHITE);
+            case SELECT_PREVIOUS_LOOP, SELECT_NEXT_LOOP, SHOW_STATUS, LED_TEST -> LedState.solid (LedColour.WHITE);
             case PLAY_STOP_ALL -> {
                 if (this.anyLoop (true))
                     yield LedState.solid (LedColour.GREEN);
@@ -605,7 +697,7 @@ public class LooperController
     {
         if (!track.doesExist ())
         {
-            this.notify ("No track for this loop switch");
+            this.notifyImportant ("No track for this loop switch");
             return;
         }
 
@@ -659,17 +751,18 @@ public class LooperController
             return LedState.DARK;
 
         final LedMode mode = this.configuration.getLedMode ();
+        final LoopColours colours = this.configuration.getLoopColours ();
         final double [] pendingMute = this.pendingMutes.get (Integer.valueOf (track.getIndex ()));
         if (pendingMute != null)
         {
             if (mode != LedMode.MULTI_COLOUR)
                 return new LedState (LedColour.RED, LedPattern.BLINK_FAST);
-            return new LedState (pendingMute[0] > 0 ? LedColour.BLUE : LedColour.GREEN, LedPattern.BLINK_FAST);
+            return new LedState (pendingMute[0] > 0 ? colours.muted () : colours.playing (), LedPattern.BLINK_FAST);
         }
 
         final LoopState state = this.getLoopState (track);
         final boolean overdubbing = state == LoopState.PLAYING && this.model.getTransport ().isLauncherOverdub () && track.isRecArm ();
-        return LoopLeds.forLoop (state, overdubbing, track.isMute (), mode);
+        return LoopLeds.forLoop (state, overdubbing, track.isMute (), mode, colours);
     }
 
 
@@ -702,7 +795,7 @@ public class LooperController
             transport.setMetronome (true);
         this.pendingCountIn = new PendingCountIn (track.getIndex (), countIn, turnMetronomeOn);
         transport.play ();
-        this.notify ("Count-in: " + countIn.getLabel ());
+        this.notifyImportant ("Count-in: " + countIn.getLabel ());
     }
 
 
@@ -770,7 +863,7 @@ public class LooperController
             transport.setMetronome (false);
         if (!this.anyLoop (true))
             transport.stop ();
-        this.notify ("Count-in cancelled");
+        this.notifyImportant ("Count-in cancelled");
     }
 
 
@@ -820,7 +913,7 @@ public class LooperController
             {
                 this.matchedBars = bars;
                 this.applyLoopLength ();
-                this.notify ("Loops in this row are now " + bars + (bars == 1 ? " bar" : " bars") + " long");
+                this.notifyImportant ("Loops in this row are now " + bars + (bars == 1 ? " bar" : " bars") + " long");
             }
         }
 
@@ -854,7 +947,7 @@ public class LooperController
             }
             case CLOSE -> this.playLoop (trackBank.getItem (step.index ()));
             case CANCEL -> trackBank.getItem (step.index ()).stop (false);
-            case FULL -> this.notify ("Every loop track in this row has a loop");
+            case FULL -> this.notifyImportant ("Every loop track in this row has a loop");
         }
     }
 
@@ -866,10 +959,11 @@ public class LooperController
         if (focus >= 0)
             return this.loopLed (this.getTrackBank ().getItem (focus));
         final LedMode mode = this.configuration.getLedMode ();
+        final LoopColours colours = this.configuration.getLoopColours ();
         if (this.anyLoop (true))
-            return LoopLeds.forLoop (LoopState.PLAYING, false, false, mode);
+            return LoopLeds.forLoop (LoopState.PLAYING, false, false, mode, colours);
         if (this.anyLoop (false))
-            return LoopLeds.forLoop (LoopState.STOPPED, false, false, mode);
+            return LoopLeds.forLoop (LoopState.STOPPED, false, false, mode, colours);
         return LedState.DARK;
     }
 
@@ -890,7 +984,7 @@ public class LooperController
                 return;
             }
         }
-        this.notify ("No recorded loop left to clear in this row");
+        this.notifyImportant ("No recorded loop left to clear in this row");
     }
 
 
@@ -900,7 +994,7 @@ public class LooperController
         final ISlot slot = this.getLoopSlot (track);
         if (!slot.hasContent ())
         {
-            this.notify ("No loop on " + track.getName ());
+            this.notifyImportant ("No loop on " + track.getName ());
             return;
         }
 
@@ -919,7 +1013,7 @@ public class LooperController
             final double length = clip.getLoopLength ();
             if (length < 2)
             {
-                this.notify (track.getName () + ": loop is too short to halve");
+                this.notifyImportant (track.getName () + ": loop is too short to halve");
                 return;
             }
             clip.setLoopLength (length / 2);
@@ -974,7 +1068,7 @@ public class LooperController
     }
 
 
-    private void applyPendingMutes (final java.util.function.Predicate<double []> due)
+    private void applyPendingMutes (final Predicate<double []> due)
     {
         final ITrackBank trackBank = this.getTrackBank ();
         final Iterator<Map.Entry<Integer, double []>> it = this.pendingMutes.entrySet ().iterator ();
@@ -1024,7 +1118,7 @@ public class LooperController
 
         if (direction == VolumeFade.Direction.OUT ? !this.anyLoop (true) : !this.anyLoop (false))
         {
-            this.notify (direction == VolumeFade.Direction.OUT ? "No loop is playing" : "No loops in this row");
+            this.notifyImportant (direction == VolumeFade.Direction.OUT ? "No loop is playing" : "No loops in this row");
             return;
         }
 
@@ -1188,7 +1282,7 @@ public class LooperController
         final IScene scene = sceneBank.getItem (0);
         scene.launch (true, false);
         scene.launch (false, false);
-        this.notify ("Play row " + (sceneBank.getScrollPosition () + 1));
+        this.notify ("Play " + LooperText.rowLabel (sceneBank.getScrollPosition (), scene.getName ()));
     }
 
 
@@ -1236,13 +1330,27 @@ public class LooperController
         this.armedByLooper.clear ();
         this.lastArmedIndex = -1;
         this.model.getTransport ().setLauncherOverdub (false);
-        this.notify ("Looper reset: stopped, unmuted, unsoloed, disarmed");
+        this.notifyImportant ("Looper reset: stopped, unmuted, unsoloed, disarmed");
+    }
+
+
+    private void showStatus ()
+    {
+        final ITrackBank trackBank = this.getTrackBank ();
+        final ISceneBank sceneBank = trackBank.getSceneBank ();
+        final LoopState [] states = this.getRowStates ();
+        final boolean [] muted = new boolean [states.length];
+        for (int i = 0; i < states.length; i++)
+            muted[i] = states[i] != null && this.isEffectivelyMuted (trackBank.getItem (i));
+        // Asked for explicitly, so shown whatever the notification level
+        this.host.showNotification (LooperText.status (sceneBank.getScrollPosition (), sceneBank.getItem (0).getName (), states, muted));
     }
 
 
     private void scrollRows (final boolean forwards)
     {
         final ISceneBank sceneBank = this.getTrackBank ().getSceneBank ();
+        boolean created = false;
         if (!forwards)
         {
             if (sceneBank.canScrollBackwards ())
@@ -1255,8 +1363,25 @@ public class LooperController
             // Past the last scene: add one so there is always a fresh row to loop into
             this.model.getProject ().createScene ();
             this.host.scheduleTask (sceneBank::scrollForwards, 100);
+            created = true;
         }
-        this.host.scheduleTask ( () -> this.notify ("Row " + (sceneBank.getScrollPosition () + 1)), NOTIFY_DELAY_MS);
+
+        final boolean isNew = created;
+        this.host.scheduleTask ( () -> {
+            final int row = sceneBank.getScrollPosition ();
+            final IScene scene = sceneBank.getItem (0);
+            String name = scene.getName ();
+            if (isNew && (name == null || name.isBlank ()))
+            {
+                final String wanted = LooperText.rowName (this.configuration.getRowNames (), row);
+                if (!wanted.isEmpty ())
+                {
+                    scene.setName (wanted);
+                    name = wanted;
+                }
+            }
+            this.notifyImportant (LooperText.rowLabel (row, name));
+        }, isNew ? 3 * NOTIFY_DELAY_MS : NOTIFY_DELAY_MS);
     }
 
 
@@ -1264,20 +1389,20 @@ public class LooperController
     {
         if (!this.anyLoop (false))
         {
-            this.notify ("Nothing to duplicate in this row");
+            this.notifyImportant ("Nothing to duplicate in this row");
             return;
         }
         final ISceneBank sceneBank = this.getTrackBank ().getSceneBank ();
         sceneBank.getItem (0).duplicate ();
         // The copy is inserted right after this row
         this.host.scheduleTask (sceneBank::scrollForwards, 100);
-        this.host.scheduleTask ( () -> this.notify ("Row duplicated - now on row " + (sceneBank.getScrollPosition () + 1)), 2 * NOTIFY_DELAY_MS);
+        this.host.scheduleTask ( () -> this.notifyImportant ("Row duplicated - now on " + LooperText.rowLabel (sceneBank.getScrollPosition (), sceneBank.getItem (0).getName ())), 2 * NOTIFY_DELAY_MS);
     }
 
 
-    private void scrollTracks (final boolean forwards)
+    /** Positions in the track bank are about to point at other tracks: settle everything that refers to them. */
+    private void prepareForTrackScroll ()
     {
-        // Bank positions are about to point at other tracks
         if (this.fade != null)
             this.restoreFadeVolumes ();
         if (this.pendingCountIn != null)
@@ -1285,17 +1410,27 @@ public class LooperController
         this.applyPendingMutes (entry -> true);
         Arrays.fill (this.holdRecording, false);
         Arrays.fill (this.closeWhenRecording, -1);
+        this.armedByLooper.clear ();
+        this.lastArmedIndex = -1;
+        this.recordHistory.clear ();
+        this.lengthTracker.reset ();
+    }
+
+
+    private void scrollTracks (final boolean forwards)
+    {
+        this.prepareForTrackScroll ();
 
         final ITrackBank trackBank = this.getTrackBank ();
         if (forwards)
             trackBank.scrollForwards ();
         else
             trackBank.scrollBackwards ();
-        this.armedByLooper.clear ();
-        this.lastArmedIndex = -1;
-        this.recordHistory.clear ();
-        this.lengthTracker.reset ();
-        this.host.scheduleTask ( () -> this.notify ("Loop tracks start at " + trackBank.getItem (0).getName ()), NOTIFY_DELAY_MS);
+        this.host.scheduleTask ( () -> {
+            // Remember the position in the project
+            this.configuration.setLoopTrackStart (trackBank.getScrollPosition () + 1);
+            this.notifyImportant ("Loop tracks start at " + trackBank.getItem (0).getName ());
+        }, NOTIFY_DELAY_MS);
     }
 
 
@@ -1319,12 +1454,12 @@ public class LooperController
         if (selected.isPresent ())
             consumer.accept (selected.get ());
         else
-            this.notify ("Select one of the loop tracks first");
+            this.notifyImportant ("Select one of the loop tracks first");
     }
 
 
     /**
-     * Is any loop track of the current layout playing (or, with playing = false, holding a clip in the row)?
+     * Is any loop track playing (or, with playing = false, holding a clip in the row)?
      */
     private boolean anyLoop (final boolean playing)
     {
@@ -1406,13 +1541,13 @@ public class LooperController
 
     private boolean isLoopSwitch (final int switchIndex)
     {
-        return this.configuration.getSwitchLayout ().isLoopSwitch (switchIndex);
+        return switchIndex < this.configuration.getLoopSwitchCount ().getCount () && switchIndex < this.getLoopCount ();
     }
 
 
     private int getLoopCount ()
     {
-        return this.configuration.getSwitchLayout ().getLoopCount ();
+        return this.configuration.getLoopTrackCount ();
     }
 
 
@@ -1440,9 +1575,18 @@ public class LooperController
     }
 
 
+    /** A confirmation, shown only at notification level "All". */
     private void notify (final String message)
     {
-        if (this.configuration.isNotifications ())
+        if (this.configuration.getNotificationLevel ().shows (false))
+            this.host.showNotification (message);
+    }
+
+
+    /** Navigation, warnings and state that is not visible on the Pacer. */
+    private void notifyImportant (final String message)
+    {
+        if (this.configuration.getNotificationLevel ().shows (true))
             this.host.showNotification (message);
     }
 }

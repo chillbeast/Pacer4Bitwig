@@ -4,6 +4,7 @@ package dev.pacer4bitwig.pacer;
 
 import de.mossgrabers.framework.configuration.AbstractConfiguration;
 import de.mossgrabers.framework.configuration.IEnumSetting;
+import de.mossgrabers.framework.configuration.IIntegerSetting;
 import de.mossgrabers.framework.configuration.ISettingsUI;
 import de.mossgrabers.framework.controller.valuechanger.IValueChanger;
 import de.mossgrabers.framework.daw.IHost;
@@ -14,16 +15,21 @@ import dev.pacer4bitwig.pacer.led.LedMode;
 import dev.pacer4bitwig.pacer.looper.Action;
 import dev.pacer4bitwig.pacer.looper.ClearHoldTime;
 import dev.pacer4bitwig.pacer.looper.CountIn;
+import dev.pacer4bitwig.pacer.looper.DoubleTapWindow;
 import dev.pacer4bitwig.pacer.looper.ExpressionTarget;
 import dev.pacer4bitwig.pacer.looper.FadeLength;
 import dev.pacer4bitwig.pacer.looper.HoldAction;
+import dev.pacer4bitwig.pacer.looper.LoopColours;
+import dev.pacer4bitwig.pacer.looper.LoopDoubleTap;
 import dev.pacer4bitwig.pacer.looper.LoopLength;
+import dev.pacer4bitwig.pacer.looper.LoopSwitchCount;
 import dev.pacer4bitwig.pacer.looper.LoopSwitchMode;
 import dev.pacer4bitwig.pacer.looper.MuteTiming;
+import dev.pacer4bitwig.pacer.looper.NotificationLevel;
 import dev.pacer4bitwig.pacer.looper.PedalCurve;
+import dev.pacer4bitwig.pacer.looper.PedalResponse;
 import dev.pacer4bitwig.pacer.looper.PlayingTapAction;
 import dev.pacer4bitwig.pacer.looper.QuantizationChoice;
-import dev.pacer4bitwig.pacer.looper.SwitchLayout;
 import dev.pacer4bitwig.util.Labelled;
 
 import java.util.Arrays;
@@ -32,33 +38,52 @@ import java.util.function.Consumer;
 
 
 /**
- * Settings of the PACER Looper (Bitwig: Settings > Controllers).
+ * Settings of the PACER Looper (Bitwig: Settings > Controllers), plus one project setting (the position of the loop
+ * tracks).
  */
 public class PacerConfiguration extends AbstractConfiguration
 {
     /** Setting ID: LED mode. */
-    public static final Integer              LED_MODE            = Integer.valueOf (1000);
+    public static final Integer              LED_MODE             = Integer.valueOf (1000);
     /** Setting ID: launch quantization. */
-    public static final Integer              LAUNCH_QUANTIZATION = Integer.valueOf (1001);
+    public static final Integer              LAUNCH_QUANTIZATION  = Integer.valueOf (1001);
     /** Setting ID: loop length. */
-    public static final Integer              LOOP_LENGTH         = Integer.valueOf (1002);
+    public static final Integer              LOOP_LENGTH          = Integer.valueOf (1002);
     /** Setting ID: expression pedal 1 target or response. */
-    public static final Integer              EXPRESSION_1        = Integer.valueOf (1003);
+    public static final Integer              EXPRESSION_1         = Integer.valueOf (1003);
     /** Setting ID: expression pedal 2 target or response. */
-    public static final Integer              EXPRESSION_2        = Integer.valueOf (1004);
+    public static final Integer              EXPRESSION_2         = Integer.valueOf (1004);
     /** Setting ID: the LED test button was clicked. */
-    public static final Integer              LED_TEST            = Integer.valueOf (1005);
+    public static final Integer              LED_TEST             = Integer.valueOf (1005);
     /** Setting ID: Nektar DAW mode on/off. */
-    public static final Integer              DAW_MODE            = Integer.valueOf (1006);
+    public static final Integer              DAW_MODE             = Integer.valueOf (1006);
+    /** Setting ID: the project's loop track position. */
+    public static final Integer              LOOP_TRACK_START     = Integer.valueOf (1007);
 
     /** Number of expression pedal jacks. */
-    public static final int                  NUM_EXPRESSION      = 2;
+    public static final int                  NUM_EXPRESSION       = 2;
+    /** Highest selectable first loop track. */
+    public static final int                  MAX_LOOP_TRACK_START = 128;
 
-    /** Index of the first assignable switch (SW 5). */
-    private static final int                 FIRST_ASSIGNABLE    = 4;
-    /** Default tap/hold actions of SW 5, SW 6, SW A-D. */
-    private static final Action [] []        SWITCH_DEFAULTS     =
+    /** Default tap / hold actions of SW 1-6 (when not loop switches) and SW A-D. */
+    private static final Action [] []        SWITCH_DEFAULTS      =
     {
+        {
+            Action.RECORD_NEXT_LAYER,
+            Action.CLEAR_LAST_LOOP
+        },
+        {
+            Action.MUTE_ALL_TOGGLE,
+            Action.FADE_OUT
+        },
+        {
+            Action.LOOP_SELECTED,
+            Action.CLEAR_SELECTED
+        },
+        {
+            Action.SELECT_NEXT_LOOP,
+            Action.SELECT_PREVIOUS_LOOP
+        },
         {
             Action.UNDO,
             Action.REDO
@@ -84,8 +109,8 @@ public class PacerConfiguration extends AbstractConfiguration
             Action.TRANSPORT_PLAY_STOP
         }
     };
-    /** Default tap/hold actions of FS 1-4. */
-    private static final Action [] []        FOOTSWITCH_DEFAULTS =
+    /** Default tap / hold actions of FS 1-4. */
+    private static final Action [] []        FOOTSWITCH_DEFAULTS  =
     {
         {
             Action.RECORD_NEXT_LAYER,
@@ -104,62 +129,78 @@ public class PacerConfiguration extends AbstractConfiguration
             Action.NONE
         }
     };
-    private static final ExpressionTarget [] EXPRESSION_DEFAULTS =
+    private static final ExpressionTarget [] EXPRESSION_DEFAULTS  =
     {
         ExpressionTarget.SELECTED_VOLUME,
         ExpressionTarget.MASTER_VOLUME
     };
 
-    private static final String              CATEGORY_LOOPER     = "Looper";
-    private static final String              CATEGORY_SWITCHES   = "Switches (SW 5-6 only in the 4-loop layout)";
-    private static final String              CATEGORY_JACKS      = "Footswitch and expression jacks";
-    private static final String              CATEGORY_LEDS       = "Pacer LEDs";
-    private static final String              CATEGORY_LAUNCHER   = "Clip launcher (pushed into the project)";
-    private static final String              CATEGORY_DAW_MODE   = "Nektar DAW mode (USB port 2)";
-    private static final String              CATEGORY_FEEDBACK   = "Feedback";
-    private static final String []           ON_OFF              =
+    private static final String              CATEGORY_LOOPER      = "Looper";
+    private static final String              CATEGORY_BOTTOM_ROW  = "Bottom row SW 1-6 (switches that are not loop switches)";
+    private static final String              CATEGORY_TOP_ROW     = "Top row SW A-D";
+    private static final String              CATEGORY_JACKS       = "Footswitch jacks FS 1-4";
+    private static final String              CATEGORY_PEDALS      = "Expression pedals";
+    private static final String              CATEGORY_LEDS        = "Pacer LEDs";
+    private static final String              CATEGORY_LAUNCHER    = "Clip launcher (pushed into the project)";
+    private static final String              CATEGORY_DAW_MODE    = "Nektar DAW mode (USB port 2)";
+    private static final String              CATEGORY_FEEDBACK    = "Feedback";
+    private static final String              CATEGORY_PROJECT     = "PACER Looper";
+    private static final String []           ON_OFF               =
     {
         "On",
         "Off"
     };
-    private static final String []           MIDI_CHANNELS       = new String [16];
+    private static final String []           MIDI_CHANNELS        = new String [16];
+    private static final String []           LOOP_TRACK_COUNTS    = new String [PacerMap.MAX_LOOP_TRACKS];
 
     static
     {
         for (int i = 0; i < MIDI_CHANNELS.length; i++)
             MIDI_CHANNELS[i] = Integer.toString (i + 1);
+        for (int i = 0; i < LOOP_TRACK_COUNTS.length; i++)
+            LOOP_TRACK_COUNTS[i] = Integer.toString (i + 1);
     }
 
-    private volatile SwitchLayout            switchLayout        = SwitchLayout.FOUR_LOOPS;
-    private volatile LoopSwitchMode          loopSwitchMode      = LoopSwitchMode.TAP;
-    private volatile boolean                 loopOnPress         = true;
-    private volatile PlayingTapAction        playingTapAction    = PlayingTapAction.STOP;
-    private volatile HoldAction              loopHoldAction      = HoldAction.DELETE;
-    private volatile ClearHoldTime           clearHoldTime       = ClearHoldTime.NORMAL;
-    private volatile boolean                 armOnRecord         = true;
-    private volatile boolean                 exclusiveArm        = true;
-    private volatile boolean                 selectOnPress       = true;
-    private volatile CountIn                 countIn             = CountIn.OFF;
-    private volatile MuteTiming              muteTiming          = MuteTiming.IMMEDIATE;
-    private volatile FadeLength              fadeLength          = FadeLength.BARS_2;
-    private final Action []                  switchTap           = new Action [PacerMap.NUM_SWITCHES];
-    private final Action []                  switchHold          = new Action [PacerMap.NUM_SWITCHES];
-    private final Action []                  footswitchTap       = new Action [PacerMap.NUM_FOOTSWITCHES];
-    private final Action []                  footswitchHold      = new Action [PacerMap.NUM_FOOTSWITCHES];
-    private final ExpressionTarget []        expressionTargets   = EXPRESSION_DEFAULTS.clone ();
-    private final PedalCurve []              pedalCurves         =
-    {
-        PedalCurve.LINEAR,
-        PedalCurve.LINEAR
-    };
-    private volatile int                     pedalMidiChannel    = 0;
-    private volatile LedMode                 ledMode             = LedMode.TWO_COLOUR;
-    private volatile boolean                 beatSyncedLeds      = true;
-    private volatile boolean                 countBeats          = true;
-    private volatile QuantizationChoice      launchQuantization  = QuantizationChoice.KEEP;
-    private volatile LoopLength              loopLength          = LoopLength.KEEP;
-    private volatile boolean                 dawMode             = false;
-    private volatile boolean                 notifications       = true;
+    private volatile int                     loopTrackCount       = 4;
+    private volatile LoopSwitchCount         loopSwitchCount      = LoopSwitchCount.FOUR;
+    private volatile LoopSwitchMode          loopSwitchMode       = LoopSwitchMode.TAP;
+    private volatile boolean                 loopOnPress          = true;
+    private volatile PlayingTapAction        playingTapAction     = PlayingTapAction.STOP;
+    private volatile HoldAction              loopHoldAction       = HoldAction.DELETE;
+    private volatile LoopDoubleTap           loopDoubleTap        = LoopDoubleTap.NOTHING;
+    private volatile DoubleTapWindow         doubleTapWindow      = DoubleTapWindow.NORMAL;
+    private volatile ClearHoldTime           clearHoldTime        = ClearHoldTime.NORMAL;
+    private volatile boolean                 armOnRecord          = true;
+    private volatile boolean                 exclusiveArm         = true;
+    private volatile boolean                 selectOnPress        = true;
+    private volatile CountIn                 countIn              = CountIn.OFF;
+    private volatile MuteTiming              muteTiming           = MuteTiming.IMMEDIATE;
+    private volatile FadeLength              fadeLength           = FadeLength.BARS_2;
+    private volatile String                  rowNames             = "";
+    private final Action []                  switchTap            = new Action [PacerMap.NUM_SWITCHES];
+    private final Action []                  switchHold           = new Action [PacerMap.NUM_SWITCHES];
+    private final Action []                  switchDoubleTap      = new Action [PacerMap.NUM_SWITCHES];
+    private final Action []                  footswitchTap        = new Action [PacerMap.NUM_FOOTSWITCHES];
+    private final Action []                  footswitchHold       = new Action [PacerMap.NUM_FOOTSWITCHES];
+    private final Action []                  footswitchDoubleTap  = new Action [PacerMap.NUM_FOOTSWITCHES];
+    private final ExpressionTarget []        expressionTargets    = EXPRESSION_DEFAULTS.clone ();
+    private final PedalCurve []              pedalCurves          = new PedalCurve [NUM_EXPRESSION];
+    private final int []                     pedalMinimum         = new int [NUM_EXPRESSION];
+    private final int []                     pedalMaximum         = new int [NUM_EXPRESSION];
+    private volatile int                     pedalMidiChannel     = 0;
+    private volatile LedMode                 ledMode              = LedMode.TWO_COLOUR;
+    private volatile boolean                 beatSyncedLeds       = true;
+    private volatile boolean                 countBeats           = true;
+    private volatile LoopColours.Choice      colourStopped        = LoopColours.Choice.of (LoopColours.DEFAULT.stopped ());
+    private volatile LoopColours.Choice      colourPlaying        = LoopColours.Choice.of (LoopColours.DEFAULT.playing ());
+    private volatile LoopColours.Choice      colourRecording      = LoopColours.Choice.of (LoopColours.DEFAULT.recording ());
+    private volatile LoopColours.Choice      colourMuted          = LoopColours.Choice.of (LoopColours.DEFAULT.muted ());
+    private volatile QuantizationChoice      launchQuantization   = QuantizationChoice.KEEP;
+    private volatile LoopLength              loopLength           = LoopLength.KEEP;
+    private volatile boolean                 dawMode              = false;
+    private volatile NotificationLevel       notificationLevel    = NotificationLevel.ALL;
+    private volatile int                     loopTrackStart       = 1;
+    private IIntegerSetting                  loopTrackStartSetting;
 
 
     /**
@@ -173,18 +214,20 @@ public class PacerConfiguration extends AbstractConfiguration
     {
         super (host, valueChanger, arpeggiatorModes);
 
-        Arrays.fill (this.switchTap, Action.NONE);
-        Arrays.fill (this.switchHold, Action.NONE);
-        for (int i = 0; i < SWITCH_DEFAULTS.length; i++)
+        for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
         {
-            this.switchTap[FIRST_ASSIGNABLE + i] = SWITCH_DEFAULTS[i][0];
-            this.switchHold[FIRST_ASSIGNABLE + i] = SWITCH_DEFAULTS[i][1];
+            this.switchTap[i] = SWITCH_DEFAULTS[i][0];
+            this.switchHold[i] = SWITCH_DEFAULTS[i][1];
         }
-        for (int i = 0; i < FOOTSWITCH_DEFAULTS.length; i++)
+        for (int i = 0; i < PacerMap.NUM_FOOTSWITCHES; i++)
         {
             this.footswitchTap[i] = FOOTSWITCH_DEFAULTS[i][0];
             this.footswitchHold[i] = FOOTSWITCH_DEFAULTS[i][1];
         }
+        Arrays.fill (this.switchDoubleTap, Action.NONE);
+        Arrays.fill (this.footswitchDoubleTap, Action.NONE);
+        Arrays.fill (this.pedalCurves, PedalCurve.LINEAR);
+        Arrays.fill (this.pedalMaximum, 100);
     }
 
 
@@ -192,56 +235,10 @@ public class PacerConfiguration extends AbstractConfiguration
     @Override
     public void init (final ISettingsUI globalSettings, final ISettingsUI documentSettings)
     {
-        enumSetting (globalSettings, "Switch layout", CATEGORY_LOOPER, SwitchLayout.values (), SwitchLayout.FOUR_LOOPS, value -> this.switchLayout = value);
-        enumSetting (globalSettings, "Loop switch mode", CATEGORY_LOOPER, LoopSwitchMode.values (), LoopSwitchMode.TAP, value -> this.loopSwitchMode = value);
-        onOffSetting (globalSettings, "Loop switch fires on press (off: on release)", CATEGORY_LOOPER, true, value -> this.loopOnPress = value);
-        enumSetting (globalSettings, "Tap on a playing loop", CATEGORY_LOOPER, PlayingTapAction.values (), PlayingTapAction.STOP, value -> this.playingTapAction = value);
-        enumSetting (globalSettings, "Hold a loop switch", CATEGORY_LOOPER, HoldAction.values (), HoldAction.DELETE, value -> this.loopHoldAction = value);
-        enumSetting (globalSettings, "Hold time for clearing actions", CATEGORY_LOOPER, ClearHoldTime.values (), ClearHoldTime.NORMAL, value -> this.clearHoldTime = value);
-        onOffSetting (globalSettings, "Arm the track when recording", CATEGORY_LOOPER, true, value -> this.armOnRecord = value);
-        onOffSetting (globalSettings, "Exclusive arm (disarm finished loops)", CATEGORY_LOOPER, true, value -> this.exclusiveArm = value);
-        onOffSetting (globalSettings, "Select the track on press", CATEGORY_LOOPER, true, value -> this.selectOnPress = value);
-        enumSetting (globalSettings, "Count-in from a stopped transport", CATEGORY_LOOPER, CountIn.values (), CountIn.OFF, value -> this.countIn = value);
-        enumSetting (globalSettings, "Mute timing", CATEGORY_LOOPER, MuteTiming.values (), MuteTiming.IMMEDIATE, value -> this.muteTiming = value);
-        enumSetting (globalSettings, "Fade length", CATEGORY_LOOPER, FadeLength.values (), FadeLength.BARS_2, value -> this.fadeLength = value);
-
-        for (int i = 0; i < SWITCH_DEFAULTS.length; i++)
-        {
-            final int index = FIRST_ASSIGNABLE + i;
-            final String name = PacerMap.SWITCH_NAMES[index];
-            enumSetting (globalSettings, name + " tap", CATEGORY_SWITCHES, Action.values (), SWITCH_DEFAULTS[i][0], value -> this.switchTap[index] = value);
-            enumSetting (globalSettings, name + " hold", CATEGORY_SWITCHES, Action.values (), SWITCH_DEFAULTS[i][1], value -> this.switchHold[index] = value);
-        }
-
-        for (int i = 0; i < PacerMap.NUM_FOOTSWITCHES; i++)
-        {
-            final int index = i;
-            enumSetting (globalSettings, "FS " + (i + 1) + " tap", CATEGORY_JACKS, Action.values (), FOOTSWITCH_DEFAULTS[i][0], value -> this.footswitchTap[index] = value);
-            enumSetting (globalSettings, "FS " + (i + 1) + " hold", CATEGORY_JACKS, Action.values (), FOOTSWITCH_DEFAULTS[i][1], value -> this.footswitchHold[index] = value);
-        }
-        for (int i = 0; i < NUM_EXPRESSION; i++)
-        {
-            final int index = i;
-            final Integer settingID = i == 0 ? EXPRESSION_1 : EXPRESSION_2;
-            enumSetting (globalSettings, "EXP " + (i + 1), CATEGORY_JACKS, ExpressionTarget.values (), EXPRESSION_DEFAULTS[i], value -> {
-                this.expressionTargets[index] = value;
-                this.notifyObservers (settingID);
-            });
-            enumSetting (globalSettings, "EXP " + (i + 1) + " response", CATEGORY_JACKS, PedalCurve.values (), PedalCurve.LINEAR, value -> {
-                this.pedalCurves[index] = value;
-                this.notifyObservers (settingID);
-            });
-        }
-        final IEnumSetting channelSetting = globalSettings.getEnumSetting ("MIDI channel for pedal messages", CATEGORY_JACKS, MIDI_CHANNELS, MIDI_CHANNELS[0]);
-        channelSetting.addValueObserver (value -> this.pedalMidiChannel = Math.max (0, Arrays.asList (MIDI_CHANNELS).indexOf (value)));
-
-        enumSetting (globalSettings, "LED mode", CATEGORY_LEDS, LedMode.values (), LedMode.TWO_COLOUR, value -> {
-            this.ledMode = value;
-            this.notifyObservers (LED_MODE);
-        });
-        onOffSetting (globalSettings, "Blink in time with the transport", CATEGORY_LEDS, true, value -> this.beatSyncedLeds = value);
-        onOffSetting (globalSettings, "Count beats on SW A-D (count-in and recording)", CATEGORY_LEDS, true, value -> this.countBeats = value);
-        globalSettings.getSignalSetting ("Cycle every LED through all colours", CATEGORY_LEDS, "Test the LEDs").addSignalObserver (value -> this.notifyObservers (LED_TEST));
+        this.initLooper (globalSettings);
+        this.initSwitches (globalSettings);
+        this.initPedals (globalSettings);
+        this.initLeds (globalSettings);
 
         enumSetting (globalSettings, "Launch quantization", CATEGORY_LAUNCHER, QuantizationChoice.values (), QuantizationChoice.KEEP, value -> {
             this.launchQuantization = value;
@@ -257,7 +254,104 @@ public class PacerConfiguration extends AbstractConfiguration
             this.notifyObservers (DAW_MODE);
         });
 
-        onOffSetting (globalSettings, "Show pop-up notifications", CATEGORY_FEEDBACK, true, value -> this.notifications = value);
+        enumSetting (globalSettings, "Pop-up notifications", CATEGORY_FEEDBACK, NotificationLevel.values (), NotificationLevel.ALL, value -> this.notificationLevel = value);
+
+        // Stored in the project: where this project's loop tracks are
+        this.loopTrackStartSetting = documentSettings.getRangeSetting ("Loop tracks start at track", CATEGORY_PROJECT, 1, MAX_LOOP_TRACK_START, 1, "", 1);
+        this.loopTrackStartSetting.addValueObserver (value -> {
+            this.loopTrackStart = value.intValue ();
+            this.notifyObservers (LOOP_TRACK_START);
+        });
+    }
+
+
+    private void initLooper (final ISettingsUI settings)
+    {
+        final IEnumSetting trackCountSetting = settings.getEnumSetting ("Loop tracks", CATEGORY_LOOPER, LOOP_TRACK_COUNTS, LOOP_TRACK_COUNTS[3]);
+        trackCountSetting.addValueObserver (value -> this.loopTrackCount = Math.max (0, Arrays.asList (LOOP_TRACK_COUNTS).indexOf (value)) + 1);
+        enumSetting (settings, "Loop switches", CATEGORY_LOOPER, LoopSwitchCount.values (), LoopSwitchCount.FOUR, value -> this.loopSwitchCount = value);
+        enumSetting (settings, "Loop switch mode", CATEGORY_LOOPER, LoopSwitchMode.values (), LoopSwitchMode.TAP, value -> this.loopSwitchMode = value);
+        onOffSetting (settings, "Loop switch fires on press (off: on release)", CATEGORY_LOOPER, true, value -> this.loopOnPress = value);
+        enumSetting (settings, "Tap on a playing loop", CATEGORY_LOOPER, PlayingTapAction.values (), PlayingTapAction.STOP, value -> this.playingTapAction = value);
+        enumSetting (settings, "Hold a loop switch", CATEGORY_LOOPER, HoldAction.values (), HoldAction.DELETE, value -> this.loopHoldAction = value);
+        enumSetting (settings, "Double-tap a loop switch", CATEGORY_LOOPER, LoopDoubleTap.values (), LoopDoubleTap.NOTHING, value -> this.loopDoubleTap = value);
+        enumSetting (settings, "Double-tap speed", CATEGORY_LOOPER, DoubleTapWindow.values (), DoubleTapWindow.NORMAL, value -> this.doubleTapWindow = value);
+        enumSetting (settings, "Hold time for clearing actions", CATEGORY_LOOPER, ClearHoldTime.values (), ClearHoldTime.NORMAL, value -> this.clearHoldTime = value);
+        onOffSetting (settings, "Arm the track when recording", CATEGORY_LOOPER, true, value -> this.armOnRecord = value);
+        onOffSetting (settings, "Exclusive arm (disarm finished loops)", CATEGORY_LOOPER, true, value -> this.exclusiveArm = value);
+        onOffSetting (settings, "Select the track on press", CATEGORY_LOOPER, true, value -> this.selectOnPress = value);
+        enumSetting (settings, "Count-in from a stopped transport", CATEGORY_LOOPER, CountIn.values (), CountIn.OFF, value -> this.countIn = value);
+        enumSetting (settings, "Mute timing", CATEGORY_LOOPER, MuteTiming.values (), MuteTiming.IMMEDIATE, value -> this.muteTiming = value);
+        enumSetting (settings, "Fade length", CATEGORY_LOOPER, FadeLength.values (), FadeLength.BARS_2, value -> this.fadeLength = value);
+        settings.getStringSetting ("Names for new rows (comma separated)", CATEGORY_LOOPER, 200, "").addValueObserver (value -> this.rowNames = value == null ? "" : value);
+    }
+
+
+    private void initSwitches (final ISettingsUI settings)
+    {
+        for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
+        {
+            final int index = i;
+            final String name = PacerMap.SWITCH_NAMES[i];
+            final String category = i < PacerMap.FIRST_TOP_ROW_SWITCH ? CATEGORY_BOTTOM_ROW : CATEGORY_TOP_ROW;
+            enumSetting (settings, name + " tap", category, Action.values (), SWITCH_DEFAULTS[i][0], value -> this.switchTap[index] = value);
+            enumSetting (settings, name + " double-tap", category, Action.values (), Action.NONE, value -> this.switchDoubleTap[index] = value);
+            enumSetting (settings, name + " hold", category, Action.values (), SWITCH_DEFAULTS[i][1], value -> this.switchHold[index] = value);
+        }
+
+        for (int i = 0; i < PacerMap.NUM_FOOTSWITCHES; i++)
+        {
+            final int index = i;
+            final String name = "FS " + (i + 1);
+            enumSetting (settings, name + " tap", CATEGORY_JACKS, Action.values (), FOOTSWITCH_DEFAULTS[i][0], value -> this.footswitchTap[index] = value);
+            enumSetting (settings, name + " double-tap", CATEGORY_JACKS, Action.values (), Action.NONE, value -> this.footswitchDoubleTap[index] = value);
+            enumSetting (settings, name + " hold", CATEGORY_JACKS, Action.values (), FOOTSWITCH_DEFAULTS[i][1], value -> this.footswitchHold[index] = value);
+        }
+    }
+
+
+    private void initPedals (final ISettingsUI settings)
+    {
+        for (int i = 0; i < NUM_EXPRESSION; i++)
+        {
+            final int index = i;
+            final Integer settingID = i == 0 ? EXPRESSION_1 : EXPRESSION_2;
+            final String name = "EXP " + (i + 1);
+            enumSetting (settings, name, CATEGORY_PEDALS, ExpressionTarget.values (), EXPRESSION_DEFAULTS[i], value -> {
+                this.expressionTargets[index] = value;
+                this.notifyObservers (settingID);
+            });
+            enumSetting (settings, name + " response", CATEGORY_PEDALS, PedalCurve.values (), PedalCurve.LINEAR, value -> {
+                this.pedalCurves[index] = value;
+                this.notifyObservers (settingID);
+            });
+            settings.getRangeSetting (name + " heel (minimum)", CATEGORY_PEDALS, 0, 100, 1, "%", 0).addValueObserver (value -> {
+                this.pedalMinimum[index] = value.intValue ();
+                this.notifyObservers (settingID);
+            });
+            settings.getRangeSetting (name + " toe (maximum)", CATEGORY_PEDALS, 0, 100, 1, "%", 100).addValueObserver (value -> {
+                this.pedalMaximum[index] = value.intValue ();
+                this.notifyObservers (settingID);
+            });
+        }
+        final IEnumSetting channelSetting = settings.getEnumSetting ("MIDI channel for pedal messages", CATEGORY_PEDALS, MIDI_CHANNELS, MIDI_CHANNELS[0]);
+        channelSetting.addValueObserver (value -> this.pedalMidiChannel = Math.max (0, Arrays.asList (MIDI_CHANNELS).indexOf (value)));
+    }
+
+
+    private void initLeds (final ISettingsUI settings)
+    {
+        enumSetting (settings, "LED mode", CATEGORY_LEDS, LedMode.values (), LedMode.TWO_COLOUR, value -> {
+            this.ledMode = value;
+            this.notifyObservers (LED_MODE);
+        });
+        onOffSetting (settings, "Blink in time with the transport", CATEGORY_LEDS, true, value -> this.beatSyncedLeds = value);
+        onOffSetting (settings, "Count beats on SW A-D (count-in and recording)", CATEGORY_LEDS, true, value -> this.countBeats = value);
+        enumSetting (settings, "Multi-colour: stopped loop", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourStopped, value -> this.colourStopped = value);
+        enumSetting (settings, "Multi-colour: playing loop", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourPlaying, value -> this.colourPlaying = value);
+        enumSetting (settings, "Multi-colour: recording loop", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourRecording, value -> this.colourRecording = value);
+        enumSetting (settings, "Multi-colour: muted loop", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourMuted, value -> this.colourMuted = value);
+        settings.getSignalSetting ("Cycle every LED through all colours", CATEGORY_LEDS, "Test the LEDs").addSignalObserver (value -> this.notifyObservers (LED_TEST));
     }
 
 
@@ -276,11 +370,20 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
-     * @return The switch layout
+     * @return How many tracks the looper manages, 1-6
      */
-    public SwitchLayout getSwitchLayout ()
+    public int getLoopTrackCount ()
     {
-        return this.switchLayout;
+        return this.loopTrackCount;
+    }
+
+
+    /**
+     * @return How many bottom switches are loop switches
+     */
+    public LoopSwitchCount getLoopSwitchCount ()
+    {
+        return this.loopSwitchCount;
     }
 
 
@@ -317,6 +420,24 @@ public class PacerConfiguration extends AbstractConfiguration
     public HoldAction getLoopHoldAction ()
     {
         return this.loopHoldAction;
+    }
+
+
+    /**
+     * @return What double-tapping a loop switch does
+     */
+    public LoopDoubleTap getLoopDoubleTap ()
+    {
+        return this.loopDoubleTap;
+    }
+
+
+    /**
+     * @return How quickly a double-tap must be
+     */
+    public DoubleTapWindow getDoubleTapWindow ()
+    {
+        return this.doubleTapWindow;
     }
 
 
@@ -384,8 +505,17 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
+     * @return Comma separated names for new rows, may be empty
+     */
+    public String getRowNames ()
+    {
+        return this.rowNames;
+    }
+
+
+    /**
      * @param switchIndex 0-9
-     * @return The tap action of an assignable switch, NONE for loop switches
+     * @return The tap action of a switch that is not a loop switch
      */
     public Action getSwitchTap (final int switchIndex)
     {
@@ -395,11 +525,21 @@ public class PacerConfiguration extends AbstractConfiguration
 
     /**
      * @param switchIndex 0-9
-     * @return The hold action of an assignable switch, NONE for loop switches
+     * @return The hold action of a switch that is not a loop switch
      */
     public Action getSwitchHold (final int switchIndex)
     {
         return this.switchHold[switchIndex];
+    }
+
+
+    /**
+     * @param switchIndex 0-9
+     * @return The double-tap action of a switch that is not a loop switch
+     */
+    public Action getSwitchDoubleTap (final int switchIndex)
+    {
+        return this.switchDoubleTap[switchIndex];
     }
 
 
@@ -424,6 +564,16 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
+     * @param index 0-3
+     * @return The double-tap action of a footswitch jack
+     */
+    public Action getFootswitchDoubleTap (final int index)
+    {
+        return this.footswitchDoubleTap[index];
+    }
+
+
+    /**
      * @param index 0-1
      * @return The target of an expression pedal
      */
@@ -435,11 +585,11 @@ public class PacerConfiguration extends AbstractConfiguration
 
     /**
      * @param index 0-1
-     * @return The response curve of an expression pedal
+     * @return The response (curve and range) of an expression pedal
      */
-    public PedalCurve getPedalCurve (final int index)
+    public PedalResponse getPedalResponse (final int index)
     {
-        return this.pedalCurves[index];
+        return new PedalResponse (this.pedalCurves[index], this.pedalMinimum[index], this.pedalMaximum[index]);
     }
 
 
@@ -480,6 +630,15 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
+     * @return The multi-colour palette of loop switches
+     */
+    public LoopColours getLoopColours ()
+    {
+        return new LoopColours (this.colourStopped.getColour (), this.colourPlaying.getColour (), this.colourRecording.getColour (), this.colourMuted.getColour ());
+    }
+
+
+    /**
      * @return The launch quantization to push into the project
      */
     public QuantizationChoice getLaunchQuantization ()
@@ -507,10 +666,32 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
-     * @return True to show pop-up notifications
+     * @return Which pop-up notifications to show
      */
-    public boolean isNotifications ()
+    public NotificationLevel getNotificationLevel ()
     {
-        return this.notifications;
+        return this.notificationLevel;
+    }
+
+
+    /**
+     * @return The first loop track of this project, 1-based
+     */
+    public int getLoopTrackStart ()
+    {
+        return this.loopTrackStart;
+    }
+
+
+    /**
+     * Remember a new loop track position in the project.
+     *
+     * @param oneBased The first loop track, 1-based
+     */
+    public void setLoopTrackStart (final int oneBased)
+    {
+        final int value = Math.max (1, Math.min (MAX_LOOP_TRACK_START, oneBased));
+        if (this.loopTrackStartSetting != null && value != this.loopTrackStart)
+            this.loopTrackStartSetting.set (value);
     }
 }

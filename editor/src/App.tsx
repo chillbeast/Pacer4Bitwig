@@ -1,13 +1,19 @@
 import { useEffect, useState, type DragEvent } from 'react';
 import { connectMidi, midi, shouldAutoConnect } from './app/midi';
 import { importFiles } from './app/operations';
+import { openShareFromLocation } from './app/share';
 import { useEditor } from './store/editor';
 import { useUi } from './store/ui';
+import { CheatSheet } from './ui/CheatSheet';
+import { CommandPalette, ShortcutsDialog } from './ui/CommandPalette';
+import { GlobalView } from './ui/GlobalView';
 import { Inspector } from './ui/Inspector';
 import { LedLab } from './ui/LedLab';
 import { MidiMonitor } from './ui/MidiMonitor';
 import { AboutDialog, ChoiceDialog, Toasts } from './ui/Overlays';
 import { PresetBrowser } from './ui/PresetBrowser';
+import { RestoreDialog } from './ui/RestoreDialog';
+import { ShareImportDialog } from './ui/ShareImportDialog';
 import { Stage } from './ui/Stage';
 import { TemplatesDialog } from './ui/TemplatesDialog';
 import { TopBar } from './ui/TopBar';
@@ -40,11 +46,31 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    void openShareFromLocation();
+    const onHash = () => void openShareFromLocation();
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const ui = useUi.getState();
+      const dialogOpen = !!document.querySelector('dialog[open]');
       const mod = e.ctrlKey || e.metaKey;
-      if (!mod || e.altKey) return;
       const k = e.key.toLowerCase();
-      if ((k === 'z' || k === 'y') && !isTextInput(document.activeElement) && !document.querySelector('dialog[open]')) {
+      if (mod && !e.altKey && k === 'k') {
+        e.preventDefault();
+        if (ui.dialog === 'palette') ui.closeDialog();
+        else if (!dialogOpen) ui.openDialog('palette');
+        return;
+      }
+      if (e.key === '?' && !mod && !isTextInput(document.activeElement) && !dialogOpen) {
+        e.preventDefault();
+        ui.openDialog('shortcuts');
+        return;
+      }
+      if (!mod || e.altKey) return;
+      if ((k === 'z' || k === 'y') && !isTextInput(document.activeElement) && !dialogOpen) {
         e.preventDefault();
         if (k === 'y' || e.shiftKey) useEditor.getState().redo();
         else useEditor.getState().undo();
@@ -64,53 +90,60 @@ export function App() {
   const hasFiles = (e: DragEvent) => e.dataTransfer.types.includes('Files');
 
   return (
-    <div
-      className={`app view-${view}`}
-      onDragOver={(e) => {
-        if (hasFiles(e)) {
+    <>
+      <div
+        className={`app view-${view}`}
+        onDragOver={(e) => {
+          if (hasFiles(e)) {
+            e.preventDefault();
+            setDragging(true);
+          }
+        }}
+        onDragLeave={(e) => {
+          if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false);
+        }}
+        onDrop={(e) => {
+          if (!hasFiles(e)) return;
           e.preventDefault();
-          setDragging(true);
-        }
-      }}
-      onDragLeave={(e) => {
-        if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false);
-      }}
-      onDrop={(e) => {
-        if (!hasFiles(e)) return;
-        e.preventDefault();
-        setDragging(false);
-        void importFiles(Array.from(e.dataTransfer.files));
-      }}
-    >
-      <a className="skip-link" href="#inspector">
-        Skip to inspector
-      </a>
-      <TopBar />
-      <div className="app__main">
-        <PresetBrowser />
-        {view === 'editor' ? (
-          <>
-            <Stage />
-            <div id="inspector" className="app__inspector">
-              <Inspector />
-            </div>
-          </>
-        ) : (
-          <LedLab />
+          setDragging(false);
+          void importFiles(Array.from(e.dataTransfer.files));
+        }}
+      >
+        <a className="skip-link" href="#inspector">
+          Skip to inspector
+        </a>
+        <TopBar />
+        <div className="app__main">
+          <PresetBrowser />
+          {view === 'editor' && (
+            <>
+              <Stage />
+              <div id="inspector" className="app__inspector">
+                <Inspector />
+              </div>
+            </>
+          )}
+          {view === 'global' && <GlobalView />}
+          {view === 'ledlab' && <LedLab />}
+        </div>
+        <MidiMonitor />
+
+        <WriteDialog />
+        <TemplatesDialog />
+        <RestoreDialog />
+        <ShareImportDialog />
+        <AboutDialog />
+        <CommandPalette />
+        <ShortcutsDialog />
+        <ChoiceDialog />
+        <Toasts />
+        {dragging && (
+          <div className="dropzone" aria-hidden="true">
+            <div className="dropzone__panel">Drop .syx or .json files to import</div>
+          </div>
         )}
       </div>
-      <MidiMonitor />
-
-      <WriteDialog />
-      <TemplatesDialog />
-      <AboutDialog />
-      <ChoiceDialog />
-      <Toasts />
-      {dragging && (
-        <div className="dropzone" aria-hidden="true">
-          <div className="dropzone__panel">Drop .syx or .json files to import</div>
-        </div>
-      )}
-    </div>
+      <CheatSheet />
+    </>
   );
 }

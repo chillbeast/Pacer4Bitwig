@@ -3,3 +3,4 @@ export * from './ports';
 export * from './stream';
 export * from './transfer';
 export * from './service';
+export * from './identity';

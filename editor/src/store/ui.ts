@@ -1,8 +1,17 @@
 import { create } from 'zustand';
+import type { ControlKey } from '../pacer';
 
 export type Theme = 'dark' | 'light';
-export type View = 'editor' | 'ledlab';
-export type DialogId = 'templates' | 'about' | 'write' | null;
+export type View = 'editor' | 'global' | 'ledlab';
+export type DialogId =
+  | 'templates'
+  | 'about'
+  | 'write'
+  | 'share-import'
+  | 'restore'
+  | 'palette'
+  | 'shortcuts'
+  | null;
 export type ToastTone = 'info' | 'success' | 'warning' | 'error';
 
 export interface Toast {
@@ -14,10 +23,12 @@ export interface Toast {
 }
 
 export interface WriteRequest {
-  /** Slots proposed for writing. */
+  /** Preset slots proposed for writing. */
   slots: number[];
   /** "changes": pending edits; "slot": explicit full/diff write of the given slots. */
   mode: 'changes' | 'slot';
+  /** Include the global config messages. */
+  globals?: boolean;
 }
 
 export interface ChoiceOption {
@@ -35,15 +46,24 @@ export interface ChoiceRequest {
 }
 
 const THEME_KEY = 'pacer-studio.theme';
+const FOLLOW_KEY = 'pacer-studio.follow';
 
-function loadTheme(): Theme {
+function load<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
-    const t = localStorage.getItem(THEME_KEY);
-    if (t === 'light' || t === 'dark') return t;
+    const v = localStorage.getItem(key);
+    if (v && (allowed as readonly string[]).includes(v)) return v as T;
   } catch {
     // storage unavailable
   }
-  return 'dark';
+  return fallback;
+}
+
+function save(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
 }
 
 export interface UiState {
@@ -53,6 +73,10 @@ export interface UiState {
   ledPreview: 'on' | 'off';
   /** Step whose LED config is previewed on the hardware rendering (0-based). */
   previewStep: number;
+  /** Select the control that sent an incoming MIDI message. */
+  follow: boolean;
+  /** Last control highlighted by hardware follow. */
+  flash: { key: ControlKey; at: number } | null;
   dialog: DialogId;
   writeRequest: WriteRequest | null;
   choice: ChoiceRequest | null;
@@ -63,6 +87,8 @@ export interface UiState {
   setMonitorOpen: (open: boolean) => void;
   setLedPreview: (mode: 'on' | 'off') => void;
   setPreviewStep: (step: number) => void;
+  setFollow: (follow: boolean) => void;
+  setFlash: (key: ControlKey) => void;
   openDialog: (dialog: Exclude<DialogId, null | 'write'>) => void;
   openWrite: (request: WriteRequest) => void;
   closeDialog: () => void;
@@ -75,11 +101,13 @@ export interface UiState {
 let toastId = 0;
 
 export const useUi = create<UiState>()((set, get) => ({
-  theme: loadTheme(),
+  theme: load<Theme>(THEME_KEY, ['dark', 'light'], 'dark'),
   view: 'editor',
   monitorOpen: false,
   ledPreview: 'on',
   previewStep: 0,
+  follow: load(FOLLOW_KEY, ['on', 'off'], 'on') === 'on',
+  flash: null,
   dialog: null,
   writeRequest: null,
   choice: null,
@@ -87,17 +115,18 @@ export const useUi = create<UiState>()((set, get) => ({
 
   toggleTheme: () => {
     const theme: Theme = get().theme === 'dark' ? 'light' : 'dark';
-    try {
-      localStorage.setItem(THEME_KEY, theme);
-    } catch {
-      // ignore
-    }
+    save(THEME_KEY, theme);
     set({ theme });
   },
   setView: (view) => set({ view }),
   setMonitorOpen: (monitorOpen) => set({ monitorOpen }),
   setLedPreview: (ledPreview) => set({ ledPreview }),
   setPreviewStep: (previewStep) => set({ previewStep: Math.max(0, Math.min(5, previewStep)) }),
+  setFollow: (follow) => {
+    save(FOLLOW_KEY, follow ? 'on' : 'off');
+    set({ follow });
+  },
+  setFlash: (key) => set({ flash: { key, at: Date.now() } }),
   openDialog: (dialog) => set({ dialog }),
   openWrite: (writeRequest) => set({ dialog: 'write', writeRequest }),
   closeDialog: () => set({ dialog: null, writeRequest: null }),

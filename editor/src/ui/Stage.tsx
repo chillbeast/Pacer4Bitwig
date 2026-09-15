@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { pickFiles } from '../app/files';
 import { importFiles, loadFactoryPresets, readAllFromDevice } from '../app/operations';
+import { copyShareLink } from '../app/share';
+import { printCheatSheet } from './CheatSheet';
 import { CONTROL_KEYS, displayName, presetKey, slotLabel, slotLongLabel, type ControlKey, type Preset } from '../pacer';
 import { isConnected, useDevice } from '../store/device';
 import { isSlotEdited, isSlotInSync, slotPendingParts, useEditor } from '../store/editor';
@@ -68,6 +70,16 @@ export function Stage() {
           </div>
         </div>
         <div className="stage__controls">
+          {slot.preset && !preview && (
+            <div className="stage__actions">
+              <Button size="sm" variant="ghost" onClick={() => void copyShareLink(selectedSlot)} title="Copy a link that imports this preset">
+                Share
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => printCheatSheet(selectedSlot)} title="Print a cheat sheet of this preset">
+                Print
+              </Button>
+            </div>
+          )}
           <div className="labelled">
             <span className="labelled__label" id="led-preview-label">
               LEDs

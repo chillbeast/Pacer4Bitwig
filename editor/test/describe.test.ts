@@ -53,4 +53,12 @@ describe('describeMidiMessage', () => {
     msg[msg.length - 2] ^= 1;
     expect(describeMidiMessage(msg).badChecksum).toBe(true);
   });
+
+  it('decodes universal identity and MMC messages', () => {
+    expect(describeMidiMessage(Uint8Array.of(0xf0, 0x7e, 0x7f, 0x06, 0x01, 0xf7)).summary).toBe('Identity request');
+    expect(describeMidiMessage(Uint8Array.of(0xf0, 0x7e, 0x7f, 0x06, 0x02, 0x00, 0x01, 0x77, 0xf7)).summary).toBe(
+      'Identity reply · 00 01 77',
+    );
+    expect(describeMidiMessage(Uint8Array.of(0xf0, 0x7f, 0x7f, 0x06, 0x05, 0xf7)).summary).toBe('MMC Rewind · device 127');
+  });
 });

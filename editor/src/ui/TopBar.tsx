@@ -12,16 +12,16 @@ import {
   readAndDownloadBackup,
   readPresetFromDevice,
 } from '../app/operations';
+import { describeIdentity } from '../midi';
 import { D6_INDEX, slotLabel } from '../pacer';
 import { isConnected, useDevice } from '../store/device';
-import { pendingSummary, useEditor } from '../store/editor';
+import { globalPendingParts, pendingSummary, useEditor } from '../store/editor';
 import { useUi } from '../store/ui';
 import { Button, ProgressBar, Segmented } from './controls';
 import {
   IconBulb,
   IconChevron,
   IconClose,
-  IconDownload,
   IconInfo,
   IconMoon,
   IconRead,
@@ -54,9 +54,18 @@ function usePopover() {
   return { open, setOpen, ref };
 }
 
+const IconFollow = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="7" />
+    <circle cx="12" cy="12" r="2.2" fill="currentColor" />
+    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+  </svg>
+);
+
 export function TopBar() {
   const selectedSlot = useEditor((s) => s.selectedSlot);
   const slots = useEditor((s) => s.slots);
+  const globals = useEditor((s) => s.globals);
   const canUndo = useEditor((s) => s.past.length > 0);
   const canRedo = useEditor((s) => s.future.length > 0);
   const undoLabel = useEditor((s) => s.past[s.past.length - 1]?.label);
@@ -66,9 +75,12 @@ export function TopBar() {
   const operation = useDevice((s) => s.operation);
   const view = useUi((s) => s.view);
   const theme = useUi((s) => s.theme);
+  const follow = useUi((s) => s.follow);
 
   const connected = isConnected(midiState);
   const pending = pendingSummary(slots);
+  const globalPending = globalPendingParts(globals).length;
+  const pendingTotal = pending.messages + globalPending;
   const busy = operation !== null;
 
   return (
@@ -92,6 +104,7 @@ export function TopBar() {
         onChange={(v) => useUi.getState().setView(v)}
         options={[
           { value: 'editor', label: 'Editor' },
+          { value: 'global', label: 'Global' },
           { value: 'ledlab', label: <><IconBulb size={14} /> LED Lab</> },
         ]}
       />
@@ -120,20 +133,20 @@ export function TopBar() {
         >
           Read {slotLabel(selectedSlot)}
         </Button>
-        <Button disabled={!connected || busy} onClick={() => void readAllFromDevice()} title="Read every preset (full backup)">
+        <Button disabled={!connected || busy} onClick={() => void readAllFromDevice()} title="Read every preset and the global settings (full backup)">
           Read all
         </Button>
         <Button
           variant="primary"
           icon={<IconSend />}
-          disabled={pending.messages === 0 || busy || preview !== null}
-          badge={pending.messages > 0 ? pending.messages : undefined}
+          disabled={pendingTotal === 0 || busy || preview !== null}
+          badge={pendingTotal > 0 ? pendingTotal : undefined}
           title={
-            pending.messages > 0
-              ? `${pending.messages} message${pending.messages === 1 ? '' : 's'} for ${pending.slots.map(slotLabel).join(', ')}`
+            pendingTotal > 0
+              ? `${pendingTotal} message${pendingTotal === 1 ? '' : 's'} for ${[...pending.slots.map(slotLabel), ...(globalPending > 0 ? ['global settings'] : [])].join(', ')}`
               : 'No pending changes'
           }
-          onClick={() => useUi.getState().openWrite({ slots: pending.slots, mode: 'changes' })}
+          onClick={() => useUi.getState().openWrite({ slots: pending.slots, mode: 'changes', globals: true })}
         >
           Send changes
         </Button>
@@ -161,8 +174,21 @@ export function TopBar() {
       <FileMenu />
 
       <div className="topbar__group" role="group" aria-label="App">
+        <Button
+          variant="ghost"
+          icon={<IconFollow />}
+          aria-pressed={follow}
+          className={follow ? 'is-toggled' : undefined}
+          title={follow ? 'Hardware follow is on: pressing a switch on the Pacer selects it here' : 'Hardware follow is off'}
+          onClick={() => useUi.getState().setFollow(!follow)}
+        >
+          Follow
+        </Button>
         <Button variant="ghost" icon={<IconTemplate />} onClick={() => useUi.getState().openDialog('templates')}>
           Templates
+        </Button>
+        <Button variant="ghost" className="topbar__palette" aria-label="Command palette" title="Command palette (Ctrl+K)" onClick={() => useUi.getState().openDialog('palette')}>
+          <kbd className="palette__kbd">Ctrl K</kbd>
         </Button>
         <Button
           variant="ghost"
@@ -221,6 +247,7 @@ function FileMenu() {
             ? item('Download session backup', downloadSessionBackup, false, new Date(backup.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
             : null}
           {item('Read & download full backup', () => void readAndDownloadBackup(), !connected || busy)}
+          {item('Restore from backup…', () => useUi.getState().openDialog('restore'))}
         </div>
       )}
     </div>
@@ -230,6 +257,7 @@ function FileMenu() {
 function ConnectionPill() {
   const { open, setOpen, ref } = usePopover();
   const m = useDevice((s) => s.midi);
+  const identity = useDevice((s) => s.identity);
   const connected = isConnected(m);
 
   let tone: 'ok' | 'warn' | 'error' | 'idle' = 'idle';
@@ -264,6 +292,7 @@ function ConnectionPill() {
       text = 'No Pacer found';
     }
   }
+  const firmware = connected && identity.status === 'ok' ? identity.identity.versionText : null;
 
   return (
     <div className="popover-anchor" ref={ref}>
@@ -272,7 +301,7 @@ function ConnectionPill() {
         className={`pill pill--${tone}`}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={`MIDI connection: ${text}`}
+        aria-label={`MIDI connection: ${text}${firmware ? `, firmware ${firmware}` : ''}`}
         onClick={() => {
           if (m.access === 'idle') void connectMidi();
           setOpen(m.access !== 'idle' || !open ? !open : false);
@@ -280,6 +309,7 @@ function ConnectionPill() {
       >
         <i className="pill__dot" aria-hidden="true" />
         <span className="pill__text">{text}</span>
+        {firmware && <span className="pill__fw mono">fw {firmware}</span>}
         <IconChevron size={12} />
       </button>
       {open && (
@@ -293,6 +323,7 @@ function ConnectionPill() {
 
 function ConnectionPanel() {
   const m = useDevice((s) => s.midi);
+  const identity = useDevice((s) => s.identity);
   const connected = isConnected(m);
 
   if (m.access === 'idle' || m.access === 'requesting') {
@@ -300,8 +331,8 @@ function ConnectionPanel() {
       <div className="connection__body">
         <p className="connection__title">Connect to the Pacer</p>
         <p className="hint">
-          The browser will ask for permission to use MIDI devices with SysEx. Nothing is sent to the Pacer until you click
-          Read or Send.
+          The browser will ask for permission to use MIDI devices with SysEx. After connecting, Pacer Studio sends one
+          standard Identity Request to read the firmware version; nothing else is sent until you click Read or Send.
         </p>
         <Button variant="primary" disabled={m.access === 'requesting'} onClick={() => void connectMidi()}>
           {m.access === 'requesting' ? 'Waiting for permission…' : 'Allow MIDI access'}
@@ -326,28 +357,26 @@ function ConnectionPanel() {
       <p className="connection__title">
         <i className={`status-dot${connected ? ' is-ok' : ''}`} /> {connected ? 'Pacer connected' : 'Choose the Pacer ports'}
       </p>
-      <PortSelect
-        label="Input (from Pacer)"
-        ports={m.inputs}
-        value={m.inputId}
-        status={m.inputStatus}
-        onChange={(id) => void midi.selectInput(id)}
-      />
-      <PortSelect
-        label="Output (to Pacer)"
-        ports={m.outputs}
-        value={m.outputId}
-        status={m.outputStatus}
-        onChange={(id) => void midi.selectOutput(id)}
-      />
+      <PortSelect label="Input (from Pacer)" ports={m.inputs} value={m.inputId} status={m.inputStatus} onChange={(id) => void midi.selectInput(id)} />
+      <PortSelect label="Output (to Pacer)" ports={m.outputs} value={m.outputId} status={m.outputStatus} onChange={(id) => void midi.selectOutput(id)} />
+      {connected && (
+        <p className="hint connection__identity">
+          {identity.status === 'ok'
+            ? describeIdentity(identity.identity)
+            : identity.status === 'pending'
+              ? 'Asking the device for its identity…'
+              : identity.status === 'none'
+                ? 'No reply to the Identity Request (the firmware may not support it).'
+                : ''}
+        </p>
+      )}
       {m.portError && (
         <p className="connection__error" role="alert">
           {m.portError}
         </p>
       )}
       <p className="hint">
-        Use the Pacer&apos;s <b>port 1</b> (“PACER”), not “MIDIIN2/MIDIOUT2 (PACER)”. On Windows a port can only be used by one
-        application at a time.
+        Use the Pacer&apos;s <b>port 1</b> (“PACER”), not “MIDIIN2/MIDIOUT2 (PACER)”.
       </p>
       <div className="connection__actions">
         <Button size="sm" onClick={() => void midi.retry()}>
@@ -393,5 +422,3 @@ function PortSelect({
     </label>
   );
 }
-
-export { IconDownload };

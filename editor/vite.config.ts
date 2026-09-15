@@ -7,7 +7,8 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 
 export default defineConfig({
   plugins: [react()],
-  base: './',
+  // Relative by default (works at / in dev and from any folder); GitHub Pages sets VITE_BASE=/<repo>/.
+  base: process.env.VITE_BASE || './',
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },

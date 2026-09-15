@@ -1,3 +1,5 @@
+import { describeIdentity } from '../midi';
+import { isConnected, useDevice } from '../store/device';
 import { useUi } from '../store/ui';
 import { Button } from './controls';
 import { Dialog } from './Dialog';
@@ -73,6 +75,8 @@ export function Toasts() {
 }
 
 const SHORTCUTS: [string, string][] = [
+  ['Ctrl+K', 'Command palette'],
+  ['?', 'Keyboard shortcuts'],
   ['Ctrl+Z / Ctrl+Shift+Z', 'Undo / redo'],
   ['Arrow keys', 'Move between switches (hardware view) or presets (browser)'],
   ['Ctrl+C / Ctrl+V / Ctrl+D', 'Copy, paste, duplicate the focused preset'],
@@ -80,12 +84,30 @@ const SHORTCUTS: [string, string][] = [
   ['Drag & drop', 'Copy a preset onto another slot (Alt: swap); drop .syx/.json files to import'],
 ];
 
+function DeviceInfo() {
+  const midi = useDevice((s) => s.midi);
+  const identity = useDevice((s) => s.identity);
+  const connected = isConnected(midi);
+  let text: string;
+  if (!connected) text = 'No Pacer connected.';
+  else if (identity.status === 'ok') text = `${midi.outputName ?? 'Device'}: ${describeIdentity(identity.identity)}`;
+  else if (identity.status === 'pending') text = 'Asking the connected device for its identity…';
+  else if (identity.status === 'none') text = `${midi.outputName ?? 'Device'} did not answer the Identity Request.`;
+  else text = `${midi.outputName ?? 'Device'} connected.`;
+  return (
+    <p className="about__device">
+      <b>Device</b> · {text}
+    </p>
+  );
+}
+
 export function AboutDialog() {
   const open = useUi((s) => s.dialog === 'about');
   const close = useUi((s) => s.closeDialog);
   return (
     <Dialog open={open} onClose={close} size="md" title="About Pacer Studio" subtitle={`Version ${__APP_VERSION__}`}>
       <div className="about">
+        <DeviceInfo />
         <p>
           A hardware-first editor for the Nektar Pacer MIDI footswitch controller: read, edit and write presets over Web MIDI,
           or work offline with .syx and .json files.

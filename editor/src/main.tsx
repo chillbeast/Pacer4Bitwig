@@ -7,6 +7,7 @@ import './styles/layout.css';
 import './styles/device.css';
 import './styles/components.css';
 import './styles/panels.css';
+import './styles/wave2.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -158,6 +158,29 @@ export function describePart(part: PartRef): string {
   }
 }
 
+export interface ControlDiff {
+  /** Control key, or "name" / "midi" for preset-level parts. */
+  group: ControlKey | 'name' | 'midi';
+  label: string;
+  parts: PartRef[];
+}
+
+/** Differences between two presets grouped per control (for side-by-side diff views). */
+export function diffByControl(original: Preset | null, edited: Preset): ControlDiff[] {
+  const groups = new Map<string, ControlDiff>();
+  for (const { part } of diffParts(original, edited, 1)) {
+    const group: ControlDiff['group'] = part.kind === 'name' ? 'name' : part.kind === 'midi' ? 'midi' : part.control;
+    let entry = groups.get(group);
+    if (!entry) {
+      const label = group === 'name' ? 'Preset name' : group === 'midi' ? 'On-load MIDI' : CONTROL_BY_KEY[group].label;
+      entry = { group, label, parts: [] };
+      groups.set(group, entry);
+    }
+    entry.parts.push(part);
+  }
+  return [...groups.values()];
+}
+
 /** A .syx file with every given preset (ascending index) followed by raw global messages. */
 export function encodeDump(presets: Iterable<readonly [number, Preset]>, globals: readonly Uint8Array[] = []): Uint8Array {
   const sorted = [...presets].sort((a, b) => a[0] - b[0]);

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { DeviceIdentity } from '../midi/identity';
 import { INITIAL_MIDI_SNAPSHOT, type MidiSnapshot } from '../midi/service';
 
 export type OperationKind = 'read' | 'write' | 'backup' | 'verify';
@@ -18,6 +19,12 @@ export interface SessionBackup {
   downloaded: boolean;
 }
 
+export type IdentityState =
+  | { status: 'unknown' }
+  | { status: 'pending' }
+  | { status: 'ok'; identity: DeviceIdentity }
+  | { status: 'none' };
+
 export interface DeviceState {
   midi: MidiSnapshot;
   operation: Operation | null;
@@ -26,8 +33,8 @@ export interface DeviceState {
   /** The user explicitly chose to write without a backup in this session. */
   backupSkipped: boolean;
   writesThisSession: number;
-  /** Raw global configuration messages (from the last full read or imported full backup). */
-  globals: Uint8Array[];
+  /** Universal Identity reply of the connected device. */
+  identity: IdentityState;
 
   setMidi: (midi: MidiSnapshot) => void;
   setOperation: (operation: Operation | null) => void;
@@ -36,7 +43,7 @@ export interface DeviceState {
   markBackupDownloaded: () => void;
   skipBackup: () => void;
   countWrite: () => void;
-  setGlobals: (globals: Uint8Array[]) => void;
+  setIdentity: (identity: IdentityState) => void;
 }
 
 export const useDevice = create<DeviceState>()((set) => ({
@@ -45,7 +52,7 @@ export const useDevice = create<DeviceState>()((set) => ({
   backup: null,
   backupSkipped: false,
   writesThisSession: 0,
-  globals: [],
+  identity: { status: 'unknown' },
 
   setMidi: (midi) => set({ midi }),
   setOperation: (operation) => set({ operation }),
@@ -55,7 +62,7 @@ export const useDevice = create<DeviceState>()((set) => ({
   markBackupDownloaded: () => set((s) => (s.backup ? { backup: { ...s.backup, downloaded: true } } : s)),
   skipBackup: () => set({ backupSkipped: true }),
   countWrite: () => set((s) => ({ writesThisSession: s.writesThisSession + 1 })),
-  setGlobals: (globals) => set({ globals }),
+  setIdentity: (identity) => set({ identity }),
 }));
 
 export function isConnected(midi: MidiSnapshot): boolean {

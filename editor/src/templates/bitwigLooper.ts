@@ -69,25 +69,48 @@ export function colourSlotCc(switchIndex: number, step: number): number {
   return LOOPER_COLOUR_SLOT_CC_BASE + switchIndex * 5 + (step - 2);
 }
 
-/** Looper role per control (default layout), from PACER-MAP.md. */
-export const LOOPER_ROLES: Readonly<Record<ControlKey, string>> = {
-  SW1: 'Loop track 1',
-  SW2: 'Loop track 2',
-  SW3: 'Loop track 3',
-  SW4: 'Loop track 4',
-  SW5: 'Undo · hold: Redo',
-  SW6: 'Play/stop all loops · hold: clear row',
-  SWA: 'Previous scene row · hold: tracks ←',
-  SWB: 'Next scene row · hold: tracks →',
-  SWC: 'Launcher overdub · hold: metronome',
-  SWD: 'Tap tempo · hold: transport play/stop',
-  FS1: 'Smart loop on the selected track',
-  FS2: 'Undo',
-  FS3: '(unassigned)',
-  FS4: '(unassigned)',
-  EXP1: 'Selected track volume',
-  EXP2: 'Master volume',
+export interface TapHold {
+  tap: string;
+  hold?: string;
+}
+
+/** PACER Looper default actions (docs/LOOPER.md section 5). Editor-side only, never sent to the Pacer. */
+export const LOOPER_TAP_HOLD: Readonly<Record<ControlKey, TapHold>> = {
+  SW1: { tap: 'Loop 1', hold: 'Delete loop' },
+  SW2: { tap: 'Loop 2', hold: 'Delete loop' },
+  SW3: { tap: 'Loop 3', hold: 'Delete loop' },
+  SW4: { tap: 'Loop 4', hold: 'Delete loop' },
+  SW5: { tap: 'Undo', hold: 'Redo' },
+  SW6: { tap: 'Play/stop all', hold: 'Clear row' },
+  SWA: { tap: 'Row −', hold: 'Tracks ←' },
+  SWB: { tap: 'Row +', hold: 'Tracks →' },
+  SWC: { tap: 'Overdub', hold: 'Metronome' },
+  SWD: { tap: 'Tap tempo', hold: 'Play/stop' },
+  FS1: { tap: 'One-button looper', hold: 'Clear last' },
+  FS2: { tap: 'Play/stop all', hold: 'Clear row' },
+  FS3: { tap: '–' },
+  FS4: { tap: '–' },
+  EXP1: { tap: 'Selected track volume' },
+  EXP2: { tap: 'Master volume' },
 };
+
+/** One-line role per control, e.g. "Undo · hold: Redo". */
+export const LOOPER_ROLES: Readonly<Record<ControlKey, string>> = Object.fromEntries(
+  Object.entries(LOOPER_TAP_HOLD).map(([key, r]) => [key, r.hold ? `${r.tap} · hold: ${r.hold}` : r.tap]),
+) as Record<ControlKey, string>;
+
+/**
+ * True when every control's step 1 carries the looper action CC on channel 16 (the layout of both template variants),
+ * regardless of colours or labels.
+ */
+export function isLooperLayout(preset: Preset | null): boolean {
+  if (!preset) return false;
+  return (Object.keys(LOOPER_ACTION_CC) as ControlKey[]).every((key) => {
+    const step = preset.controls[key].steps[0];
+    const type = key.startsWith('EXP') ? MSG.AD_CC : MSG.SW_CC_TRIGGER;
+    return step.active && step.channel === LOOPER_CHANNEL && step.msgType === type && step.data[0] === LOOPER_ACTION_CC[key];
+  });
+}
 
 /** Short labels shown on the switch screens in the editor (not stored on the Pacer). */
 export const LOOPER_LABELS: ControlLabels = {
@@ -101,8 +124,8 @@ export const LOOPER_LABELS: ControlLabels = {
   SWB: 'NEXT ROW',
   SWC: 'OVERDUB',
   SWD: 'TAP',
-  FS1: 'SMART',
-  FS2: 'UNDO',
+  FS1: '1-BTN LOOP',
+  FS2: 'PLAY ALL',
   FS3: '—',
   FS4: '—',
   EXP1: 'TRK VOL',

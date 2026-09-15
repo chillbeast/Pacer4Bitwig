@@ -26,6 +26,8 @@ import {
   msgTypeInfo,
   type EnumOption,
 } from './constants';
+import type { PartRef } from './encode';
+import type { Preset } from './model';
 import { slotLabel } from './slots';
 import { isPacerMessage, readElements, toHex } from './sysex';
 
@@ -224,6 +226,14 @@ export function describeMidiMessage(bytes: Uint8Array): MidiDescription {
 
   if (status === 0xf0) {
     if (isPacerMessage(bytes)) return describePacerSysex(bytes);
+    if (bytes[1] === 0x7e && bytes[3] === 0x06 && bytes[4] === 0x01) return { kind: 'sysex', summary: 'Identity request' };
+    if (bytes[1] === 0x7e && bytes[3] === 0x06 && bytes[4] === 0x02) {
+      return { kind: 'sysex', summary: `Identity reply · ${toHex(bytes.subarray(5, bytes.length - 1))}` };
+    }
+    if (bytes[1] === 0x7f && bytes[3] === 0x06 && bytes.length >= 6) {
+      const command = enumLabel(MMC_COMMAND_OPTIONS, bytes[4]);
+      return { kind: 'sysex', summary: `MMC ${command} · device ${bytes[2]}` };
+    }
     const maker = toHex(bytes.subarray(1, bytes[1] === 0 ? 4 : 2));
     return { kind: 'sysex', summary: `SysEx · manufacturer ${maker} · ${bytes.length} bytes` };
   }
@@ -275,3 +285,30 @@ export function describeMidiMessage(bytes: Uint8Array): MidiDescription {
 }
 
 export { INC_DEC_OPTIONS };
+
+/** Human-readable value of one preset part, for diff views ("before → after"). */
+export function describePartValue(part: PartRef, preset: Preset | null): string {
+  if (!preset) return '—';
+  switch (part.kind) {
+    case 'name':
+      return `“${preset.name.trimEnd()}”`;
+    case 'mode': {
+      const mode = preset.controls[part.control].mode;
+      return CONTROL_MODES.find((m) => m.value === mode)?.name ?? `mode ${mode}`;
+    }
+    case 'step': {
+      const step = preset.controls[part.control].steps[part.step];
+      if (step.msgType === MSG.OFF) return 'Off';
+      return `${msgTypeInfo(step.msgType).name} · ${stepSummary(step)}${step.active ? '' : ' (inactive)'}`;
+    }
+    case 'led': {
+      const led = preset.controls[part.control].leds?.[part.step];
+      if (!led) return '—';
+      return `on ${ledColorInfo(led.onColor).name} / off ${ledColorInfo(led.offColor).name} · ${enumLabel(LED_NUM_OPTIONS, led.num)} · ${led.midiCtrl ? 'MIDI ctrl' : 'local'}`;
+    }
+    case 'midi': {
+      const m = preset.midi[part.setting];
+      return m.msgType === MSG.OFF ? 'Off' : `${msgTypeInfo(m.msgType).name} · ${stepSummary(m)}`;
+    }
+  }
+}

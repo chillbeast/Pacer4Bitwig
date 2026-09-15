@@ -195,7 +195,30 @@ export const MSG = {
   /** CC as used by the preset "on load" MIDI messages. */
   LOAD_CC: 0x65,
   DAW_FUNCTION: 0x7e,
+  // encoder (global settings) types
+  ENC_PROGRAM: 0x10,
+  ENC_CC_RELATIVE: 0x11,
+  ENC_CC: 0x12,
+  ENC_PITCH_BEND: 0x13,
+  ENC_AFTERTOUCH: 0x14,
+  ENC_NRPN_COARSE: 0x15,
+  ENC_NRPN_FINE: 0x16,
+  ENC_PRESET_SELECT: 0x17,
+  ENC_STEP_SELECT: 0x18,
 } as const;
+
+export const MSG_TYPES_ENCODER: readonly number[] = [
+  MSG.ENC_CC,
+  MSG.ENC_CC_RELATIVE,
+  MSG.ENC_PROGRAM,
+  MSG.ENC_PITCH_BEND,
+  MSG.ENC_AFTERTOUCH,
+  MSG.ENC_NRPN_COARSE,
+  MSG.ENC_NRPN_FINE,
+  MSG.ENC_PRESET_SELECT,
+  MSG.ENC_STEP_SELECT,
+  MSG.OFF,
+];
 
 export type FieldKind =
   | 'unused'
@@ -283,6 +306,20 @@ export const MSG_TYPES: ReadonlyMap<number, MsgTypeInfo> = new Map(
       U,
     ]),
     msg(MSG.OFF, 'Off', 'Off', 'Off', [U, U, U]),
+    // encoder types (global setting obj 0x26); field meanings are not documented
+    msg(MSG.ENC_PROGRAM, 'Program', 'Prg', 'Encoder', [n('Data 1'), n('Data 2'), n('Data 3')]),
+    msg(MSG.ENC_CC_RELATIVE, 'CC Relative', 'CC Rel', 'Encoder', [f('Controller', 'cc'), n('Data 2'), n('Data 3')]),
+    msg(MSG.ENC_CC, 'CC', 'CC', 'Encoder', [f('Controller', 'cc'), n('Data 2'), n('Data 3')]),
+    msg(MSG.ENC_PITCH_BEND, 'Pitch Bend', 'Pitch', 'Encoder', [n('Data 1'), n('Data 2'), n('Data 3')]),
+    msg(MSG.ENC_AFTERTOUCH, 'Channel Aftertouch', 'AT', 'Encoder', [n('Data 1'), n('Data 2'), n('Data 3')]),
+    msg(MSG.ENC_NRPN_COARSE, 'NRPN Coarse', 'NRPN C', 'Encoder', [n('Data 1'), n('Data 2'), n('Data 3')]),
+    msg(MSG.ENC_NRPN_FINE, 'NRPN Fine', 'NRPN F', 'Encoder', [n('Data 1'), n('Data 2'), n('Data 3')]),
+    msg(MSG.ENC_PRESET_SELECT, 'Preset Select', 'Preset', 'Encoder', [
+      n('Data 1'),
+      f('First preset', 'preset', 'Inferred from dumps (3 = A1)'),
+      f('Last preset', 'preset', 'Inferred from dumps (26 = D6)'),
+    ]),
+    msg(MSG.ENC_STEP_SELECT, 'Step Select', 'Step', 'Encoder', [f('Target', 'target'), n('Data 2'), n('Data 3')]),
     msg(MSG.LOAD_CC, 'CC', 'CC', 'Control Change', [f('Controller', 'cc'), n('Value'), U]),
     msg(MSG.DAW_FUNCTION, 'DAW Function', 'DAW', 'Continuous', [n('Function'), U, U]),
   ].map((m) => [m.value, m]),

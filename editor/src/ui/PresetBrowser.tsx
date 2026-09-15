@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
 import { exportSlotSyx, exportSlotsJson, readPresetFromDevice } from '../app/operations';
+import { copyShareLink } from '../app/share';
+import { printCheatSheet } from './CheatSheet';
 import { BANKS, D6_INDEX, displayName, slotLabel } from '../pacer';
 import { isSlotEdited, isSlotInSync, slotPendingParts, slotWriteParts, useEditor, type Slot } from '../store/editor';
 import { useDevice, isConnected } from '../store/device';
@@ -277,6 +279,8 @@ function SlotMenu({ index, x, y, onClose, onSwap }: { index: number; x: number; 
     { label: 'Swap with…', action: onSwap },
     { label: 'Export .syx', disabled: !hasPreset, action: run(() => exportSlotSyx(index)) },
     { label: 'Export .json', disabled: !hasPreset, action: run(() => exportSlotsJson([index])) },
+    { label: 'Copy share link', disabled: !hasPreset, action: run(() => void copyShareLink(index)) },
+    { label: 'Print cheat sheet', disabled: !hasPreset, action: run(() => printCheatSheet(index)) },
     { label: hasPreset ? 'Reset to blank preset' : 'New blank preset', danger: hasPreset, action: run(() => state.newPreset(index)) },
   ];
 

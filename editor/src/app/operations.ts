@@ -9,22 +9,37 @@ import {
   diffParts,
   displayName,
   encodeDump,
+  encodeGlobals,
   encodePreset,
   exportJson,
   importJson,
+  mergeGlobals,
   parseDump,
+  parseGlobalMessages,
   parseMessages,
   presetsEqual,
   requestFullBackup,
+  requestGlobals,
   requestPreset,
   slotLabel,
   type EncodedPart,
+  type GlobalWritePart,
   type ParsedPreset,
   type Preset,
 } from '../pacer';
 import { isConnected, useDevice, type OperationKind } from '../store/device';
-import { isSlotEdited, setDeviceTruth, slotPendingParts, slotWriteParts, useEditor, type LoadEntry } from '../store/editor';
-import { confirmAction, useUi, type ToastTone } from '../store/ui';
+import {
+  globalPendingParts,
+  globalWriteList,
+  isGlobalsEdited,
+  isSlotEdited,
+  setDeviceTruth,
+  slotPendingParts,
+  slotWriteParts,
+  useEditor,
+  type LoadEntry,
+} from '../store/editor';
+import { confirmAction, useUi, type ToastTone, type WriteRequest } from '../store/ui';
 import { MAX_IMPORT_BYTES, downloadBytes, downloadText, readFileBytes, safeFilePart, timestamp } from './files';
 import { midi } from './midi';
 
@@ -32,7 +47,7 @@ function toast(tone: ToastTone, title: string, detail?: string, timeoutMs?: numb
   return useUi.getState().toast({ tone, title, detail }, timeoutMs ?? (tone === 'error' ? 12000 : 5000));
 }
 
-function errorText(err: unknown): string {
+export function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
@@ -78,6 +93,16 @@ async function fetchPreset(index: number, signal: AbortSignal): Promise<ParsedPr
     onProgress: progress,
   });
   return parseMessages(result.messages).presets.get(index) ?? null;
+}
+
+async function fetchGlobals(signal: AbortSignal) {
+  const result = await midi.request(requestGlobals(), {
+    firstReplyTimeoutMs: 3000,
+    idleTimeoutMs: 800,
+    signal,
+    onProgress: progress,
+  });
+  return parseGlobalMessages(result.messages);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -146,11 +171,12 @@ async function fetchFullBackup(controller: AbortController) {
   if (parsed.presets.size === 0) throw new Error('The Pacer replied without preset data.');
   const bytes = concatMessages(result.messages);
   useDevice.getState().setBackup({ bytes, messages: result.messages.length, time: Date.now(), downloaded: false });
-  useDevice.getState().setGlobals(parsed.globals);
-  return { parsed, complete: result.complete };
+  const globals = parseGlobalMessages(parsed.globals);
+  if (globals.messages.length > 0) useEditor.getState().setDeviceGlobals(globals, false);
+  return { parsed, globals, complete: result.complete };
 }
 
-/** Read every preset (full backup) into the editor. */
+/** Read every preset and the global settings (full backup) into the editor. */
 export async function readAllFromDevice(): Promise<boolean> {
   if (isBusy() || !requireConnection()) return false;
   const edited = useEditor.getState().slots.filter(isSlotEdited).length;
@@ -166,13 +192,16 @@ export async function readAllFromDevice(): Promise<boolean> {
   }
   const controller = begin('backup', 'Reading all presets', FULL_BACKUP_MESSAGES);
   try {
-    const { parsed, complete } = await fetchFullBackup(controller);
+    const { parsed, globals, complete } = await fetchFullBackup(controller);
     const entries: LoadEntry[] = [...parsed.presets.values()].map((p) => ({
       index: p.index,
       preset: p.preset,
       complete: p.complete,
     }));
     useEditor.getState().loadFromDevice(entries);
+    if (globals.messages.length > 0 && !isGlobalsEdited(useEditor.getState().globals)) {
+      useEditor.getState().loadGlobals(globals, 'device');
+    }
     const incomplete = entries.filter((e) => !e.complete).length;
     if (!complete || incomplete > 0) {
       toast('warning', `Read ${entries.length} presets (${incomplete} incomplete)`, 'The transfer stopped early. Try again.');
@@ -190,6 +219,32 @@ export async function readAllFromDevice(): Promise<boolean> {
     return true;
   } catch (err) {
     if (!isAbortError(err)) toast('error', 'Could not read the presets', errorText(err));
+    return false;
+  } finally {
+    end();
+  }
+}
+
+/** Read the global settings only. */
+export async function readGlobalsFromDevice(): Promise<boolean> {
+  if (isBusy() || !requireConnection()) return false;
+  const state = useEditor.getState().globals;
+  if (
+    isGlobalsEdited(state) &&
+    !(await confirmAction('Replace global edits?', 'Reading replaces the unsent global edits (you can undo).', 'Read globals'))
+  ) {
+    return false;
+  }
+  const controller = begin('read', 'Reading global settings', 37);
+  try {
+    const incoming = await fetchGlobals(controller.signal);
+    if (incoming.messages.length === 0) throw new Error('The Pacer replied without global settings.');
+    const merged = mergeGlobals(state.device ?? state.working, incoming);
+    useEditor.getState().loadGlobals(merged, 'device');
+    toast('success', 'Read global settings', `${incoming.messages.length} messages.`, 3000);
+    return true;
+  } catch (err) {
+    if (!isAbortError(err)) toast('error', 'Could not read the global settings', errorText(err));
     return false;
   } finally {
     end();
@@ -238,17 +293,30 @@ export interface WritePlanItem {
   full: boolean;
 }
 
-export function planWrite(indexes: readonly number[], mode: 'changes' | 'slot'): WritePlanItem[] {
-  const { slots } = useEditor.getState();
-  const plan: WritePlanItem[] = [];
-  for (const index of indexes) {
+export interface WritePlan {
+  presets: WritePlanItem[];
+  /** Global config messages (idx 1..4 only); empty when globals are not part of the write. */
+  globals: GlobalWritePart[];
+  /** True when the device's global settings are unknown and all 20 config messages are sent. */
+  globalsFull: boolean;
+}
+
+export function planWrite(request: WriteRequest): WritePlan {
+  const { slots, globals } = useEditor.getState();
+  const presets: WritePlanItem[] = [];
+  for (const index of request.slots) {
     const slot = slots[index];
     if (!slot?.preset) continue;
-    const parts = mode === 'changes' ? slotPendingParts(slot, index) : slotWriteParts(slot, index);
+    const parts = request.mode === 'changes' ? slotPendingParts(slot, index) : slotWriteParts(slot, index);
     if (parts.length === 0) continue;
-    plan.push({ index, preset: slot.preset, parts, full: slot.device === null });
+    presets.push({ index, preset: slot.preset, parts, full: slot.device === null });
   }
-  return plan;
+  const globalParts = request.globals ? (request.mode === 'changes' ? globalPendingParts(globals) : globalWriteList(globals)) : [];
+  return { presets, globals: globalParts, globalsFull: globals.device === null };
+}
+
+export function planSize(plan: WritePlan): number {
+  return plan.presets.reduce((n, item) => n + item.parts.length, 0) + plan.globals.length;
 }
 
 export interface WriteOptions {
@@ -256,14 +324,15 @@ export interface WriteOptions {
   delayMs: number;
 }
 
-export async function executeWrite(plan: readonly WritePlanItem[], options: WriteOptions): Promise<boolean> {
-  if (plan.length === 0 || isBusy() || !requireConnection()) return false;
-  const total = plan.reduce((n, item) => n + item.parts.length, 0);
+export async function executeWrite(plan: WritePlan, options: WriteOptions): Promise<boolean> {
+  const total = planSize(plan);
+  if (total === 0 || isBusy() || !requireConnection()) return false;
   const controller = begin('write', 'Writing to the Pacer', total);
   const written: WritePlanItem[] = [];
+  let globalsWritten = false;
   let done = 0;
   try {
-    for (const item of plan) {
+    for (const item of plan.presets) {
       relabel('write', `Writing ${slotLabel(item.index)} · ${item.parts.length} messages`, total, controller, done);
       await midi.sendAll(
         item.parts.map((p) => p.bytes),
@@ -273,20 +342,31 @@ export async function executeWrite(plan: readonly WritePlanItem[], options: Writ
       useEditor.getState().markWritten(item.index, item.preset);
       written.push(item);
     }
+    if (plan.globals.length > 0) {
+      relabel('write', `Writing global settings · ${plan.globals.length} messages`, total, controller, done);
+      await midi.sendAll(
+        plan.globals.map((p) => p.bytes),
+        { delayMs: options.delayMs, signal: controller.signal, onProgress: (sent) => progress(done + sent) },
+      );
+      done += plan.globals.length;
+      const g = useEditor.getState().globals;
+      if (g.working) useEditor.getState().setDeviceGlobals(mergeGlobals(g.device, { messages: plan.globals.map((p) => p.message) }), true);
+      globalsWritten = true;
+    }
     useDevice.getState().countWrite();
   } catch (err) {
     end();
-    const current = plan[written.length];
+    const current = plan.presets[written.length];
     if (current) setDeviceTruth([{ index: current.index, preset: null }], false);
-    const partial = current
-      ? `${done} of ${total} messages were sent; ${slotLabel(current.index)} may be partially written — write it again.`
-      : '';
+    else if (plan.globals.length > 0) useEditor.getState().setDeviceGlobals(null, false);
+    const what = current ? slotLabel(current.index) : 'the global settings';
+    const partial = `${done} of ${total} messages were sent; ${what} may be partially written — write again.`;
     if (isAbortError(err)) toast('warning', 'Write cancelled', partial);
-    else toast('error', 'Write failed', `${errorText(err)} ${partial}`.trim());
+    else toast('error', 'Write failed', `${errorText(err)} ${partial}`);
     return false;
   }
 
-  const labels = written.map((w) => slotLabel(w.index)).join(', ');
+  const labels = [...written.map((w) => slotLabel(w.index)), ...(globalsWritten ? ['global settings'] : [])].join(', ');
   if (!options.verify) {
     end();
     toast('success', `Wrote ${labels}`, `${total} messages sent.`);
@@ -310,6 +390,20 @@ export async function executeWrite(plan: readonly WritePlanItem[], options: Writ
           `${slotLabel(item.index)}: ${diffs.slice(0, 4).join(', ')}${diffs.length > 4 ? ` +${diffs.length - 4} more` : ''}`,
         );
         setDeviceTruth([{ index: item.index, preset: parsed.preset }], true);
+      }
+    }
+    if (globalsWritten) {
+      relabel('verify', 'Verifying global settings', 37, controller);
+      const back = await fetchGlobals(controller.signal);
+      const hex = (b: Uint8Array) => Array.from(b).join(',');
+      const backBytes = new Set(encodeGlobals(back).map(hex));
+      const differing = plan.globals.filter((p) => !backBytes.has(hex(p.bytes)));
+      if (differing.length > 0) {
+        mismatches.push(
+          `global settings: ${differing.map((p) => `config ${p.message.index} obj 0x${p.message.obj.toString(16)}`).join(', ')}`,
+        );
+        const g = useEditor.getState().globals;
+        useEditor.getState().setDeviceGlobals(mergeGlobals(g.device, back), true);
       }
     }
   } catch (err) {
@@ -350,14 +444,14 @@ export function sendControlChange(channel: number, cc: number, value: number): b
 // Files
 // ---------------------------------------------------------------------------------------------
 
-async function confirmReplace(indexes: readonly number[]): Promise<boolean> {
+export async function confirmReplace(indexes: readonly number[], verb = 'Importing'): Promise<boolean> {
   const { slots } = useEditor.getState();
   const edited = indexes.filter((i) => slots[i] && isSlotEdited(slots[i]));
   if (edited.length === 0) return true;
   return confirmAction(
     'Replace unsent edits?',
-    `${edited.map(slotLabel).join(', ')} ${edited.length === 1 ? 'has' : 'have'} edits that were not sent. Importing replaces them (you can undo).`,
-    'Import',
+    `${edited.map(slotLabel).join(', ')} ${edited.length === 1 ? 'has' : 'have'} edits that were not sent. ${verb} replaces them (you can undo).`,
+    'Replace',
   );
 }
 
@@ -366,14 +460,15 @@ async function importSyx(file: File): Promise<void> {
   if (parsed.presets.size === 0 && parsed.globals.length === 0) {
     throw new Error('No Nektar Pacer data found in this file.');
   }
-  if (parsed.globals.length > 0) useDevice.getState().setGlobals(parsed.globals);
+  const globals = parseGlobalMessages(parsed.globals);
   let entries: LoadEntry[] = [...parsed.presets.values()].map((p) => ({
     index: p.index,
     preset: p.preset,
     complete: p.complete,
   }));
   if (entries.length === 0) {
-    toast('info', `${file.name}: global settings only`, 'Kept for full-backup export; presets are unchanged.');
+    useEditor.getState().loadGlobals(globals, 'file');
+    toast('info', `${file.name}: global settings only`, 'Loaded into the Global view; presets are unchanged.');
     return;
   }
 
@@ -394,15 +489,17 @@ async function importSyx(file: File): Promise<void> {
 
   if (!(await confirmReplace(entries.map((e) => e.index)))) return;
   useEditor.getState().loadPresets(entries, 'file', `Import ${file.name}`);
+  if (globals.messages.length > 0) useEditor.getState().loadGlobals(globals, 'file');
   if (entries.length === 1) useEditor.getState().selectSlot(entries[0].index);
 
   const incomplete = entries.filter((e) => !e.complete).length;
   const notes = [
     parsed.badChecksums > 0 ? `${parsed.badChecksums} messages with bad checksums skipped` : '',
     incomplete > 0 ? `${incomplete} incomplete preset${incomplete === 1 ? '' : 's'} (missing parts use defaults)` : '',
+    globals.messages.length > 0 ? 'global settings loaded into the Global view' : '',
   ].filter(Boolean);
   toast(
-    notes.length > 0 ? 'warning' : 'success',
+    parsed.badChecksums > 0 || incomplete > 0 ? 'warning' : 'success',
     `Imported ${entries.length} preset${entries.length === 1 ? '' : 's'} from ${file.name}`,
     notes.join(' · ') || undefined,
   );
@@ -450,7 +547,7 @@ export async function loadFactoryPresets(): Promise<void> {
         'file',
         'Load factory presets',
       );
-    useDevice.getState().setGlobals(parsed.globals);
+    useEditor.getState().loadGlobals(parseGlobalMessages(parsed.globals), 'file');
     toast('success', 'Factory presets loaded', 'Nothing was sent to the Pacer.', 3500);
   } catch (err) {
     toast('error', 'Could not load the factory presets', errorText(err));
@@ -465,10 +562,10 @@ export function exportSlotSyx(index: number): void {
 }
 
 export function exportAllSyx(): void {
-  const { slots } = useEditor.getState();
+  const { slots, globals } = useEditor.getState();
   const entries = slots.flatMap((s, i) => (s.preset ? [[i, s.preset] as const] : []));
   if (entries.length === 0) return;
-  const bytes = encodeDump(entries, useDevice.getState().globals);
+  const bytes = encodeDump(entries, globals.working ? encodeGlobals(globals.working) : []);
   downloadBytes(bytes, `pacer-all-presets-${timestamp()}.syx`);
 }
 

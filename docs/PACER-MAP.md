@@ -26,8 +26,8 @@ The single source of truth for how the **Pacer preset** (written by the editor) 
 | SW B    | `0x15`    | 109                | 55–59                       | Next scene row · hold: tracks →      |
 | SW C    | `0x16`    | 110                | 60–64                       | Launcher overdub · hold: metronome   |
 | SW D    | `0x17`    | 111                | 65–69                       | Tap tempo · hold: transport play/stop |
-| FS 1    | `0x18`    | 112                | –                           | Smart loop on the *selected* track |
-| FS 2    | `0x19`    | 113                | –                           | Undo                          |
+| FS 1    | `0x18`    | 112                | –                           | One-button looper · hold: clear last loop |
+| FS 2    | `0x19`    | 113                | –                           | Play/stop all loops · hold: clear row |
 | FS 3    | `0x1A`    | 114                | –                           | (unassigned)                  |
 | FS 4    | `0x1B`    | 115                | –                           | (unassigned)                  |
 | EXP 1   | `0x36`    | 116 (0–127)        | –                           | Selected track volume         |

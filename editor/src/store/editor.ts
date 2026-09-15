@@ -10,7 +10,10 @@ import {
   clonePreset,
   createPreset,
   diffParts,
+  globalWriteParts,
+  globalsEqual,
   msgTypeInfo,
+  setGlobalValue as setGlobalElement,
   normalizeName,
   presetsEqual,
   slotLabel,
@@ -18,6 +21,8 @@ import {
   type ControlLabels,
   type DataBytes,
   type EncodedPart,
+  type GlobalSettings,
+  type GlobalWritePart,
   type Led,
   type MidiSetting,
   type Preset,
@@ -42,6 +47,15 @@ export interface Slot {
 
 export type Selection = { kind: 'control'; key: ControlKey } | { kind: 'preset' };
 
+export interface GlobalsSlot {
+  working: GlobalSettings | null;
+  base: GlobalSettings | null;
+  device: GlobalSettings | null;
+  source: 'device' | 'file' | null;
+}
+
+const EMPTY_GLOBALS: GlobalsSlot = { working: null, base: null, device: null, source: null };
+
 export interface PresetPreview {
   preset: Preset;
   labels: ControlLabels;
@@ -52,6 +66,7 @@ export interface PresetPreview {
 interface HistoryEntry {
   label: string;
   slots: Slot[];
+  globals: GlobalsSlot;
   selectedSlot: number;
   selection: Selection;
   coalesceKey?: string;
@@ -67,6 +82,13 @@ export interface LoadEntry {
 
 export interface EditorState {
   slots: Slot[];
+  globals: GlobalsSlot;
+  /** Edit one element of a global config (idx 1..4). */
+  setGlobal: (index: number, obj: number, elm: number, value: number) => void;
+  /** Load global settings from a file or the device (replaces the working copy). */
+  loadGlobals: (settings: GlobalSettings, source: 'device' | 'file') => void;
+  /** Record global settings as present on the device (after a write or read-back). */
+  setDeviceGlobals: (settings: GlobalSettings | null, updateBase: boolean) => void;
   selectedSlot: number;
   selection: Selection;
   clipboard: { preset: Preset; labels: ControlLabels; from: number } | null;
@@ -128,6 +150,7 @@ function pushHistory(state: EditorState, label: string, coalesceKey?: string): H
   const entry: HistoryEntry = {
     label,
     slots: state.slots,
+    globals: state.globals,
     selectedSlot: state.selectedSlot,
     selection: state.selection,
     coalesceKey,
@@ -143,6 +166,10 @@ function restoreSlots(snapshot: readonly Slot[], current: readonly Slot[]): Slot
       ? s
       : { ...s, device: current[i].device, base: current[i].base },
   );
+}
+
+function restoreGlobals(snapshot: GlobalsSlot, current: GlobalsSlot): GlobalsSlot {
+  return { ...snapshot, base: current.base, device: current.device };
 }
 
 function clampData(data: readonly number[]): DataBytes {
@@ -215,6 +242,37 @@ export const useEditor = create<EditorState>()((set, get) => {
 
   return {
     slots: initialSlots(),
+    globals: EMPTY_GLOBALS,
+
+    setGlobal: (index, obj, elm, value) =>
+      set((state) => {
+        const working = state.globals.working;
+        if (!working) return state;
+        const next = setGlobalElement(working, index, obj, elm, value);
+        return {
+          globals: { ...state.globals, working: next },
+          past: pushHistory(state, `Global config ${index}`, `global:${index}:${obj}:${elm}`),
+          future: [],
+        };
+      }),
+
+    loadGlobals: (settings, source) =>
+      set((state) => ({
+        globals: {
+          working: settings,
+          base: settings,
+          device: source === 'device' ? settings : state.globals.device,
+          source,
+        },
+        past: pushHistory(state, source === 'device' ? 'Read global settings' : 'Import global settings'),
+        future: [],
+      })),
+
+    setDeviceGlobals: (settings, updateBase) =>
+      set((state) => ({
+        globals: { ...state.globals, device: settings, base: updateBase && settings ? settings : state.globals.base },
+      })),
+
     selectedSlot: 19,
     selection: { kind: 'control', key: 'SW1' },
     clipboard: null,
@@ -439,12 +497,14 @@ export const useEditor = create<EditorState>()((set, get) => {
         const current: HistoryEntry = {
           label: entry.label,
           slots: state.slots,
+          globals: state.globals,
           selectedSlot: state.selectedSlot,
           selection: state.selection,
           time: Date.now(),
         };
         return {
           slots: restoreSlots(entry.slots, state.slots),
+          globals: restoreGlobals(entry.globals, state.globals),
           selectedSlot: entry.selectedSlot,
           selection: entry.selection,
           past: state.past.slice(0, -1),
@@ -459,12 +519,14 @@ export const useEditor = create<EditorState>()((set, get) => {
         const current: HistoryEntry = {
           label: entry.label,
           slots: state.slots,
+          globals: state.globals,
           selectedSlot: state.selectedSlot,
           selection: state.selection,
           time: Date.now(),
         };
         return {
           slots: restoreSlots(entry.slots, state.slots),
+          globals: restoreGlobals(entry.globals, state.globals),
           selectedSlot: entry.selectedSlot,
           selection: entry.selection,
           past: [...state.past, current],
@@ -517,6 +579,19 @@ export function slotWriteParts(slot: Slot, index: number): EncodedPart[] {
 /** Pending messages for "Send changes": edited slots only. */
 export function slotPendingParts(slot: Slot, index: number): EncodedPart[] {
   return isSlotEdited(slot) ? slotWriteParts(slot, index) : [];
+}
+
+export function isGlobalsEdited(g: GlobalsSlot): boolean {
+  return g.working !== null && !globalsEqual(g.working, g.base);
+}
+
+/** Global config messages to write: diff against the device when known, else every config message. */
+export function globalWriteList(g: GlobalsSlot): GlobalWritePart[] {
+  return g.working ? globalWriteParts(g.device, g.working) : [];
+}
+
+export function globalPendingParts(g: GlobalsSlot): GlobalWritePart[] {
+  return isGlobalsEdited(g) ? globalWriteList(g) : [];
 }
 
 export function pendingSummary(slots: readonly Slot[]): { slots: number[]; messages: number } {

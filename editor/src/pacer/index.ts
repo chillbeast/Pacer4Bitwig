@@ -8,3 +8,6 @@ export * from './encode';
 export * from './requests';
 export * from './describe';
 export * from './json';
+export * from './global';
+export * from './follow';
+export * from './share';

@@ -14,6 +14,12 @@ import {
   type Preset,
 } from '../pacer';
 import type { Selection } from '../store/editor';
+import { useUi } from '../store/ui';
+
+/** Timestamp of the last hardware-follow hit for this control (restarts the flash animation). */
+function useFlash(key: ControlKey): number | null {
+  return useUi((s) => (s.flash && s.flash.key === key ? s.flash.at : null));
+}
 import { ledAppearance, ledVars, previewColor } from './led';
 
 /** Device design space: 1000 × 600 units. */
@@ -283,6 +289,7 @@ function SwitchButton({
 }) {
   const def = CONTROL_BY_KEY[id];
   const b = LAYOUT[id];
+  const flash = useFlash(id);
   const text = controlText(preset, id, labels);
   const control = preset?.controls[id];
   const led = control?.leds?.[previewStep];
@@ -302,6 +309,7 @@ function SwitchButton({
         aria-label={`${def.label}: ${text.summary}${text.steps > 1 ? `, ${text.steps} active steps` : ''}. LED ${ledMode} colour ${ledName}.`}
         {...itemProps}
       >
+        {flash !== null && <span key={flash} className="flash" aria-hidden="true" />}
         <span className="fsw__screen">
           <span className="fsw__label">{text.label}</span>
           <span className={`fsw__led led--${appearance}`} style={ledVars(color)}>
@@ -343,6 +351,7 @@ function JackButton({
   itemProps: ItemProps;
 }) {
   const def = CONTROL_BY_KEY[id];
+  const flash = useFlash(id);
   const text = controlText(preset, id, labels);
   return (
     <button
@@ -353,6 +362,7 @@ function JackButton({
       title={`${def.label} · ${text.summary}`}
       {...itemProps}
     >
+      {flash !== null && <span key={flash} className="flash" aria-hidden="true" />}
       <i className="jack__socket" aria-hidden="true" />
       <span className="jack__name">{def.short}</span>
     </button>

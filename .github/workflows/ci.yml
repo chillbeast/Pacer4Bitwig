@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  bitwig-extension:
+    runs-on: ubuntu-latest
+    env:
+      # DrivenByMoss is not on Maven Central. Pin the commit that matches drivenbymoss.version in bitwig/pom.xml.
+      DRIVENBYMOSS_REF: bc3c7b593942236670eb1e8a4b037006a23c47cf
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build DrivenByMoss into the local Maven repository
+        run: |
+          git init DrivenByMoss
+          cd DrivenByMoss
+          git remote add origin https://github.com/git-moss/DrivenByMoss.git
+          git fetch --depth 1 origin "$DRIVENBYMOSS_REF"
+          git checkout FETCH_HEAD
+          mvn -B -q install -DskipTests -Dbitwig.extension.directory=target/ext
+
+      - name: Build and test the extension
+        working-directory: bitwig
+        run: |
+          mvn -B verify
+          cp target/Pacer4Bitwig.jar target/Pacer4Bitwig.bwextension
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pacer4Bitwig.bwextension
+          path: bitwig/target/Pacer4Bitwig.bwextension
+
+  editor:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: editor
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check for the editor project
+        id: editor
+        working-directory: .
+        run: echo "present=$([ -f editor/package-lock.json ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v5
+        if: steps.editor.outputs.present == 'true'
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: editor/package-lock.json
+
+      - if: steps.editor.outputs.present == 'true'
+        run: npm ci
+      - if: steps.editor.outputs.present == 'true'
+        run: npm test
+      - if: steps.editor.outputs.present == 'true'
+        run: npm run build
+
+  tools:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Generate the looper presets (includes a 189-message self-check)
+        run: node looper-preset.mjs

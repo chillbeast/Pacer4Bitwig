@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>dev.pacer4bitwig</groupId>
+	<artifactId>Pacer4Bitwig</artifactId>
+	<version>0.1.0</version>
+	<packaging>jar</packaging>
+	<name>Pacer4Bitwig</name>
+	<description>Nektar Pacer live-looper controller extension for Bitwig Studio, built on the DrivenByMoss framework.</description>
+
+	<properties>
+		<maven.compiler.release>21</maven.compiler.release>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<!-- Must match the version installed to ~/.m2 from C:/Dev/Shove4Bitwig/DrivenByMoss (mvn install) -->
+		<drivenbymoss.version>26.6.5</drivenbymoss.version>
+		<bitwig.api.version>21</bitwig.api.version>
+		<!-- Where the .bwextension gets copied on `mvn install`; override with -Dbitwig.extension.directory=... -->
+		<bitwig.extension.directory>${user.home}/Documents/Bitwig Studio/Extensions</bitwig.extension.directory>
+	</properties>
+
+	<repositories>
+		<repository>
+			<id>bitwig</id>
+			<url>https://maven.bitwig.com</url>
+		</repository>
+	</repositories>
+
+	<dependencies>
+		<!-- Upstream, already shaded (Moss's framework + third-party libs). Gets bundled into our jar. -->
+		<dependency>
+			<groupId>de.mossgrabers</groupId>
+			<artifactId>DrivenByMoss</artifactId>
+			<version>${drivenbymoss.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>*</groupId>
+					<artifactId>*</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<!-- Provided by Bitwig at runtime; must NOT be bundled. -->
+		<dependency>
+			<groupId>com.bitwig</groupId>
+			<artifactId>extension-api</artifactId>
+			<version>${bitwig.api.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<version>5.13.4</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<finalName>Pacer4Bitwig</finalName>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.15.0</version>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>3.5.4</version>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>3.5.1</version>
+				<configuration>
+					<archive>
+						<manifest>
+							<addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+						</manifest>
+					</archive>
+				</configuration>
+			</plugin>
+
+			<!-- Bundle DrivenByMoss into our jar. Our own META-INF/services file wins, so Bitwig only sees our definition. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>3.6.2</version>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+						<configuration>
+							<createDependencyReducedPom>false</createDependencyReducedPom>
+							<artifactSet>
+								<excludes>
+									<exclude>com.bitwig:extension-api</exclude>
+									<exclude>org.junit*:*</exclude>
+									<exclude>org.opentest4j:*</exclude>
+									<exclude>org.apiguardian:*</exclude>
+								</excludes>
+							</artifactSet>
+							<filters>
+								<filter>
+									<artifact>de.mossgrabers:DrivenByMoss</artifact>
+									<excludes>
+										<exclude>META-INF/services/**</exclude>
+										<exclude>META-INF/MANIFEST.MF</exclude>
+										<exclude>META-INF/*.SF</exclude>
+										<exclude>META-INF/*.DSA</exclude>
+										<exclude>META-INF/*.RSA</exclude>
+									</excludes>
+								</filter>
+							</filters>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
+			<!-- Copy the result as .bwextension into the Bitwig extensions folder on `mvn install`. -->
+			<plugin>
+				<groupId>com.coderplus.maven.plugins</groupId>
+				<artifactId>copy-rename-maven-plugin</artifactId>
+				<version>1.0.1</version>
+				<executions>
+					<execution>
+						<id>install-bwextension</id>
+						<phase>install</phase>
+						<goals>
+							<goal>copy</goal>
+						</goals>
+						<configuration>
+							<sourceFile>${project.build.directory}/${project.build.finalName}.jar</sourceFile>
+							<destinationFile>${bitwig.extension.directory}/Pacer4Bitwig.bwextension</destinationFile>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>

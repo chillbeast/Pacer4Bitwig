@@ -1,0 +1,13 @@
+bitwig/target/
+editor/node_modules/
+editor/dist/
+editor/coverage/
+tools/node_modules/
+reference/
+# Personal device dumps and local tool config stay on this machine
+backups/
+.claude/
+*.class
+.idea/
+*.iml
+.vscode/

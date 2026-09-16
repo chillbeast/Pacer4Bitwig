@@ -1,5 +1,9 @@
 /**
- * "Bitwig Looper" template — implements docs/PACER-MAP.md (the shared contract with the Bitwig extension).
+ * "Bitwig Pacer" template — implements docs/PACER-MAP.md (the shared contract with the Bitwig extension).
+ *
+ * There is only one Bitwig template. The extension paints the Pacer live — colours, the display name and what every
+ * switch does all change with the active mode, written to preset index 0 (RAM) while it plays — so this preset only
+ * has to speak the right CCs and behave sensibly when Bitwig is not running.
  */
 import {
   CONTROL_MODE_ALL,
@@ -10,16 +14,13 @@ import {
 import type { ControlLabels } from '../pacer/json';
 import { createLed, createMidiSetting, createPreset, createStep, type Preset, type Step } from '../pacer/model';
 
-export type LooperLedMode = 'two-colour' | 'multi-colour';
-/** The Pacer presets of the PACER Looper extension: they share this layout and differ in the preset-loaded value. */
-export type BitwigPresetKind = 'looper' | 'fx';
-
 export const LOOPER_CHANNEL = 16;
 /** D1 */
 export const LOOPER_DEFAULT_SLOT = 0x13;
-export const LOOPER_PRESET_NAME = 'LOOPS';
+/** The stored name; the extension replaces it with the active mode's name as soon as it starts. */
+export const LOOPER_PRESET_NAME = 'PACER';
 
-/** Switch order used by the colour-slot CC formula (switchIndex 0..9). */
+/** Switch order used throughout the contract (switchIndex 0..9). */
 export const LOOPER_SWITCHES: readonly ControlKey[] = [
   'SW1', 'SW2', 'SW3', 'SW4', 'SW5', 'SW6', 'SWA', 'SWB', 'SWC', 'SWD',
 ];
@@ -30,18 +31,12 @@ export const LOOPER_SWITCH_CC_BASE = 102;
 export const LOOPER_FOOTSWITCH_CC_BASE = 112;
 export const LOOPER_EXPRESSION_CC_BASE = 116;
 export const LOOPER_PRESET_LOADED_CC = 119;
-export const LOOPER_COLOUR_SLOT_CC_BASE = 20;
-/**
- * Value of the preset-loaded CC: tells the extension which preset and LED variant is loaded. `kind × 16 + variant`
- * (variant 1 two-colour, 2 multi-colour); 127 is the legacy looper two-colour value.
- */
-export const BITWIG_PRESET_LOADED_VALUE: Readonly<Record<BitwigPresetKind, Readonly<Record<LooperLedMode, number>>>> = {
-  looper: { 'two-colour': 127, 'multi-colour': 2 },
-  fx: { 'two-colour': 17, 'multi-colour': 18 },
-};
-export const LOOPER_PRESET_LOADED_VALUE = BITWIG_PRESET_LOADED_VALUE.looper;
-/** SW1..SW4 are loop tracks. */
-export const LOOPER_LOOP_SWITCH_COUNT = 4;
+/** Tells the extension one of its presets was selected, so it writes the whole board again. */
+export const LOOPER_PRESET_LOADED_VALUE = 127;
+/** SW 6 is the mode switch in every mode: tap toggles, hold opens the mode menu. */
+export const LOOPER_MODE_SWITCH_INDEX = 5;
+/** SW1..SW5 are loop tracks in the Looper mode. */
+export const LOOPER_LOOP_SWITCH_COUNT = 5;
 
 export const LOOPER_COLOURS = {
   off: 0x00,
@@ -51,9 +46,13 @@ export const LOOPER_COLOURS = {
   blue: 0x11,
   purple: 0x15,
   white: 0x17,
+  whiteDim: 0x18,
 } as const;
 
-/** Multi-colour mode: on colour of steps 1..6 (colour slots). */
+/**
+ * LED Lab only: colours and CCs the lab uses to probe a switch's LEDs by hand. They are not part of the contract —
+ * steps 2–6 do not act as colour slots on the Pacer (tested on hardware, docs/PACER-MAP.md).
+ */
 export const LOOPER_SLOT_COLOURS: readonly number[] = [
   LOOPER_COLOURS.white,
   LOOPER_COLOURS.red,
@@ -63,6 +62,7 @@ export const LOOPER_SLOT_COLOURS: readonly number[] = [
   LOOPER_COLOURS.purple,
 ];
 export const LOOPER_SLOT_NAMES: readonly string[] = ['white', 'red', 'green', 'amber', 'blue', 'purple'];
+const LOOPER_COLOUR_SLOT_CC_BASE = 20;
 
 /** Action CC (step 1) of every control. */
 export const LOOPER_ACTION_CC: Readonly<Record<ControlKey, number>> = {
@@ -72,7 +72,7 @@ export const LOOPER_ACTION_CC: Readonly<Record<ControlKey, number>> = {
   EXP1: 116, EXP2: 117,
 };
 
-/** Colour-slot CC: `20 + switchIndex * 5 + (step - 2)`, step 2..6. */
+/** LED Lab only: `20 + switchIndex * 5 + (step - 2)`, step 2..6. */
 export function colourSlotCc(switchIndex: number, step: number): number {
   if (switchIndex < 0 || switchIndex > 9 || step < 2 || step > 6) {
     throw new RangeError(`No colour slot for switch ${switchIndex} step ${step}`);
@@ -85,16 +85,19 @@ export interface TapHold {
   hold?: string;
 }
 
-/** PACER Looper default actions (docs/LOOPER.md section 5). Editor-side only, never sent to the Pacer. */
+/**
+ * What the switches do in the extension's Looper mode (docs/LOOPER.md). Editor-side only, never sent to the Pacer —
+ * and only one of several modes: hold SW 6 for the others.
+ */
 export const LOOPER_TAP_HOLD: Readonly<Record<ControlKey, TapHold>> = {
   SW1: { tap: 'Loop 1', hold: 'Delete loop' },
   SW2: { tap: 'Loop 2', hold: 'Delete loop' },
   SW3: { tap: 'Loop 3', hold: 'Delete loop' },
   SW4: { tap: 'Loop 4', hold: 'Delete loop' },
-  SW5: { tap: 'Undo', hold: 'Redo' },
-  SW6: { tap: 'Play/stop all', hold: 'Clear row' },
-  SWA: { tap: 'Row −', hold: 'Tracks ←' },
-  SWB: { tap: 'Row +', hold: 'Tracks →' },
+  SW5: { tap: 'Loop 5', hold: 'Delete loop' },
+  SW6: { tap: 'Previous mode', hold: 'Mode menu' },
+  SWA: { tap: 'Undo', hold: 'Redo' },
+  SWB: { tap: 'Play/stop all', hold: 'Clear row' },
   SWC: { tap: 'Overdub', hold: 'Metronome' },
   SWD: { tap: 'Tap tempo', hold: 'Play/stop' },
   FS1: { tap: 'One-button looper', hold: 'Clear last' },
@@ -111,8 +114,8 @@ export const LOOPER_ROLES: Readonly<Record<ControlKey, string>> = Object.fromEnt
 ) as Record<ControlKey, string>;
 
 /**
- * True when every control's step 1 carries the looper action CC on channel 16 (the layout of both template variants),
- * regardless of colours or labels.
+ * True when every control's step 1 carries the looper action CC on channel 16 (the template's layout), regardless of
+ * colours or labels.
  */
 export function isLooperLayout(preset: Preset | null): boolean {
   return looperChannelOf(preset) !== null;
@@ -136,58 +139,33 @@ export function looperChannelOf(preset: Preset | null): number | null {
   return channel;
 }
 
-export interface PresetAnnouncement {
-  kind: BitwigPresetKind;
-  mode: LooperLedMode;
-}
-
 /**
- * Preset and LED variant a preset-loaded CC value announces (docs/PACER-MAP.md): 127 = looper two-colour, otherwise
- * `kind × 16 + variant`. Unknown kinds count as the looper, like in the extension; null for an unknown variant.
+ * Does this preset-loaded CC value announce a Bitwig preset? Values are `kind × 16 + variant`, plus 127. The old LED
+ * variants (2, 18) and the old FX value (17) still count: presets already on a Pacer keep working.
  */
-export function decodePresetLoadedValue(value: number): PresetAnnouncement | null {
-  if (value === LOOPER_PRESET_LOADED_VALUE['two-colour']) return { kind: 'looper', mode: 'two-colour' };
+export function announcesBitwigPreset(value: number): boolean {
+  if (value === LOOPER_PRESET_LOADED_VALUE) return true;
   const variant = value % 16;
-  if (variant !== 1 && variant !== 2) return null;
-  return { kind: value >> 4 === 1 ? 'fx' : 'looper', mode: variant === 2 ? 'multi-colour' : 'two-colour' };
+  return variant === 1 || variant === 2;
 }
 
-/** Preset and LED variant announced by the preset-loaded message of a looper-layout preset, or null. */
-export function presetAnnouncementOf(preset: Preset | null): PresetAnnouncement | null {
+/** True when the preset's preset-loaded message announces a Bitwig preset. */
+export function announcesBitwig(preset: Preset | null): boolean {
   const channel = looperChannelOf(preset);
-  if (!preset || channel === null) return null;
+  if (!preset || channel === null) return false;
   const m = preset.midi[0];
-  if (m.msgType !== MSG.LOAD_CC || m.channel !== channel || m.data[0] !== LOOPER_PRESET_LOADED_CC) return null;
-  return decodePresetLoadedValue(m.data[1]);
+  if (m.msgType !== MSG.LOAD_CC || m.channel !== channel || m.data[0] !== LOOPER_PRESET_LOADED_CC) return false;
+  return announcesBitwigPreset(m.data[1]);
 }
-
-/** What differs between the presets of `BitwigPresetKind`; everything else follows docs/PACER-MAP.md. */
-export interface BitwigPresetSpec {
-  kind: BitwigPresetKind;
-  name: string;
-  /** Two-colour: on colour of step 1 for switch index 0..9 (SW1..SW6, SWA..SWD). */
-  twoColourOn: (switchIndex: number) => number;
-}
-
-const LOOPER_SPEC: BitwigPresetSpec = {
-  kind: 'looper',
-  name: LOOPER_PRESET_NAME,
-  twoColourOn: (s) => (s < LOOPER_LOOP_SWITCH_COUNT ? LOOPER_COLOURS.red : LOOPER_COLOURS.white),
-};
 
 /**
  * Build the template. `channel` (1–16, default 16) replaces every channel-16 value — steps, pedals and the
  * preset-loaded CC; CC numbers and everything else stay the same. It must match the extension's
  * "Looper MIDI channel" setting.
  */
-export function buildBitwigLooperPreset(mode: LooperLedMode, channel: number = LOOPER_CHANNEL): Preset {
-  return buildBitwigPreset(LOOPER_SPEC, mode, channel);
-}
-
-/** Build a preset laid out like the looper template (see `buildBitwigLooperPreset`) from its spec. */
-export function buildBitwigPreset(spec: BitwigPresetSpec, mode: LooperLedMode, channel: number = LOOPER_CHANNEL): Preset {
+export function buildBitwigLooperPreset(channel: number = LOOPER_CHANNEL): Preset {
   if (!Number.isInteger(channel) || channel < 1 || channel > 16) throw new RangeError(`Invalid MIDI channel ${channel}`);
-  const preset = buildDefaultChannelPreset(spec, mode);
+  const preset = buildDefaultChannelPreset();
   if (channel === LOOPER_CHANNEL) return preset;
   for (const control of Object.values(preset.controls)) {
     for (const step of control.steps) if (step.channel === LOOPER_CHANNEL) step.channel = channel;
@@ -202,10 +180,10 @@ export const LOOPER_LABELS: ControlLabels = {
   SW2: 'LOOP 2',
   SW3: 'LOOP 3',
   SW4: 'LOOP 4',
-  SW5: 'UNDO',
-  SW6: 'PLAY ALL',
-  SWA: 'PREV ROW',
-  SWB: 'NEXT ROW',
+  SW5: 'LOOP 5',
+  SW6: 'MODE',
+  SWA: 'UNDO',
+  SWB: 'PLAY ALL',
   SWC: 'OVERDUB',
   SWD: 'TAP',
   FS1: '1-BTN LOOP',
@@ -225,27 +203,22 @@ function unusedSwitchStep(data: [number, number, number] = [0, 127, 0]): Step {
   return createStep({ channel: 0, msgType: MSG.OFF, data, active: false });
 }
 
-function buildDefaultChannelPreset(spec: BitwigPresetSpec, mode: LooperLedMode): Preset {
-  const multi = mode === 'multi-colour';
-  const preset = createPreset(spec.name);
+function buildDefaultChannelPreset(): Preset {
+  const preset = createPreset(LOOPER_PRESET_NAME);
 
   LOOPER_SWITCHES.forEach((key, s) => {
     const control = preset.controls[key];
     control.mode = CONTROL_MODE_ALL;
     control.steps = [ccTrigger(LOOPER_SWITCH_CC_BASE + s)];
+    for (let step = 2; step <= 6; step++) control.steps.push(unusedSwitchStep());
+
+    // LED MIDI control stays off so the board still lights up without Bitwig; the extension turns it on for every
+    // switch as soon as it starts, and from then on it owns the colours.
+    const onColor = s === LOOPER_MODE_SWITCH_INDEX ? LOOPER_COLOURS.white : LOOPER_COLOURS.red;
+    control.leds = [createLed({ midiCtrl: false, onColor, offColor: LOOPER_COLOURS.whiteDim, num: 0 })];
     for (let step = 2; step <= 6; step++) {
-      control.steps.push(multi ? ccTrigger(colourSlotCc(s, step)) : unusedSwitchStep());
-    }
-    if (multi) {
-      control.leds = LOOPER_SLOT_COLOURS.map((onColor) =>
-        createLed({ midiCtrl: true, onColor, offColor: LED_COLOR_OFF, num: 0 }),
-      );
-    } else {
-      control.leds = [createLed({ midiCtrl: true, onColor: spec.twoColourOn(s), offColor: LED_COLOR_OFF, num: 0 })];
-      for (let step = 2; step <= 6; step++) {
-        // "Only step 1 carries LED config"
-        control.leds.push(createLed({ midiCtrl: false, onColor: LED_COLOR_OFF, offColor: LED_COLOR_OFF, num: 0 }));
-      }
+      // Only step 1 carries LED config
+      control.leds.push(createLed({ midiCtrl: false, onColor: LED_COLOR_OFF, offColor: LED_COLOR_OFF, num: 0 }));
     }
   });
 
@@ -273,11 +246,11 @@ function buildDefaultChannelPreset(spec: BitwigPresetSpec, mode: LooperLedMode):
     }
   });
 
-  // The preset-loaded value also tells the extension which preset and LED variant this is.
+  // Tells the extension one of its presets was selected, so it writes the whole board again.
   preset.midi[0] = createMidiSetting({
     channel: LOOPER_CHANNEL,
     msgType: MSG.LOAD_CC,
-    data: [LOOPER_PRESET_LOADED_CC, BITWIG_PRESET_LOADED_VALUE[spec.kind][mode], 0],
+    data: [LOOPER_PRESET_LOADED_CC, LOOPER_PRESET_LOADED_VALUE, 0],
   });
 
   return preset;

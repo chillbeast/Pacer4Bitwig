@@ -2,30 +2,23 @@
 
 package dev.pacer4bitwig.pacer.preset;
 
-import dev.pacer4bitwig.pacer.led.LedMode;
-
-
 /**
- * The value of the preset-loaded CC: which preset was selected and its LED variant (docs/PACER-MAP.md). Values are
- * kind * 16 + variant (kind 0 looper, 1 FX; variant 1 two-colour, 2 multi-colour), except 127, the looper's legacy
- * two-colour value. Unknown kinds count as the looper, unknown variants as two-colour.
+ * The value of the preset-loaded CC: which preset was selected (docs/PACER-MAP.md). Values are kind * 16 + variant
+ * (kind 0 looper, 1 FX), except 127, the looper's legacy value. Unknown kinds count as the looper.
+ * <p>
+ * The variant used to choose an LED strategy. Colours are written live now, so it is ignored - but the values
+ * themselves stay as they are, so presets already on a Pacer keep announcing themselves correctly.
  *
  * @param kind The preset
- * @param ledMode TWO_COLOUR or MULTI_COLOUR
  */
-public record PresetAnnouncement (PresetKind kind, LedMode ledMode)
+public record PresetAnnouncement (PresetKind kind)
 {
-    /** Looper preset, two-colour LEDs. */
-    public static final int  LOOPER_TWO_COLOUR    = 127;
-    /** Looper preset, multi-colour LEDs. */
-    public static final int  LOOPER_MULTI_COLOUR  = 2;
-    /** FX preset, two-colour LEDs. */
-    public static final int  FX_TWO_COLOUR        = 17;
-    /** FX preset, multi-colour LEDs. */
-    public static final int  FX_MULTI_COLOUR      = 18;
+    /** Looper preset, the legacy value every existing preset sends. */
+    public static final int  LOOPER               = 127;
+    /** FX preset. */
+    public static final int  FX                   = 17;
 
     private static final int KIND_FX              = 1;
-    private static final int VARIANT_MULTI_COLOUR = 2;
 
 
     /**
@@ -36,11 +29,9 @@ public record PresetAnnouncement (PresetKind kind, LedMode ledMode)
      */
     public static PresetAnnouncement fromValue (final int value)
     {
-        if (value == LOOPER_TWO_COLOUR)
-            return new PresetAnnouncement (PresetKind.LOOPER, LedMode.TWO_COLOUR);
-        final PresetKind kind = value >> 4 == KIND_FX ? PresetKind.FX : PresetKind.LOOPER;
-        final LedMode ledMode = (value & 0x0F) == VARIANT_MULTI_COLOUR ? LedMode.MULTI_COLOUR : LedMode.TWO_COLOUR;
-        return new PresetAnnouncement (kind, ledMode);
+        if (value == LOOPER)
+            return new PresetAnnouncement (PresetKind.LOOPER);
+        return new PresetAnnouncement (value >> 4 == KIND_FX ? PresetKind.FX : PresetKind.LOOPER);
     }
 
 
@@ -49,9 +40,6 @@ public record PresetAnnouncement (PresetKind kind, LedMode ledMode)
      */
     public int toValue ()
     {
-        final boolean multi = this.ledMode == LedMode.MULTI_COLOUR;
-        if (this.kind == PresetKind.FX)
-            return multi ? FX_MULTI_COLOUR : FX_TWO_COLOUR;
-        return multi ? LOOPER_MULTI_COLOUR : LOOPER_TWO_COLOUR;
+        return this.kind == PresetKind.FX ? FX : LOOPER;
     }
 }

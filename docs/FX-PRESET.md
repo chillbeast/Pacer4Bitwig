@@ -1,51 +1,48 @@
-# PACER FX preset
+# The FX mode
 
-A second Pacer preset that turns the Pacer into a pedalboard for the instruments you play live through Bitwig
-(vocals, guitar, bass, …) while the looper keeps running. The Pacer layout never changes: what a switch does for an
-instrument is defined in Bitwig and saved with that instrument's track.
+A pedalboard for the instruments you play live through Bitwig (vocals, guitar, bass, …) while the looper keeps
+running. What a switch does for an instrument is defined in Bitwig and saved with that instrument's track.
 
-Status: **new in PACER Looper 0.3.0, not yet tested on hardware.** Run the checklist at the end and report what does
-not work.
+Status: **not yet tested on hardware.** Run the checklist at the end and report what does not work.
 
 ## How it works
 
-- **One FX preset with instrument focus.** Changing instrument is one tap on the top row, while a Pacer preset change
-  takes several presses.
-- **Same CCs as the looper preset.** Only the preset-loaded value (CC 119) differs, so the extension knows which
-  preset is active (setting *Active preset*). Switching presets never touches the loops: they keep playing.
+- **One tap to change instrument.** The four instrument slots sit on the bottom row.
+- **It is a mode, not a preset.** Hold SW 6 and tap SW 2 to get here; tap SW 6 to go back where you were. The Pacer
+  stays on the same preset the whole time and the loops keep playing — the extension simply repaints the board and
+  re-reads what each switch means (docs/LIVE-COLOURS-AND-MODES.md).
 - **The meaning lives in Bitwig.** Switches control the focused instrument's *track remote controls* (a page named
   "Pacer") or, without such a page, simply the devices of its chain in order. Changing an FX rack never needs a
   preset write.
-- **The FX preset never changes Bitwig's selection.** It follows instruments with its own cursor track, so a pinned
+- **The FX mode never changes Bitwig's selection.** It follows instruments with its own cursor track, so a pinned
   Push, the mouse and the looper's "selected track" actions are unaffected, and they never move the FX focus.
 
 ## Install
 
-1. Put the FX preset on the Pacer, slot D2 by default: Pacer Studio's **Bitwig FX** template, or
-   `cd tools && node looper-preset.mjs && node pacer-send.mjs ../presets/bitwig-fx-two-colour-D2.syx --confirm D2`
-   (backs D2 up first). Use the multi-colour file together with the multi-colour looper preset.
-2. PACER Looper 0.3.0 or later in Bitwig. Select D2 on the Pacer: Bitwig shows "FX preset: …".
+Nothing to install beyond the one Pacer preset and the extension (docs/LOOPER.md sections 2–3). Hold SW 6 and tap
+SW 2; the display reads `FX`.
 
 ## Bitwig setup
 
 1. One track per live instrument (e.g. *Vocal*, *Guitar*, *Bass*) with the interface input, monitoring *On* and its
    effects: the "dedicated input track" setup of LOOPER.md section 8. Loop tracks record from these tracks.
 2. Optional, per instrument: add a track remote controls page named **Pacer** and map
-   - slots 1–6 to what SW 1–6 switch (an effect's mix, a chain's volume, …). The mapping's range is what the switch
-     toggles between, so "delay mix 0–35 %" is set up in Bitwig, not on the Pacer.
+   - slots 1–4 to what SW A–D switch (an effect's mix, a chain's volume, …). The mapping's range is what the switch
+     toggles between, so "delay mix 0–35 %" is set up in Bitwig, not on the Pacer. Slots 5 and 6 are reachable by
+     putting *FX 5* / *FX 6* on a footswitch jack.
    - slots 7–8 to what EXP 1 / EXP 2 control (wah frequency, delay feedback, reverb size, …).
 
    Save the track as a preset (*Guitar rig*, *Bass rig*, *Vocal chain*) to reuse it in other projects.
-3. With the FX preset selected, select an instrument track in Bitwig and hold SW A, B or C to assign it to that
-   switch.
+3. In the FX mode, select an instrument track in Bitwig and hold SW 1, 2, 3 or 4 to assign it to that switch.
 
 ## Layout (defaults)
 
 | Control | Tap | Double-tap | Hold |
 |---------|-----|------------|------|
-| SW 1–6  | FX 1–6 on/off | – | FX 1–6 while held, back on release |
-| SW A–C  | Focus instrument A–C | Mute/unmute that instrument | Assign the track selected in Bitwig |
-| SW D    | Next snapshot of the focused instrument | Back to snapshot 1 | Store the current sound in this snapshot |
+| SW 1–4  | Focus instrument A–D | Mute/unmute that instrument | Assign the track selected in Bitwig |
+| SW 5    | Next snapshot of the focused instrument | Back to snapshot 1 | Store the current sound in this snapshot |
+| SW 6    | **The mode switch** — previous mode | – | Mode menu |
+| SW A–D  | FX 1–4 on/off | – | FX 1–4 while held, back on release |
 | FS 1    | One-button looper | – | Clear the last loop |
 | FS 2    | Play/stop all loops | – | Clear the row |
 | FS 3    | Focus the next instrument | – | – |
@@ -53,9 +50,10 @@ not work.
 | EXP 1   | Focused instrument: remote control 7 | | |
 | EXP 2   | Focused instrument: remote control 8 | | |
 
-- Every switch of the FX preset has its own tap / double-tap / hold settings (*FX preset: SW 1-6* and *SW A-D*), and
-  the FX, instrument and snapshot actions can also be assigned on the looper preset and the jacks.
-- The footswitch jacks and their settings are shared by both presets, so FS 1–2 keep looping from the FX preset.
+- The modes are fixed for now, so this layout is not a setting. The FX, instrument and snapshot actions *can* be put
+  on the footswitch jacks, which keep their own settings in every mode — so FS 1–2 keep looping from here.
+- Four instruments fit because SW 6 is the mode switch and snapshots moved to SW 5; the old layout had three
+  instruments and six FX switches.
 - *Momentary: tap again on release* works as the hold of any switch whose tap toggles something.
 
 ## Behaviour
@@ -94,46 +92,48 @@ not work.
 
 ### Pedals
 
-- EXP 1/2 have their own target settings on the FX preset (*EXP 1 on the FX preset*; defaults: remote controls 7/8 of
-  the focused instrument). Response curve and heel/toe range are shared with the looper preset.
+- EXP 1/2 have their own target settings in the FX mode (*EXP 1 in the FX mode*; defaults: remote controls 7/8 of
+  the focused instrument), and they are re-bound whenever the mode changes. Response curve and heel/toe range are
+  shared with the other modes.
 - They only act on a "Pacer" page. After a focus change, the first pedal move sets the new instrument's control to the
   pedal position.
 
 ### LEDs
 
-| Switch state | Two-colour | Multi-colour |
-|--------------|------------|--------------|
-| FX on | on | green |
-| FX off, or nothing to control | off | off |
-| Instrument focused | on | nearest Pacer colour to the track colour |
-| Instrument assigned, not focused | short blip every second (on the downbeat while playing) | blip in the track colour |
-| Instrument muted | blinking | red, blinking |
-| Instrument slot empty, or its track is missing | off | off |
-| Snapshot 1 / 2 / 3 / 4 | off / on / on / on | white / red / green / amber |
-| Snapshot changed since recall or store | blinking | blinking |
+| Switch state | LED |
+|--------------|-----|
+| FX on | green |
+| FX off, or nothing to control | the mode colour, dimmed |
+| Instrument focused | nearest Pacer colour to the track colour |
+| Instrument assigned, not focused | a blip in the track colour (on the downbeat while playing) |
+| Instrument muted | red, blinking |
+| Instrument slot empty, or its track is missing | the mode colour, dimmed |
+| Snapshot 1 / 2 / 3 / 4 | white / red / green / amber |
+| Snapshot changed since recall or store | blinking |
 
 ## Hardware test checklist
 
-Run with PACER Looper 0.3.0, the FX preset on D2 and at least two instrument tracks.
+Run with the one Pacer preset on D1 and at least two instrument tracks.
 
-1. [ ] Select D2: Bitwig shows "FX preset: …" and *Active preset* switches to *FX preset*. D1 shows "Looper preset"
-       and the looper works as before.
-2. [ ] Select a track in Bitwig, hold SW A: "Instrument A is now …", SW A lights.
-3. [ ] Assign a second instrument to SW B. Tapping SW A / SW B switches the focus ("FX: …") without changing Bitwig's
+1. [ ] Hold SW 6 and tap SW 2: the display reads `FX` and the board repaints. Tap SW 6: back to the looper, which
+       works as before and never stopped playing.
+2. [ ] Select a track in Bitwig, hold SW 1: "Instrument A is now …", SW 1 lights.
+3. [ ] Assign a second instrument to SW 2. Tapping SW 1 / SW 2 switches the focus ("FX: …") without changing Bitwig's
        selection or the Push's track.
-4. [ ] Track without a "Pacer" page: SW 1 switches its first device on/off; the LED follows, also when you click the
+4. [ ] Track without a "Pacer" page: SW A switches its first device on/off; the LED follows, also when you click the
        device's power button in Bitwig.
-5. [ ] Add a "Pacer" page and map slot 1 to a delay mix with range 0–35 %: SW 1 now toggles between 0 and 35 %, and no
+5. [ ] Add a "Pacer" page and map slot 1 to a delay mix with range 0–35 %: SW A now toggles between 0 and 35 %, and no
        device is switched any more.
-6. [ ] Hold SW 2 for a second, then release: the effect is on only while held.
-7. [ ] Double-tap SW B: its track mutes and the LED blinks; again unmutes.
-8. [ ] Hold SW D: "snapshot 1 stored". Change an effect: SW D blinks. Tap SW D: "snapshot 2 is empty" - hold to store
-       it. Tapping SW D now switches between both sounds; double-tap returns to snapshot 1.
+6. [ ] Hold SW B for a second, then release: the effect is on only while held.
+7. [ ] Double-tap SW 2: its track mutes and the LED blinks; again unmutes.
+8. [ ] Hold SW 5: "snapshot 1 stored". Change an effect: SW 5 blinks. Tap SW 5: "snapshot 2 is empty" - hold to store
+       it. Tapping SW 5 now switches between both sounds; double-tap returns to snapshot 1.
 9. [ ] Save, close and reopen the project: instruments, focus and snapshots are still there.
 10. [ ] EXP 1 moves remote control 7 of the focused instrument's "Pacer" page.
-11. [ ] FS 1 records loops while on the FX preset; FS 3 cycles through the instruments.
+11. [ ] FS 1 records loops while in the FX mode; FS 3 cycles through the instruments.
 12. [ ] The extension selecting the "Pacer" page does not change the page shown in Bitwig or on the Push.
 
 ## Later
 
-See docs/ROADMAP.md: a combined looper + FX preset, loop tracks recording the focused instrument, named snapshots.
+See docs/ROADMAP.md: loop tracks recording the focused instrument, named snapshots. A combined board is no longer a
+preset question - it is just another mode.

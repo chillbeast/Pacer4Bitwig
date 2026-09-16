@@ -87,24 +87,14 @@ request that went unanswered. When a repair was needed, the session backup conta
 
 The template implements `docs/PACER-MAP.md`. Options:
 
-- **LED strategy**: two-colour (documented behaviour) or multi-colour (experimental colour slots). The preset-loaded
-  message (on-load MIDI 1, CC 119) tells the extension which preset and variant is loaded: **127** looper two-colour,
-  **2** looper multi-colour, **17** FX two-colour, **18** FX multi-colour (*preset × 16 + variant*; 127 is the looper's
-  legacy value). With the extension's LED mode "Automatic" nothing needs to be matched.
-- **Looper MIDI channel** (1–16, default 16): changes every channel-16 value of the preset (switch steps, footswitch jacks,
-  pedals and the preset-loaded CC); CC numbers stay the same. Set the same channel in Bitwig:
-  *Settings > Controllers > PACER Looper > Looper MIDI channel*.
+- **The extension paints the rest.** Colours, the display name and what every switch does are written live to preset
+  index 0 (RAM) by PACER Looper and change with its active mode, so this template only has to speak the right CCs.
+  The preset-loaded message (on-load MIDI 1, CC 119 = **127**) tells the extension one of its presets was selected,
+  which makes it write the whole board again. Older presets sent 2, 17 or 18 and still count as ours.
+- **LED MIDI control stays off** in the stored preset, so the board lights up normally without Bitwig; the extension
+  turns it on per switch as soon as it starts and owns the colours from then on.
 
-The dialog shows these matching Bitwig settings next to the options. Channel 16 output is byte-identical to
-`tools/looper-preset.mjs`.
-
-### Bitwig FX template
-
-A pedalboard for the instruments you play live through Bitwig ([`docs/FX-PRESET.md`](../docs/FX-PRESET.md)): SW 1–6
-switch effects, SW A–C pick the instrument, SW D steps through snapshots. It needs PACER Looper 0.3.0 in Bitwig. On the
-Pacer it is the looper preset with default slot **D2**, name `FX`, preset-loaded value **17** / **18** and, two-colour,
-green SW 1–6 and white SW A–D; the options are the same. Channel 16 output is byte-identical to
-`tools/looper-preset.mjs --preset fx`.
+The same preset is generated independently by `tools/pacer-preset.mjs`, and a test compares the two byte for byte.
 
 ### Global settings
 

@@ -7,7 +7,7 @@ import { fixture } from './helpers';
 const msg = (...b: number[]) => Uint8Array.from(b);
 
 describe('hardware follow', () => {
-  const looper = buildBitwigLooperPreset('multi-colour');
+  const looper = buildBitwigLooperPreset();
 
   it('maps a looper CC on channel 16 to its switch', () => {
     const f = createFollower();

@@ -20,7 +20,6 @@ import dev.pacer4bitwig.pacer.clock.BeatClock;
 import dev.pacer4bitwig.pacer.controller.PacerMap;
 import dev.pacer4bitwig.pacer.led.LedClock;
 import dev.pacer4bitwig.pacer.led.LedColour;
-import dev.pacer4bitwig.pacer.led.LedMode;
 import dev.pacer4bitwig.pacer.led.LedPattern;
 import dev.pacer4bitwig.pacer.led.LedState;
 import dev.pacer4bitwig.pacer.looper.Action;
@@ -437,6 +436,7 @@ public class LooperController
             case ROW_PREVIOUS -> this.scrollRows (false);
             case ROW_NEXT -> this.scrollRows (true);
             case DUPLICATE_ROW -> this.duplicateRow ();
+            case TRACKS_HERE -> this.moveLoopTracksToSelection ();
             case TRACKS_LEFT -> this.scrollTracks (false);
             case TRACKS_RIGHT -> this.scrollTracks (true);
             case UNDO -> {
@@ -530,6 +530,7 @@ public class LooperController
             case ROW_PREVIOUS -> LedState.when (trackBank.getSceneBank ().canScrollBackwards (), LedColour.WHITE);
             case ROW_NEXT -> LedState.solid (trackBank.getSceneBank ().canScrollForwards () ? LedColour.WHITE : LedColour.BLUE);
             case DUPLICATE_ROW -> LedState.when (this.anyLoop (false), LedColour.WHITE);
+            case TRACKS_HERE -> LedState.when (this.model.getCursorTrack ().doesExist (), LedColour.WHITE);
             case TRACKS_LEFT -> LedState.when (trackBank.canScrollBackwards (), LedColour.WHITE);
             case TRACKS_RIGHT -> LedState.when (trackBank.canScrollForwards (), LedColour.WHITE);
             case UNDO -> LedState.when (this.model.getApplication ().canUndo (), LedColour.WHITE);
@@ -537,9 +538,10 @@ public class LooperController
             case LAUNCHER_OVERDUB -> LedState.when (transport.isLauncherOverdub (), LedColour.RED);
             case METRONOME -> LedState.when (transport.isMetronomeOn (), LedColour.WHITE);
             case TAP_TEMPO -> {
-                // A visual metronome: white on the downbeat, green on the other beats
+                // A visual metronome. The flash marks the beat; the colour must not, because a colour is written to
+                // the Pacer as SysEx and a colour that changes every beat puts LOAD SYS on its display for good.
                 if (ledClock.synced ())
-                    yield new LedState (ledClock.beatInBar () == 0 ? LedColour.WHITE : LedColour.GREEN, LedPattern.BEAT_FLASH);
+                    yield new LedState (LedColour.GREEN, LedPattern.BEAT_FLASH);
                 yield LedState.when (transport.isPlaying (), LedColour.GREEN);
             }
             case TRANSPORT_PLAY_STOP -> LedState.when (transport.isPlaying (), LedColour.GREEN);
@@ -607,19 +609,14 @@ public class LooperController
         if (!track.doesExist ())
             return LedState.DARK;
 
-        final LedMode mode = this.configuration.getEffectiveLedMode ();
         final LoopColours colours = this.configuration.getLoopColours ();
         final double [] pendingMute = this.pendingMutes.get (Integer.valueOf (track.getIndex ()));
         if (pendingMute != null)
-        {
-            if (mode != LedMode.MULTI_COLOUR)
-                return new LedState (LedColour.RED, LedPattern.BLINK_FAST);
             return new LedState (pendingMute[0] > 0 ? colours.muted () : colours.playing (), LedPattern.BLINK_FAST);
-        }
 
         final LoopState state = this.getLoopState (track);
         final boolean overdubbing = state == LoopState.PLAYING && this.model.getTransport ().isLauncherOverdub () && track.isRecArm ();
-        return LoopLeds.forLoop (state, overdubbing, track.isMute (), mode, colours);
+        return LoopLeds.forLoop (state, overdubbing, track.isMute (), colours);
     }
 
 
@@ -815,12 +812,11 @@ public class LooperController
         final int focus = LayerPlanner.focus (states);
         if (focus >= 0)
             return this.loopLed (this.getTrackBank ().getItem (focus));
-        final LedMode mode = this.configuration.getEffectiveLedMode ();
         final LoopColours colours = this.configuration.getLoopColours ();
         if (this.anyLoop (true))
-            return LoopLeds.forLoop (LoopState.PLAYING, false, false, mode, colours);
+            return LoopLeds.forLoop (LoopState.PLAYING, false, false, colours);
         if (this.anyLoop (false))
-            return LoopLeds.forLoop (LoopState.STOPPED, false, false, mode, colours);
+            return LoopLeds.forLoop (LoopState.STOPPED, false, false, colours);
         return LedState.DARK;
     }
 
@@ -1274,6 +1270,25 @@ public class LooperController
     }
 
 
+    /** Put the loop track window where the track selected in Bitwig is, after tracks were moved or inserted. */
+    private void moveLoopTracksToSelection ()
+    {
+        final ICursorTrack cursorTrack = this.model.getCursorTrack ();
+        final int position = cursorTrack.getPosition ();
+        if (!cursorTrack.doesExist () || position < 0)
+        {
+            this.notifyImportant ("Select the first loop track in Bitwig first");
+            return;
+        }
+
+        final ITrackBank trackBank = this.getTrackBank ();
+        this.prepareForTrackScroll ();
+        trackBank.scrollTo (position);
+        this.configuration.setLoopTrackStart (position + 1);
+        this.host.scheduleTask ( () -> this.notifyImportant ("Loop tracks start at " + trackBank.getItem (0).getName ()), NOTIFY_DELAY_MS);
+    }
+
+
     private void scrollTracks (final boolean forwards)
     {
         final ITrackBank trackBank = this.getTrackBank ();
@@ -1403,19 +1418,22 @@ public class LooperController
     }
 
 
-    /**
-     * @param switchIndex 0-9
-     * @return True if the switch is a loop switch (on the looper preset)
-     */
-    public boolean isLoopSwitch (final int switchIndex)
-    {
-        return switchIndex < this.configuration.getLoopSwitchCount ().getCount () && switchIndex < this.getLoopCount ();
-    }
-
-
     private int getLoopCount ()
     {
         return this.configuration.getLoopTrackCount ();
+    }
+
+
+    /**
+     * @return The name of the current row from the "Names for new rows" list, empty if it has none
+     */
+    public String getRowDisplayName ()
+    {
+        // Checked first so the usual case - no row names set - never asks Bitwig anything; this runs on every tick
+        final String names = this.configuration.getRowNames ();
+        if (names == null || names.isBlank ())
+            return "";
+        return LooperText.rowName (names, this.getRow ());
     }
 
 

@@ -44,9 +44,9 @@ jobs:
           mvn -B verify
           cp target/Pacer4Bitwig.jar ../Pacer4Bitwig.bwextension
 
-      - name: Generate the looper and FX presets
+      - name: Generate the Pacer preset
         working-directory: tools
-        run: node looper-preset.mjs
+        run: node pacer-preset.mjs
 
       - name: Create the release
         env:
@@ -54,10 +54,7 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" \
             Pacer4Bitwig.bwextension \
-            presets/bitwig-looper-two-colour-D1.syx \
-            presets/bitwig-looper-multi-colour-D1.syx \
-            presets/bitwig-fx-two-colour-D2.syx \
-            presets/bitwig-fx-multi-colour-D2.syx \
+            presets/bitwig-pacer-D1.syx \
             --title "Pacer4Bitwig $GITHUB_REF_NAME" \
-            --notes "Install: copy Pacer4Bitwig.bwextension into Documents/Bitwig Studio/Extensions, then follow docs/LOOPER.md (looper) and docs/FX-PRESET.md (FX preset). Changes: see CHANGELOG.md." \
+            --notes "Install: copy Pacer4Bitwig.bwextension into Documents/Bitwig Studio/Extensions, and write presets/bitwig-pacer-D1.syx to the Pacer, then follow docs/LOOPER.md. Changes: see CHANGELOG.md." \
             --generate-notes

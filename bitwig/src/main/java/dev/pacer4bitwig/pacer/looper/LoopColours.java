@@ -7,7 +7,7 @@ import dev.pacer4bitwig.util.Labelled;
 
 
 /**
- * The multi-colour palette of loop switches.
+ * The colours of loop switches, written to the Pacer live.
  *
  * @param stopped A loop that holds a clip but does not play
  * @param playing A playing loop

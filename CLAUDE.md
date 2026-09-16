@@ -8,8 +8,8 @@ Nektar Pacer as a live-looper controller for Bitwig Studio, plus a new Pacer pre
   strategy, preset-loaded values). Change it first, then both sides.
 - `docs/LOOPER.md` — user guide: Bitwig project setup, switch functions, settings, hardware test checklist.
 - `docs/FX-PRESET.md` — FX preset guide (instrument focus, FX switches, snapshots) with its own hardware checklist.
-- `docs/LIVE-COLOURS-AND-MODES.md` — **next wave**: what the Pacer's LEDs really do (verified), live edits through
-  preset index 0, and the plan for state colours and modes. Read it before touching LED code.
+- `docs/LIVE-COLOURS-AND-MODES.md` — what the Pacer's LEDs really do (verified), live edits through preset index 0,
+  and the mode system built on top. Read it before touching LED or mode code.
 - `docs/manual.html` — the styled manual built from the Markdown docs; keep it in step with them. Written in Artifact
   format (starts at `<title>`, no doctype/html/head/body): published as the claude.ai Artifact
   https://claude.ai/artifact/Wxrg7UxPZpbCL7VREDpyZk (checklist results in its db, `checklists/results`) and, wrapped by
@@ -35,7 +35,7 @@ cd bitwig && mvn -q install      # tests + copies Pacer4Bitwig.bwextension into 
 cd bitwig && mvn -q package      # tests + jar only, Bitwig keeps running the installed version
 cd editor && npm install && npm run dev    # http://localhost:5173 (Chrome/Edge, allow MIDI + SysEx)
 cd tools && node pacer-backup.mjs          # read-only full backup into backups/
-cd tools && node looper-preset.mjs         # regenerate presets/ (looper D1 + FX D2, both LED variants)
+cd tools && node pacer-preset.mjs          # regenerate presets/bitwig-pacer-D1.syx (the only preset)
 cd tools && node pacer-monitor.mjs         # read-only: print everything the Pacer sends (both ports)
 ```
 
@@ -54,8 +54,11 @@ extension when the file changes (so `install` restarts it under a user who is te
 
 ## Rules
 
-- **Never send SysEx SET (cmd 0x01) to the Pacer without the user's explicit OK**, and take a backup first
-  (`tools/pacer-backup.mjs`). GET requests and plain CCs (LED tests) are fine.
+- **Never send a SysEx SET (cmd 0x01) to a stored preset slot without the user's explicit OK**, and take a backup
+  first (`tools/pacer-backup.mjs`). GET requests and plain CCs (LED tests) are fine. A SET to **preset index 0** is
+  different: it edits only the loaded preset's RAM copy, costs no EEPROM wear and is undone by selecting any preset,
+  which is why the extension does it constantly - but from a tool it still deserves a heads-up, because it changes
+  what the user's Pacer is doing right now.
 - Never edit DrivenByMoss sources. Copy a class into `dev.pacer4bitwig.*` if something upstream is private.
 - Bitwig code: keep decision logic pure and unit-tested (`looper/`, `led/`, `fx/`, `preset/`), keep
   `PacerControllerSetup` thin. Upstream style: 4-space indent, space before `(`, `final` everywhere,
@@ -70,11 +73,11 @@ extension when the file changes (so `install` restarts it under a user who is te
   (all created during init).
 - `PacerControllerSetup`: hardware proxies only (10 switches with lights, 4 FS jacks, 2 pedals, preset-loaded CC),
   wired to `PacerController`.
-- `PacerController`: the hardware entry point. What a switch does depends on the active preset (`PresetKind`,
-  decoded from the preset-loaded CC by `PresetAnnouncement` and stored in the global setting *Active preset*): loop
-  switches go to `LooperController`, every other switch runs its `Action` - FX actions (`Action.isFx`) in
-  `FxController`, the rest in `LooperController`. `Action.MOMENTARY` as a hold runs the tap again on release. Each
-  preset has its own switch actions and pedal targets; the footswitch jacks are shared.
+- `PacerController`: the hardware entry point. What a switch does depends on the active `Mode` and on whether the
+  mode menu is open; `mode/SwitchRole.of` makes that decision and the controller only dispatches. Loop switches go
+  to `LooperController`, every other switch runs its `Action` - mode actions (`Action.isMode`) here, FX actions
+  (`Action.isFx`) in `FxController`, the rest in `LooperController`. `Action.MOMENTARY` as a hold runs the tap again
+  on release. The footswitch jacks keep their own settings; the stomp switches belong to the modes.
 - `LooperController`: loop switches (`loopSwitchTap/DoubleTap/Hold/Release`), looper actions (`perform` +
   `actionLed`), parameter pedal targets, LED test, beat counter, exclusive arm (`enforceExclusiveArm`, 40 ms tick).
 - `FxController` (FX preset, docs/FX-PRESET.md): instruments are tracks found by *name* (document settings
@@ -85,12 +88,17 @@ extension when the file changes (so `install` restarts it under a user who is te
   track positions every 500 ms (`resolve`) - LED flushes must never scan 64 track names, they read the cache. `fx/FxTarget.resolve`: a track
   with a "Pacer" page uses only that page, others their devices.
 - Pure, unit-tested: `looper/` (LoopState, LoopAction, LoopLeds, TapTiming, enums for settings), `led/` (LedClock,
-  LedPattern, LedState, LedColour.nearest, SwitchLedWriter), `fx/` (FxTarget, FxLookup, SnapshotBank), `preset/`,
+  LedPattern, LedState, LedColour, SwitchLedWriter), `live/` (PacerSysex, PacerColour, LedRow, LiveBoard), `mode/`
+  (Mode, ModeState, ModeMenu, ModePainter, SwitchRole), `fx/` (FxTarget, FxLookup, SnapshotBank), `preset/`,
   `controller/PacerMap` + `MidiFilters`.
 - Adding an assignable action: constant in `looper/Action` (mark it `destructive` if it deletes or overwrites, pass
-  `fx = true` for FX actions), case in `LooperController.perform` and `.actionLed` or in `FxController`. Settings store
-  enum *labels*, so renaming a label resets users' choice to the default. Keep setting labels unique (the FX preset's
-  switch settings are "FX SW 1 tap" etc.).
+  `fx = true` for FX actions, `mode = true` for ones the controller runs itself), case in `LooperController.perform`
+  and `.actionLed`, or in `FxController`, or in `PacerController.performMode`. Then put it on a switch in a `Mode`
+  layout. Settings store enum *labels*, so renaming a label resets users' choice to the default.
+- Adding a mode: a constant in `mode/Mode` with all ten `SwitchLayout`s, a slot in `mode/ModeMenu.SLOTS` (or it can
+  only be reached by an `Action`), and a `MODE_*` action if it deserves a direct one. `ModeTest` asserts the
+  invariants - SW 6 stays the mode switch, SW A-D never use the word row (they have no third LED), names fit the
+  five-character display.
 - `LooperController.tick ()` (every 40 ms) drives count-ins, "match the first loop" (`LoopLengthTracker`), fades
   (`VolumeFade`) and exclusive arm. Anything that has to watch Bitwig state over time goes there (or in
   `FxController.tick`).
@@ -101,9 +109,9 @@ extension when the file changes (so `install` restarts it under a user who is te
   restoring them.
 - Double/halve use the launcher cursor clip: `model.ensureClip ()` in `createModel` creates it (init phase); select
   the slot, then act on `model.getCursorClip ()` ~150 ms later once the cursor has followed.
-- Loop tracks (1-6, `getLoopTrackCount`) and loop switches (0-6, `LoopSwitchCount`) are separate settings: a switch
-  is a loop switch if its index is below both (looper preset only). Every other switch uses its tap / double-tap /
-  hold `Action`s.
+- A switch is a loop switch when the active mode says so *and* the project has that many loop tracks
+  (`getLoopTrackCount`); the Looper mode claims SW 1-5. Every other switch uses its layout's tap / double-tap / hold
+  `Action`s.
 - Double-tap never delays the tap (`TapHoldCommand.withDoubleTap`): a second tap inside the window runs the double-tap
   action instead of a second tap. Holds reset the double-tap window.
 - The loop track position is a *document* setting (`documentSettings.getRangeSetting`, saved per project);
@@ -113,8 +121,24 @@ extension when the file changes (so `install` restarts it under a user who is te
 - The looper MIDI channel is a setting read during init (DrivenByMoss' `EnumSettingImpl.addValueObserver` fires the
   stored value immediately); bindings, LED writers and note input filters use the channel captured in
   `createSurface`, and changing the setting later calls `host.restart ()`.
-- LED mode `AUTO` resolves to the variant announced by the preset-loaded CC value (127 / 2 looper, 17 / 18 FX);
-  always use `PacerConfiguration.getEffectiveLedMode ()` when driving LEDs.
+- **Modes** (`mode/`, docs/LIVE-COLOURS-AND-MODES.md): `Mode` holds the fixed boards (LOOP, FX, MIX, SONG) as a
+  `SwitchLayout` per switch - tap / double-tap / hold action, colour and which of the switch's three LEDs lights.
+  `Mode.CUSTOM` is laid out in the settings instead: everything that reads a layout goes through `ModeBoard`, and
+  `PacerController.getBoard ()` swaps in `PacerConfiguration.getCustomBoard ()` for it. `Mode.CUSTOM`'s own layouts
+  are placeholders and must never be read directly.
+  `ModeState` is the SW 6 gesture (tap toggles, hold opens `ModeMenu`), `ModePainter` turns a mode into colour and
+  name writes, and `live/LiveBoard` sends them while dropping anything that would not change. Colours are repainted
+  every tick and are almost always silent; that silence is what keeps the Pacer's display off `LOAD SYS`.
+- **Live writes go to preset index 0 only** (`live/PacerSysex`), which is RAM: stored presets are never touched. One
+  object per message, no batching across switches. A switch press puts its CC readout on the display, so the setup
+  re-writes the mode name shortly after each press.
+- **A switch's colour must never depend on the clock.** The pattern carries time (the CC echo, free); the colour
+  carries state (SysEx, one message each). A colour that follows the beat costs a message per beat and parks
+  `LOAD SYS` on the Pacer's display. This has bitten twice: tap tempo was white on the downbeat and green
+  elsewhere, and the beat counter's dark beats were cached as a colour. `ModePainterTest` guards it.
+- **Colours are cached by the flush, not recomputed.** `PacerController.getLedCode` stores each switch's colour in
+  `switchColours` as it runs, and `paint ()` reads that cache - it must not query Bitwig itself. Doing the work
+  twice, 25 times a second, is what crashed the audio engine the first time modes were tried on hardware.
 - `daw/DawModeController` (port 2, opt-in setting): raw `setMidiCallback` / `setSysexCallback` on
   `midiAccess.createInput (1, null)`, LED feedback as CC 127/0 on channel 16 via `createOutput (1)`. `DawModeSysex`
   reproduces Nektar's messages byte for byte, including the odd 0x1F "checksum" of the slot-colour message. The
@@ -126,7 +150,7 @@ extension when the file changes (so `install` restarts it under a user who is te
   (track scroll) applies them first.
 - Pedals: a linear parameter target is bound directly (Bitwig binding, take-over etc.); MIDI and FX targets and
   response curves unbind the parameter so the pedal's `ContinuousCommand` runs (`PacerController.pedalMoved`).
-  Changing the active preset re-binds both pedals.
+  Changing the active mode re-binds both pedals.
 
 ## Framework notes (DrivenByMoss)
 

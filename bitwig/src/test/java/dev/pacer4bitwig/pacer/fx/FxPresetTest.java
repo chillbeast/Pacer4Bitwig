@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.pacer4bitwig.pacer.led.LedColour;
-import dev.pacer4bitwig.pacer.led.LedMode;
 import dev.pacer4bitwig.pacer.looper.Action;
 import dev.pacer4bitwig.pacer.looper.ExpressionTarget;
 import dev.pacer4bitwig.pacer.looper.TapTiming;
@@ -22,17 +21,21 @@ import org.junit.jupiter.api.Test;
 class FxPresetTest
 {
     @Test
-    void presetAnnouncementCarriesKindAndLedVariant ()
+    void presetAnnouncementSaysWhichPresetWasSelected ()
     {
-        assertEquals (new PresetAnnouncement (PresetKind.LOOPER, LedMode.TWO_COLOUR), PresetAnnouncement.fromValue (127));
-        assertEquals (new PresetAnnouncement (PresetKind.LOOPER, LedMode.MULTI_COLOUR), PresetAnnouncement.fromValue (2));
-        assertEquals (new PresetAnnouncement (PresetKind.FX, LedMode.TWO_COLOUR), PresetAnnouncement.fromValue (17));
-        assertEquals (new PresetAnnouncement (PresetKind.FX, LedMode.MULTI_COLOUR), PresetAnnouncement.fromValue (18));
+        // The old LED variants (2, 18) still decode to the right preset, so presets already on a Pacer keep working
+        assertEquals (new PresetAnnouncement (PresetKind.LOOPER), PresetAnnouncement.fromValue (127));
+        assertEquals (new PresetAnnouncement (PresetKind.LOOPER), PresetAnnouncement.fromValue (2));
+        assertEquals (new PresetAnnouncement (PresetKind.FX), PresetAnnouncement.fromValue (17));
+        assertEquals (new PresetAnnouncement (PresetKind.FX), PresetAnnouncement.fromValue (18));
         // Unknown kinds count as the looper, unknown variants as two-colour
-        assertEquals (new PresetAnnouncement (PresetKind.LOOPER, LedMode.MULTI_COLOUR), PresetAnnouncement.fromValue (34));
-        assertEquals (new PresetAnnouncement (PresetKind.LOOPER, LedMode.TWO_COLOUR), PresetAnnouncement.fromValue (0));
-        for (final int value: new int [] {127, 2, 17, 18})
-            assertEquals (value, PresetAnnouncement.fromValue (value).toValue ());
+        assertEquals (new PresetAnnouncement (PresetKind.LOOPER), PresetAnnouncement.fromValue (34));
+        assertEquals (new PresetAnnouncement (PresetKind.LOOPER), PresetAnnouncement.fromValue (0));
+        // Only the canonical values round-trip; the old variants collapse onto them
+        assertEquals (127, PresetAnnouncement.fromValue (127).toValue ());
+        assertEquals (17, PresetAnnouncement.fromValue (17).toValue ());
+        assertEquals (127, PresetAnnouncement.fromValue (2).toValue (), "the old multi-colour looper value");
+        assertEquals (17, PresetAnnouncement.fromValue (18).toValue (), "the old multi-colour FX value");
     }
 
 

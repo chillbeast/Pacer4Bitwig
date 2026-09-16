@@ -3,7 +3,7 @@
 //  - the slot must be confirmed on the command line
 //  - the slot's current contents are backed up to ../backups/ first
 //
-//   node pacer-send.mjs ../presets/bitwig-looper-two-colour-D1.syx --confirm D1
+//   node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

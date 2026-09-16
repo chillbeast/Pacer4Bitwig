@@ -23,13 +23,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
 class LedTest
 {
-    private final List<String>             sent = new ArrayList<> ();
-    private final AtomicReference<LedMode> mode = new AtomicReference<> (LedMode.MULTI_COLOUR);
+    private final List<String> sent = new ArrayList<> ();
 
 
     private SwitchLedWriter writer (final int switchIndex)
     {
-        return new SwitchLedWriter (switchIndex, this.mode::get, (cc, value) -> this.sent.add (cc + "=" + value));
+        return new SwitchLedWriter (switchIndex, (cc, value) -> this.sent.add (cc + "=" + value));
     }
 
 
@@ -44,11 +43,8 @@ class LedTest
     {
         assertEquals (102, PacerMap.switchCC (0));
         assertEquals (111, PacerMap.switchCC (9));
-        assertEquals (20, PacerMap.colourSlotCC (0, 2));
-        assertEquals (24, PacerMap.colourSlotCC (0, 6));
-        assertEquals (45, PacerMap.colourSlotCC (5, 2));
-        assertEquals (69, PacerMap.colourSlotCC (9, 6));
-        assertThrows (IllegalArgumentException.class, () -> PacerMap.colourSlotCC (0, 1));
+        assertEquals (112, PacerMap.FOOTSWITCH_CC_BASE);
+        assertEquals (119, PacerMap.PRESET_LOADED_CC);
     }
 
 
@@ -65,62 +61,34 @@ class LedTest
 
 
     @Test
-    void multiColourClearsPreviousSlotBeforeLightingTheNext ()
+    void anyColourLightsTheSwitchThroughItsOwnCC ()
     {
-        final SwitchLedWriter w = this.writer (1); // SW 2: action 103, slots 25-29
+        // The colour itself is written as SysEx; the CC only says bright or dim
+        final SwitchLedWriter w = this.writer (1); // SW 2: 103
 
         w.accept (LedColour.RED.ordinal ());
-        assertEquals (List.of ("25=127"), this.sent);
-
-        this.sent.clear ();
         w.accept (LedColour.GREEN.ordinal ());
-        assertEquals (List.of ("25=0", "26=127"), this.sent);
-
-        this.sent.clear ();
         w.accept (LedColour.WHITE.ordinal ());
-        assertEquals (List.of ("26=0", "103=127"), this.sent);
-
-        this.sent.clear ();
         w.accept (0);
-        assertEquals (List.of ("103=0"), this.sent);
+        assertEquals (List.of ("103=127", "103=127", "103=127", "103=0"), this.sent);
     }
 
 
     @Test
-    void forcedFlushRepaintsWithoutClearing ()
+    void everySwitchUsesItsOwnActionCC ()
     {
-        final SwitchLedWriter w = this.writer (0);
-        w.accept (LedColour.AMBER.ordinal ());
-        this.sent.clear ();
-
-        w.accept (LedColour.AMBER.ordinal ());
-        assertEquals (List.of ("22=127"), this.sent);
-
-        w.accept (0);
-        this.sent.clear ();
-        w.accept (0);
-        assertEquals (List.of ("102=0"), this.sent);
+        this.writer (0).accept (LedColour.AMBER.ordinal ());
+        this.writer (6).accept (LedColour.RED.ordinal ());
+        this.writer (9).accept (0);
+        assertEquals (List.of ("102=127", "108=127", "111=0"), this.sent);
     }
 
 
     @Test
-    void twoColourOnlyUsesTheActionCC ()
+    void aDarkCodePutsTheSwitchBackToItsOffColour ()
     {
-        this.mode.set (LedMode.TWO_COLOUR);
-        final SwitchLedWriter w = this.writer (6); // SW A: 108
-
-        w.accept (LedColour.RED.ordinal ());
-        w.accept (LedColour.GREEN.ordinal ());
-        w.accept (0);
-        assertEquals (List.of ("108=127", "108=127", "108=0"), this.sent);
-    }
-
-
-    @Test
-    void resetTurnsOffEveryCC ()
-    {
-        this.writer (9).reset ();
-        assertEquals (List.of ("111=0", "65=0", "66=0", "67=0", "68=0", "69=0"), this.sent);
+        this.writer (9).accept (0);
+        assertEquals (List.of ("111=0"), this.sent);
     }
 
 

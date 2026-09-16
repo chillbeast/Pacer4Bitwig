@@ -29,10 +29,9 @@ import dev.pacer4bitwig.pacer.controller.PacerMap;
 import dev.pacer4bitwig.pacer.daw.DawModeController;
 import dev.pacer4bitwig.pacer.fx.FxTracks;
 import dev.pacer4bitwig.pacer.led.LedColour;
-import dev.pacer4bitwig.pacer.led.LedMode;
 import dev.pacer4bitwig.pacer.led.SwitchLedWriter;
+import dev.pacer4bitwig.pacer.live.LiveBoard;
 import dev.pacer4bitwig.pacer.midi.NoteInputFactory;
-import dev.pacer4bitwig.pacer.preset.PresetKind;
 
 import java.util.function.Supplier;
 
@@ -48,8 +47,8 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
 
     /** Blink resolution. */
     private static final long          TICK_MS                  = 40;
-    /** Let the Pacer finish its own LED handling of a press before repainting. */
-    private static final long          REPAINT_DELAY_MS         = 30;
+    /** A press puts the switch's CC readout on the Pacer's display; put the mode name back after this. */
+    private static final long          NAME_RESTORE_MS          = 400;
     /** Tracks of a freshly opened project can arrive after startup: apply the loop track position again after these. */
     private static final long []       TRACK_START_RETRIES_MS   =
     {
@@ -61,12 +60,15 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     private final Supplier<BeatClock>  clockFactory;
     private final NoteInputFactory     noteInputFactory;
     private final Supplier<FxTracks>   fxTracksFactory;
-    private final IHwButton []         switches                 = new IHwButton [PacerMap.NUM_SWITCHES];
-    private final SwitchLedWriter []   ledWriters               = new SwitchLedWriter [PacerMap.NUM_SWITCHES];
     private final IHwFader []          pedals                   = new IHwFader [PacerConfiguration.NUM_EXPRESSION];
     private LooperController           looper;
     private PacerController            controller;
     private DawModeController          dawMode;
+    private LiveBoard                  board;
+    /** Port 1, for the live colour and name writes. Only available once the surface exists. */
+    private IMidiOutput                sysexOutput;
+    /** When a switch last put its CC readout on the Pacer's display, 0 when the name is already back. */
+    private volatile long              displayTakenAt;
     /** The looper channel the bindings were created with; changing the setting restarts the extension. */
     private int                        midiChannel              = PacerMap.DEFAULT_MIDI_CHANNEL;
     private volatile boolean           running;
@@ -130,7 +132,10 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
 
         this.looper = new LooperController (this.host, this.model, this.configuration, this.clockFactory.get ());
         final FxController fx = new FxController (this.host, this.configuration, this.fxTracksFactory.get (), this::getSelectedTrackName);
-        this.controller = new PacerController (this.host, this.configuration, this.looper, fx);
+        // The output only exists once the surface is created, so the board sends through this setup
+        this.board = new LiveBoard (this::sendSysex);
+        this.controller = new PacerController (this.host, this.configuration, this.looper, fx, this.board);
+        this.controller.setModeListener (this::modeChanged);
     }
 
 
@@ -145,6 +150,7 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
 
         // Port 1: hardware bindings only - the note input comes from the Bitwig layer so pedals can inject MIDI into it
         final IMidiOutput output = midiAccess.createOutput ();
+        this.sysexOutput = output;
         final IMidiInput input = midiAccess.createInput (null);
         // The looper channel is reserved; everything else the Pacer presets send reaches Bitwig tracks
         this.controller.setMidiSender (this.noteInputFactory.create (NOTE_INPUT_NAME, MidiFilters.allChannelsExcept (this.midiChannel)));
@@ -161,8 +167,15 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     {
         super.createObservers ();
 
-        this.configuration.addSettingObserver (PacerConfiguration.LED_MODE, this::resetLeds);
         this.configuration.addSettingObserver (PacerConfiguration.LED_TEST, () -> this.looper.startLedTest ());
+        this.configuration.addSettingObserver (PacerConfiguration.CUSTOM_MODE, () -> {
+            // Laying out the custom mode while standing in it should show up straight away
+            if (this.running && this.controller.getMode () == dev.pacer4bitwig.pacer.mode.Mode.CUSTOM)
+            {
+                this.controller.repaintAll ();
+                this.getSurface ().forceFlush ();
+            }
+        });
         this.configuration.addSettingObserver (PacerConfiguration.LAUNCH_QUANTIZATION, () -> {
             if (this.running)
                 this.looper.applyLaunchQuantization ();
@@ -173,15 +186,6 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         });
         this.configuration.addSettingObserver (PacerConfiguration.EXPRESSION_1, () -> this.bindPedal (0));
         this.configuration.addSettingObserver (PacerConfiguration.EXPRESSION_2, () -> this.bindPedal (1));
-        this.configuration.addSettingObserver (PacerConfiguration.ACTIVE_PRESET, () -> {
-            // The pedals of the two presets have their own targets
-            this.bindPedal (0);
-            this.bindPedal (1);
-            if (!this.running)
-                return;
-            this.controller.presetChanged ();
-            this.getSurface ().forceFlush ();
-        });
         this.configuration.addSettingObserver (PacerConfiguration.DAW_MODE, () -> {
             if (this.running)
                 this.dawMode.update ();
@@ -212,14 +216,11 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         {
             final int index = i;
             final IHwButton button = surface.createButton (ButtonID.get (ButtonID.ROW1_1, i), PacerMap.SWITCH_NAMES[i]);
-            button.bind (new TapHoldCommand ( () -> this.controller.isTapOnPress (index), () -> this.controller.tap (index), () -> this.controller.hold (index), () -> this.controller.release (index), () -> this.scheduleRepaint (index), () -> this.controller.getExtraHoldMillis (index), this.host::scheduleTask).withDoubleTap ( () -> this.controller.doubleTap (index), () -> this.controller.isDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis));
+            button.bind (new TapHoldCommand ( () -> this.controller.isTapOnPress (index), () -> this.controller.tap (index), () -> this.controller.hold (index), () -> this.controller.release (index), () -> this.afterSwitchEvent (index), () -> this.controller.getExtraHoldMillis (index), this.host::scheduleTask).withDoubleTap ( () -> this.controller.doubleTap (index), () -> this.controller.isDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis));
             button.bind (input, BindType.CC, this.midiChannel, PacerMap.switchCC (i));
 
-            final SwitchLedWriter writer = new SwitchLedWriter (i, this.configuration::getEffectiveLedMode, (cc, value) -> output.sendCCEx (this.midiChannel, cc, value));
+            final SwitchLedWriter writer = new SwitchLedWriter (i, (cc, value) -> output.sendCCEx (this.midiChannel, cc, value));
             surface.createLight (null, () -> this.controller.getLedCode (index), writer, code -> LedColour.fromCode (code).getColorEx (), button);
-
-            this.switches[i] = button;
-            this.ledWriters[i] = writer;
         }
 
         for (int i = 0; i < PacerMap.NUM_FOOTSWITCHES; i++)
@@ -294,14 +295,15 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
                     this.looper.applyLoopTrackStart ();
             }, delay);
         this.dawMode.update ();
+        // The Pacer may be showing whatever its stored preset says, so write the whole board
+        this.controller.applyStartupMode ();
         this.getSurface ().forceFlush ();
         this.tick ();
 
         if (this.configuration.getNotificationLevel ().shows (true))
         {
             final String version = PacerControllerSetup.class.getPackage ().getImplementationVersion ();
-            final String preset = this.configuration.getActivePreset () == PresetKind.FX ? " (FX preset)" : "";
-            this.host.showNotification ("PACER Looper " + (version == null ? "dev" : version) + " ready on MIDI channel " + (this.midiChannel + 1) + preset);
+            this.host.showNotification ("PACER Looper " + (version == null ? "dev" : version) + " ready on MIDI channel " + (this.midiChannel + 1) + ", mode " + this.controller.getMode ().getLabel ());
         }
     }
 
@@ -311,6 +313,8 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     public void exit ()
     {
         this.running = false;
+        // A board nobody is driving should not look live
+        this.controller.blackout ();
         this.dawMode.shutdown ();
         super.exit ();
     }
@@ -321,6 +325,7 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         if (!this.running)
             return;
         this.controller.tick ();
+        this.restoreName ();
         this.dawMode.flushLeds ();
         this.requestFlush.run ();
         this.host.scheduleTask (this::tick, TICK_MS);
@@ -343,20 +348,42 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     }
 
 
-    private void scheduleRepaint (final int switchIndex)
+    private void sendSysex (final String hex)
     {
-        if (this.configuration.getEffectiveLedMode () != LedMode.MULTI_COLOUR)
-            return;
-        this.host.scheduleTask ( () -> this.switches[switchIndex].getLight ().forceFlush (), REPAINT_DELAY_MS);
+        if (this.sysexOutput != null)
+            this.sysexOutput.sendSysex (hex);
     }
 
 
-    private void resetLeds ()
+    private void modeChanged ()
     {
-        if (!this.running)
-            return;
-        for (final SwitchLedWriter writer: this.ledWriters)
-            writer.reset ();
-        this.getSurface ().forceFlush ();
+        // Modes have their own pedal targets
+        this.bindPedal (0);
+        this.bindPedal (1);
+        if (this.running)
+            this.getSurface ().forceFlush ();
     }
+
+
+    /**
+     * Pressing a switch replaces the Pacer's display with that switch's CC readout. Note when that happened; the
+     * tick puts the name back. Doing it here with a scheduled task per event would add work to the controller
+     * thread on every press, which is exactly what must not happen while a foot is on a switch.
+     */
+    private void afterSwitchEvent (final int switchIndex)
+    {
+        this.displayTakenAt = System.currentTimeMillis ();
+    }
+
+
+    private void restoreName ()
+    {
+        final long takenAt = this.displayTakenAt;
+        if (takenAt == 0 || System.currentTimeMillis () - takenAt < NAME_RESTORE_MS)
+            return;
+        this.displayTakenAt = 0;
+        if (this.configuration.isKeepModeName () && !this.controller.isMenuOpen ())
+            this.board.repeatName ();
+    }
+
 }

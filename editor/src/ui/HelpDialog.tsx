@@ -104,11 +104,12 @@ export function HelpDialog() {
           current state (active preset, programs per channel) is never written.
         </p>
       </Topic>
-      <Topic title="Bitwig Looper or FX preset does nothing in Bitwig">
+      <Topic title="The Bitwig Pacer preset does nothing in Bitwig">
         <p>
           The preset&apos;s MIDI channel must match <b>Settings → Controllers → PACER Looper → Looper MIDI channel</b> (default
-          16). When a preset is selected it tells the extension whether it is the looper or the FX preset and, for LED mode
-          “Automatic”, whether it is the two-colour or multi-colour variant. The FX preset needs PACER Looper 0.3.0 or later.
+          16). Selecting the preset makes it announce itself, and the extension answers by writing the whole board — colours,
+          the display name and what every switch does. If the LEDs stay as this editor left them, the extension is not
+          running or is on another channel.
         </p>
       </Topic>
     </Dialog>

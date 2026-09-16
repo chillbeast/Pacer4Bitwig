@@ -30,7 +30,7 @@ cd ../bitwig && mvn -q install
 #    Bitwig: Settings > Controllers > Add > Nektar > PACER Looper (ports: PACER / PACER)
 
 # 3. Put the looper preset on the Pacer (overwrites D1; backs D1 up first)
-cd ../tools && node looper-preset.mjs && node pacer-send.mjs ../presets/bitwig-looper-two-colour-D1.syx --confirm D1
+cd ../tools && node pacer-preset.mjs && node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1
 #    ...or use the Bitwig Looper template in Pacer Studio:
 cd ../editor && npm install && npm run dev
 ```

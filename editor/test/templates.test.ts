@@ -71,14 +71,15 @@ describe('pedalboard templates', () => {
 
 describe('looper roles', () => {
   it('recognises the looper layout regardless of LED strategy', () => {
-    expect(isLooperLayout(buildBitwigLooperPreset('two-colour'))).toBe(true);
-    expect(isLooperLayout(buildBitwigLooperPreset('multi-colour'))).toBe(true);
+    expect(isLooperLayout(buildBitwigLooperPreset())).toBe(true);
+    expect(isLooperLayout(buildBitwigLooperPreset())).toBe(true);
     expect(isLooperLayout(buildCcTogglePedalboard().preset)).toBe(false);
     expect(isLooperLayout(null)).toBe(false);
   });
 
   it('uses the LOOPER.md default actions', () => {
-    expect(LOOPER_TAP_HOLD.SW6).toEqual({ tap: 'Play/stop all', hold: 'Clear row' });
+    expect(LOOPER_TAP_HOLD.SW6).toEqual({ tap: 'Previous mode', hold: 'Mode menu' });
+    expect(LOOPER_TAP_HOLD.SWB).toEqual({ tap: 'Play/stop all', hold: 'Clear row' });
     expect(LOOPER_TAP_HOLD.FS1).toEqual({ tap: 'One-button looper', hold: 'Clear last' });
     expect(LOOPER_TAP_HOLD.EXP2.tap).toBe('Master volume');
   });

@@ -33,7 +33,7 @@ cd editor && npm install && npm run dev      # http://localhost:5173 in Chrome o
 npm test && npm run build
 
 # Tools
-cd tools && npm install && node looper-preset.mjs
+cd tools && npm install && node pacer-preset.mjs
 ```
 
 Match the `drivenbymoss.version` in `bitwig/pom.xml` to the DrivenByMoss version you installed.
@@ -42,7 +42,7 @@ Match the `drivenbymoss.version` in `bitwig/pom.xml` to the DrivenByMoss version
 
 1. **The MIDI contract comes first.** Anything that changes CCs, channels or LED behaviour starts with an edit to
    [docs/PACER-MAP.md](docs/PACER-MAP.md), then updates the extension (`PacerMap`), the preset generator
-   (`tools/looper-preset.mjs`) and the editor template together.
+   (`tools/pacer-preset.mjs`) and the editor template together.
 2. **Never write to someone's Pacer without asking.** Tools and the editor must confirm the target slot and offer a
    backup before any SysEx SET. GET requests and plain CCs are fine.
 3. **Keep logic testable.** In the extension, decisions live in pure classes (`looper/`, `led/`) with JUnit tests;

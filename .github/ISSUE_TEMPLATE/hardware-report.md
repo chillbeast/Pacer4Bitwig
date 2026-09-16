@@ -11,7 +11,7 @@ labels: hardware
 - Operating system:
 - Bitwig Studio version:
 - Pacer4Bitwig / Pacer Studio version or commit:
-- Preset variant on the Pacer: two-colour / multi-colour
+- Mode the Pacer was in (the display name): LOOP / FX / MIX / SONG
 
 ## Looper checklist (docs/LOOPER.md, section 8)
 
@@ -27,8 +27,8 @@ Tick what works, describe what does not.
 - [ ] 8. EXP 1
 - [ ] 9. LEDs repaint after changing presets
 - [ ] 10. Other presets reach Bitwig on channels 1-15
-- [ ] 11. LED Lab: last message wins on a shared LED
-- [ ] 12. No wrong colours after pressing (multi-colour)
+- [ ] 11. Hold SW 6: the mode menu appears; tapping a slot switches mode
+- [ ] 12. The display shows the mode name, and returns to it after a press
 
 ## LED Lab observations
 

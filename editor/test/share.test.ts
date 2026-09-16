@@ -27,7 +27,7 @@ describe('share links', () => {
   });
 
   it('keeps labels and stays short', async () => {
-    const preset = buildBitwigLooperPreset('multi-colour');
+    const preset = buildBitwigLooperPreset();
     const token = await encodeShareToken({ preset, labels: LOOPER_LABELS, slot: 19 });
     expect(token.startsWith('z')).toBe(true);
     expect(token.length).toBeLessThan(900);

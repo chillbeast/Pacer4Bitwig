@@ -65,6 +65,8 @@ public enum Action implements Labelled
     ROW_NEXT ("Next row (adds one at the end)", false, false),
     /** Copy the row with all its loops and move to the copy. */
     DUPLICATE_ROW ("Duplicate row and move to the copy", false, false),
+    /** Start the loop tracks at the track selected in Bitwig. */
+    TRACKS_HERE ("Loop tracks start at the selected track", false, false),
     /** Scroll the loop track window left. */
     TRACKS_LEFT ("Move loop tracks left", false, false),
     /** Scroll the loop track window right. */
@@ -137,13 +139,27 @@ public enum Action implements Labelled
     /** Recall snapshot 1 of the focused instrument. */
     SNAPSHOT_FIRST ("Back to snapshot 1 of the focused instrument", false, false, true),
     /** Store the FX switches of the focused instrument in its current snapshot. */
-    SNAPSHOT_STORE ("Store the current snapshot of the focused instrument", false, true, true);
+    SNAPSHOT_STORE ("Store the current snapshot of the focused instrument", false, true, true),
+
+    /** Move to the next mode that has a menu slot. */
+    MODE_NEXT ("Next mode", true, false, false, true),
+    /** Go back to the mode before this one, the same as tapping SW 6. */
+    MODE_TOGGLE ("Previous mode (toggle)", true, false, false, true),
+    /** Go to the looper mode. */
+    MODE_LOOP ("Go to the Looper mode", true, false, false, true),
+    /** Go to the FX mode. */
+    MODE_FX ("Go to the FX mode", true, false, false, true),
+    /** Go to the mixer mode. */
+    MODE_MIX ("Go to the Mixer mode", true, false, false, true),
+    /** Go to the song mode. */
+    MODE_SONG ("Go to the Song mode", true, false, false, true);
 
 
     private final String  label;
     private final boolean timingCritical;
     private final boolean destructive;
     private final boolean fx;
+    private final boolean mode;
 
 
     Action (final String label, final boolean timingCritical, final boolean destructive)
@@ -154,10 +170,17 @@ public enum Action implements Labelled
 
     Action (final String label, final boolean timingCritical, final boolean destructive, final boolean fx)
     {
+        this (label, timingCritical, destructive, fx, false);
+    }
+
+
+    Action (final String label, final boolean timingCritical, final boolean destructive, final boolean fx, final boolean mode)
+    {
         this.label = label;
         this.timingCritical = timingCritical;
         this.destructive = destructive;
         this.fx = fx;
+        this.mode = mode;
     }
 
 
@@ -200,5 +223,17 @@ public enum Action implements Labelled
     public boolean isFx ()
     {
         return this.fx;
+    }
+
+
+    /**
+     * Mode actions change the whole board, so they are run by the controller rather than the looper or the FX
+     * preset. Assigning one to a footswitch jack gives a second way in, next to SW 6.
+     *
+     * @return True for mode actions
+     */
+    public boolean isMode ()
+    {
+        return this.mode;
     }
 }

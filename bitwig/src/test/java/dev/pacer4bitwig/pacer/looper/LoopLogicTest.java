@@ -7,9 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.pacer4bitwig.pacer.led.LedColour;
-import dev.pacer4bitwig.pacer.led.LedMode;
 import dev.pacer4bitwig.pacer.led.LedPattern;
 import dev.pacer4bitwig.pacer.led.LedState;
+import dev.pacer4bitwig.pacer.mode.Mode;
 import dev.pacer4bitwig.util.Labelled;
 
 import org.junit.jupiter.api.Test;
@@ -90,7 +90,7 @@ class LoopLogicTest
             FadeLength.values (),
             CountIn.values (),
             MuteTiming.values (),
-            LedMode.values ()
+            Mode.values ()
         })
         {
             final String [] labels = Labelled.labels (values);
@@ -102,24 +102,34 @@ class LoopLogicTest
 
 
     @Test
-    void loopLedsMultiColour ()
+    void loopLedsCarryAColourPerState ()
     {
-        assertEquals (LedState.DARK, LoopLeds.forLoop (LoopState.EMPTY, false, false, LedMode.MULTI_COLOUR));
-        assertEquals (LedState.solid (LedColour.AMBER), LoopLeds.forLoop (LoopState.STOPPED, false, false, LedMode.MULTI_COLOUR));
-        assertEquals (new LedState (LedColour.GREEN, LedPattern.SOLID_DIP), LoopLeds.forLoop (LoopState.PLAYING, false, false, LedMode.MULTI_COLOUR));
-        assertEquals (new LedState (LedColour.RED, LedPattern.SOLID_DIP), LoopLeds.forLoop (LoopState.PLAYING, true, false, LedMode.MULTI_COLOUR));
-        assertEquals (LedState.solid (LedColour.BLUE), LoopLeds.forLoop (LoopState.PLAYING, false, true, LedMode.MULTI_COLOUR));
-        assertEquals (new LedState (LedColour.RED, LedPattern.BLINK_FAST), LoopLeds.forLoop (LoopState.RECORD_QUEUED, false, false, LedMode.MULTI_COLOUR));
+        assertEquals (LedState.DARK, LoopLeds.forLoop (LoopState.EMPTY, false, false));
+        assertEquals (LedState.solid (LedColour.AMBER), LoopLeds.forLoop (LoopState.STOPPED, false, false));
+        assertEquals (new LedState (LedColour.GREEN, LedPattern.SOLID_DIP), LoopLeds.forLoop (LoopState.PLAYING, false, false));
+        assertEquals (new LedState (LedColour.RED, LedPattern.SOLID_DIP), LoopLeds.forLoop (LoopState.PLAYING, true, false));
+        assertEquals (LedState.solid (LedColour.BLUE), LoopLeds.forLoop (LoopState.PLAYING, false, true));
+        assertEquals (new LedState (LedColour.RED, LedPattern.BLINK_FAST), LoopLeds.forLoop (LoopState.RECORD_QUEUED, false, false));
     }
 
 
     @Test
-    void loopLedsTwoColourUsePatterns ()
+    void loopLedsStillBlinkForTheStatesThatAreWaiting ()
     {
-        assertEquals (LedPattern.SOLID_DIP, LoopLeds.forLoop (LoopState.PLAYING, false, false, LedMode.TWO_COLOUR).pattern ());
-        assertEquals (LedPattern.BLIP, LoopLeds.forLoop (LoopState.PLAYING, false, true, LedMode.TWO_COLOUR).pattern ());
-        assertEquals (LedPattern.BLINK_MEDIUM, LoopLeds.forLoop (LoopState.RECORDING, false, false, LedMode.TWO_COLOUR).pattern ());
-        assertEquals (LedPattern.BLIP, LoopLeds.forLoop (LoopState.STOPPED, false, false, LedMode.TWO_COLOUR).pattern ());
-        assertEquals (LedPattern.BLINK_FAST, LoopLeds.forLoop (LoopState.STOP_QUEUED, false, false, LedMode.TWO_COLOUR).pattern ());
+        assertEquals (LedPattern.SOLID_DIP, LoopLeds.forLoop (LoopState.PLAYING, false, false).pattern ());
+        assertEquals (LedPattern.SOLID, LoopLeds.forLoop (LoopState.PLAYING, false, true).pattern (), "muted is steady");
+        assertEquals (LedPattern.SOLID_DIP, LoopLeds.forLoop (LoopState.RECORDING, false, false).pattern ());
+        assertEquals (LedPattern.SOLID, LoopLeds.forLoop (LoopState.STOPPED, false, false).pattern ());
+        assertEquals (LedPattern.BLINK_FAST, LoopLeds.forLoop (LoopState.STOP_QUEUED, false, false).pattern ());
+        assertEquals (LedPattern.BLINK_FAST, LoopLeds.forLoop (LoopState.PLAY_QUEUED, false, false).pattern ());
+        assertEquals (LedPattern.BLINK_FAST, LoopLeds.forLoop (LoopState.RECORD_QUEUED, false, false).pattern ());
+    }
+
+
+    @Test
+    void anEmptyLoopHasNoColourSoItFallsBackToItsModeColour ()
+    {
+        assertEquals (LedState.DARK, LoopLeds.forLoop (LoopState.EMPTY, false, false));
+        assertEquals (LedColour.OFF, LoopLeds.forLoop (LoopState.EMPTY, false, false).colour ());
     }
 }

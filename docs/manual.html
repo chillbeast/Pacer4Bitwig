@@ -840,7 +840,7 @@ node pacer-send.mjs ../presets/bitwig-fx-two-colour-D2.syx --confirm D2</code></
   </div>
   <ol class="steps">
     <li><p><strong>Create the loop tracks</strong> next to each other, e.g. <em>Loop 1&ndash;4</em>. The looper manages 1&ndash;6 tracks (setting <em>Loop tracks</em>). Audio tracks take your interface input; instrument tracks work too, and can overdub notes into a playing clip.</p></li>
-    <li><p><strong>Tell the extension where they are</strong> if they are not the first tracks: <em>Loop tracks start at track</em>. It is saved with the project, and moving the loop track window from the Pacer updates it. Project settings live in Bitwig's <strong>Studio I/O panel</strong> (the right-hand panel), under <em>PACER Looper</em>.</p></li>
+    <li><p><strong>Tell the extension where they are</strong> if they are not the first tracks: <em>Loop tracks start at track</em>. Hold <span class="sw">SW A</span> or <span class="sw">SW B</span> to move the loop track window: Bitwig shows where the loop tracks now start, and the position is saved with the project. Bitwig 6 shows a controller's project settings nowhere in its own panels, so the Pacer is how you set them.</p></li>
     <li><p><strong>Set Launch quantization to 1 bar</strong> in the extension settings. That is what makes loops start and end on the grid.</p></li>
     <li><p><strong>Set the tempo</strong>, or tap it with <span class="sw">SW D</span>.</p></li>
     <li><p><strong>Keep the audio buffer low</strong>, 64&ndash;256 samples. Bitwig compensates recording latency itself.</p></li>
@@ -1236,7 +1236,7 @@ node pacer-send.mjs ../presets/bitwig-fx-two-colour-D2.syx --confirm D2</code></
 <section class="chapter" id="settings">
   <div class="chapter-head">
     <h3>Settings</h3>
-    <p>Bitwig: <em>Settings &rsaquo; Controllers &rsaquo; PACER Looper</em>. The two <em>Project</em> categories at the end are saved with each project, and Bitwig shows those in the <strong>Studio I/O panel</strong> (the right-hand panel) instead, under <em>PACER Looper</em> and <em>PACER FX</em>.</p>
+    <p>Bitwig: <em>Settings &rsaquo; Controllers &rsaquo; PACER Looper</em>. The two <em>Project</em> categories at the end are saved with each project; Bitwig 6 does not show them in its own panels, so they are set from the Pacer (hold SW A / SW B for the loop tracks, hold an instrument switch on the FX preset).</p>
   </div>
   <div class="filter">
     <label for="settings-filter" class="eyebrow">Find a setting</label>
@@ -1361,7 +1361,7 @@ node pacer-send.mjs ../presets/bitwig-fx-two-colour-D2.syx --confirm D2</code></
         <tr><td class="wrap">FX switches are all dark</td><td class="wrap">No instrument is focused, or its track was renamed. Select the track and hold SW A again.</td></tr>
         <tr><td class="wrap">An FX switch does nothing</td><td class="wrap">The track has a Pacer page and that slot is not mapped, or the track has fewer devices than the switch number.</td></tr>
         <tr><td class="wrap">Track and Transport presets do nothing</td><td class="wrap">Switch on <em>Nektar DAW mode</em> and assign port 2 (<code>MIDIIN2 (PACER)</code> / <code>MIDIOUT2 (PACER)</code>).</td></tr>
-        <tr><td class="wrap">I cannot find the project settings</td><td class="wrap">Loop tracks start at track, the FX instruments and the snapshots are saved with the project, so Bitwig shows them in the <strong>Studio I/O panel</strong> (right-hand panel), sections <em>PACER Looper</em> and <em>PACER FX</em>.</td></tr>
+        <tr><td class="wrap">I cannot find the project settings</td><td class="wrap">Bitwig 6 shows a controller's project settings nowhere in its panels (older versions listed them in the Studio I/O panel). They are still saved with the project: set the loop track position by holding SW A / SW B, and assign FX instruments by holding SW A–C on the FX preset.</td></tr>
         <tr><td class="wrap">A setting does not seem to apply</td><td class="wrap">Most apply immediately; <em>Looper MIDI channel</em> restarts the extension. Check Bitwig's controller console for errors.</td></tr>
       </tbody>
     </table>

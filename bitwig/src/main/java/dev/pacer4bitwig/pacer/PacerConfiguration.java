@@ -40,8 +40,8 @@ import java.util.function.Consumer;
 
 
 /**
- * Settings of the PACER Looper (Bitwig: Settings > Controllers), plus project settings: the position of the loop
- * tracks, and the FX preset's instruments and snapshots.
+ * Settings of the PACER Looper (Bitwig: Settings > Controllers), plus the project settings of the FX preset (its
+ * instruments and their snapshots).
  */
 public class PacerConfiguration extends AbstractConfiguration
 {
@@ -214,7 +214,6 @@ public class PacerConfiguration extends AbstractConfiguration
     private static final String              CATEGORY_LAUNCHER    = "Clip launcher (pushed into the project)";
     private static final String              CATEGORY_DAW_MODE    = "Nektar DAW mode (USB port 2)";
     private static final String              CATEGORY_FEEDBACK    = "Feedback";
-    private static final String              CATEGORY_PROJECT     = "PACER Looper";
     private static final String              CATEGORY_FX_PROJECT  = "PACER FX";
     private static final String []           ON_OFF               =
     {
@@ -289,10 +288,8 @@ public class PacerConfiguration extends AbstractConfiguration
     private volatile LoopLength              loopLength           = LoopLength.KEEP;
     private volatile boolean                 dawMode              = false;
     private volatile NotificationLevel       notificationLevel    = NotificationLevel.ALL;
-    private volatile int                     loopTrackStart       = 0;
+    private volatile int                     loopTrackStart       = 1;
     private IIntegerSetting                  loopTrackStartSetting;
-    private volatile int                     globalLoopTrackStart = 1;
-    private IIntegerSetting                  globalLoopTrackStartSetting;
     private volatile PresetKind              activePreset         = PresetKind.LOOPER;
     private IEnumSetting                     activePresetSetting;
     private volatile int                     snapshotsPerInstrument = 2;
@@ -365,13 +362,6 @@ public class PacerConfiguration extends AbstractConfiguration
 
         enumSetting (globalSettings, "Pop-up notifications", CATEGORY_FEEDBACK, NotificationLevel.values (), NotificationLevel.ALL, value -> this.notificationLevel = value);
 
-        // Stored in the project: where this project's loop tracks are
-        this.loopTrackStartSetting = documentSettings.getRangeSetting ("Loop tracks start at track (0 = use the global setting)", CATEGORY_PROJECT, 0, MAX_LOOP_TRACK_START, 1, "", 0);
-        this.loopTrackStartSetting.addValueObserver (value -> {
-            this.loopTrackStart = value.intValue ();
-            this.notifyObservers (LOOP_TRACK_START);
-        });
-
         this.initFxProject (documentSettings);
     }
 
@@ -404,10 +394,11 @@ public class PacerConfiguration extends AbstractConfiguration
         enumSetting (settings, "Fade length", CATEGORY_LOOPER, FadeLength.values (), FadeLength.BARS_2, value -> this.fadeLength = value);
         settings.getStringSetting ("Names for new rows (comma separated)", CATEGORY_LOOPER, 200, "").addValueObserver (value -> this.rowNames = value == null ? "" : value);
 
-        // Where the loop tracks start in every project; moving the window from the Pacer updates this one
-        this.globalLoopTrackStartSetting = settings.getRangeSetting ("Loop tracks start at track", CATEGORY_LOOPER, 1, MAX_LOOP_TRACK_START, 1, "", 1);
-        this.globalLoopTrackStartSetting.addValueObserver (value -> {
-            this.globalLoopTrackStart = value.intValue ();
+        // Where the loop tracks start, in every project: moving the window from the Pacer writes it. Deliberately not
+        // a project setting - Bitwig 6 shows those nowhere, so a stale one could neither be seen nor corrected.
+        this.loopTrackStartSetting = settings.getRangeSetting ("Loop tracks start at track", CATEGORY_LOOPER, 1, MAX_LOOP_TRACK_START, 1, "", 1);
+        this.loopTrackStartSetting.addValueObserver (value -> {
+            this.loopTrackStart = value.intValue ();
             this.notifyObservers (LOOP_TRACK_START);
         });
     }
@@ -926,32 +917,24 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
-     * The first loop track, 1-based: the project overrides the global setting when it has a value of its own.
-     *
-     * @return The first loop track
+     * @return The first loop track, 1-based
      */
     public int getLoopTrackStart ()
     {
-        return this.loopTrackStart > 0 ? this.loopTrackStart : this.globalLoopTrackStart;
+        return this.loopTrackStart;
     }
 
 
     /**
-     * Remember a new loop track position: in the project while it overrides the global setting, otherwise globally.
+     * Remember a new loop track position.
      *
      * @param oneBased The first loop track, 1-based
      */
     public void setLoopTrackStart (final int oneBased)
     {
         final int value = Math.max (1, Math.min (MAX_LOOP_TRACK_START, oneBased));
-        if (this.loopTrackStart > 0)
-        {
-            if (this.loopTrackStartSetting != null && value != this.loopTrackStart)
-                this.loopTrackStartSetting.set (value);
-            return;
-        }
-        if (this.globalLoopTrackStartSetting != null && value != this.globalLoopTrackStart)
-            this.globalLoopTrackStartSetting.set (value);
+        if (this.loopTrackStartSetting != null && value != this.loopTrackStart)
+            this.loopTrackStartSetting.set (value);
     }
 
 

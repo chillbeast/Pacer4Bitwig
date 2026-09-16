@@ -281,13 +281,11 @@ multi-colour preset you should see six different colours — that confirms multi
 | | Loop length | Keep project setting · Free (press again to close) · Match the first loop of the row · 1 / 2 / 4 / 8 bars (assumes 4/4) |
 | Nektar DAW mode | Serve the Track and Transport presets | Off · On |
 | Feedback | Pop-up notifications | All · Only important ones · Off |
-| **Project: PACER Looper** | Loop tracks start at track (0 = use the global setting) | 0–128 |
 | **Project: PACER FX** | Instrument A–D (track name) · Focused instrument | text · A–D |
 
-The last two categories are *project* settings: they are saved with each project, but Bitwig 6 shows them nowhere in
-its own panels (older versions listed them in the Studio I/O panel). Set them from the Pacer instead — hold SW A /
-SW B for the loop track position, hold an instrument switch on the FX preset to assign a track. The loop track
-position is also a global setting under *Looper*, which every project uses unless its own value is above 0.
+The *PACER FX* category is saved with each project, but Bitwig 6 shows project settings nowhere in its own panels
+(older versions listed them in the Studio I/O panel), so instruments are assigned from the Pacer: hold SW A–C on the
+FX preset. *Loop tracks start at track* is a normal setting under *Looper* and applies to every project.
 
 "Only important ones" keeps navigation (rows, loop track window), warnings, count-ins, loop lengths and resets, and
 drops confirmations like "Undo" or "All loops muted".

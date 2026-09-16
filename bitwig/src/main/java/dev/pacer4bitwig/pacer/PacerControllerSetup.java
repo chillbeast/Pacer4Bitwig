@@ -50,8 +50,12 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     private static final long          TICK_MS                  = 40;
     /** Let the Pacer finish its own LED handling of a press before repainting. */
     private static final long          REPAINT_DELAY_MS         = 30;
-    /** Tracks of a freshly opened project can arrive after startup: apply the loop track position once more. */
-    private static final long          TRACK_START_RETRY_MS     = 1000;
+    /** Tracks of a freshly opened project can arrive after startup: apply the loop track position again after these. */
+    private static final long []       TRACK_START_RETRIES_MS   =
+    {
+        1000,
+        3000
+    };
 
     private final Runnable             requestFlush;
     private final Supplier<BeatClock>  clockFactory;
@@ -284,10 +288,11 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         this.looper.applyLaunchQuantization ();
         this.looper.applyLoopLength ();
         this.looper.applyLoopTrackStart ();
-        this.host.scheduleTask ( () -> {
-            if (this.running)
-                this.looper.applyLoopTrackStart ();
-        }, TRACK_START_RETRY_MS);
+        for (final long delay: TRACK_START_RETRIES_MS)
+            this.host.scheduleTask ( () -> {
+                if (this.running)
+                    this.looper.applyLoopTrackStart ();
+            }, delay);
         this.dawMode.update ();
         this.getSurface ().forceFlush ();
         this.tick ();

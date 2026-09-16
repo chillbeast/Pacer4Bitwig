@@ -24,9 +24,11 @@ Bitwig, while the looper keeps running. See [docs/FX-PRESET.md](docs/FX-PRESET.m
 - New hold action **Momentary: tap again on release** for any switch or jack, and FX / instrument / snapshot actions
   assignable on both presets.
 - Pedal targets *Focused instrument: remote control 1–8*.
-- **Loop tracks start at track** is now a global setting that every project uses; the per-project value became an
-  optional override (0 = follow the global one). Bitwig 6 shows a controller's project settings in no panel, so the
-  global setting and the Pacer (hold SW A / SW B) are how the loop track window is set.
+- **Loop tracks start at track** moved from the project to the normal settings and applies to every project. Bitwig 6
+  shows a controller's project settings in no panel, so a stale per-project value could neither be seen nor corrected
+  - it beat the setting shown in the panel until the controller was switched off and on. Moving the window from the
+  Pacer (hold SW A / SW B) writes the setting, and the position is stored as asked for rather than read back after a
+  delay, which could scroll the window straight back.
 
 ### Pacer Studio and tools
 

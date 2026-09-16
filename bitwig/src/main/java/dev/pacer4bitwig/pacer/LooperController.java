@@ -1276,18 +1276,17 @@ public class LooperController
 
     private void scrollTracks (final boolean forwards)
     {
-        this.prepareForTrackScroll ();
-
         final ITrackBank trackBank = this.getTrackBank ();
-        if (forwards)
-            trackBank.scrollForwards ();
-        else
-            trackBank.scrollBackwards ();
-        this.host.scheduleTask ( () -> {
-            // Remember the position in the project
-            this.configuration.setLoopTrackStart (trackBank.getScrollPosition () + 1);
-            this.notifyImportant ("Loop tracks start at " + trackBank.getItem (0).getName ());
-        }, NOTIFY_DELAY_MS);
+        final int wanted = trackBank.getScrollPosition () + (forwards ? 1 : -1);
+        if (wanted < 0 || forwards && !trackBank.canScrollForwards ())
+            return;
+
+        this.prepareForTrackScroll ();
+        trackBank.scrollTo (wanted);
+        // Store the position that was asked for: Bitwig reports the new scroll position too late to read it back,
+        // and storing a stale one scrolls the window straight back
+        this.configuration.setLoopTrackStart (wanted + 1);
+        this.host.scheduleTask ( () -> this.notifyImportant ("Loop tracks start at " + trackBank.getItem (0).getName ()), NOTIFY_DELAY_MS);
     }
 
 

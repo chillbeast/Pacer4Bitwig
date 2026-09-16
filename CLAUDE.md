@@ -79,7 +79,8 @@ extension when the file changes (so `install` restarts it under a user who is te
   *Instrument A-D*, the focused instrument, snapshots as hidden strings encoded by `fx/SnapshotBank`). All Bitwig
   access goes through `fx/FxTracks`, implemented by `bitwig/BitwigFxTracks`: a flat 64-track bank plus a cursor track
   created with `followSelection = false` and pointed with `selectChannel`, with a 6-device bank and the track's remote
-  controls. `tick` re-points the cursor and selects the "Pacer" remote page by name. `fx/FxTarget.resolve`: a track
+  controls. `tick` re-points the cursor, selects the "Pacer" remote page by name and re-resolves the instruments'
+  track positions every 500 ms (`resolve`) - LED flushes must never scan 64 track names, they read the cache. `fx/FxTarget.resolve`: a track
   with a "Pacer" page uses only that page, others their devices.
 - Pure, unit-tested: `looper/` (LoopState, LoopAction, LoopLeds, TapTiming, enums for settings), `led/` (LedClock,
   LedPattern, LedState, LedColour.nearest, SwitchLedWriter), `fx/` (FxTarget, FxLookup, SnapshotBank), `preset/`,

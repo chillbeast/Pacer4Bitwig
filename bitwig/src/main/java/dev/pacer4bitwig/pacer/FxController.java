@@ -14,6 +14,7 @@ import dev.pacer4bitwig.pacer.led.LedPattern;
 import dev.pacer4bitwig.pacer.led.LedState;
 import dev.pacer4bitwig.pacer.looper.Action;
 
+import java.util.Arrays;
 import java.util.function.Supplier;
 
 
@@ -31,6 +32,8 @@ public class FxController
 {
     /** Do not point the cursor at the focused track again before Bitwig had time to follow. */
     private static final long         FOCUS_RETRY_MS     = 500;
+    /** How often the instruments' track positions and the "Pacer" page are looked up again. */
+    private static final long         RESOLVE_INTERVAL_MS = 500;
     /** Multi-colour LED of snapshots 1-4. */
     private static final LedColour [] SNAPSHOT_COLOURS   =
     {
@@ -49,6 +52,11 @@ public class FxController
     private final String []           bankSources        = new String [PacerConfiguration.NUM_INSTRUMENTS];
     private String                    focusRequestedName = "";
     private long                      focusRequestedAt;
+    /** Track position of each instrument and the index of the "Pacer" page: looking these up scans every track name,
+     * which is far too much work for the LED flushes that ask for them 25 times a second. */
+    private final int []              slotPositions      = new int [PacerConfiguration.NUM_INSTRUMENTS];
+    private int                       remotePage         = -1;
+    private long                      resolvedAt;
 
 
     /**
@@ -65,6 +73,7 @@ public class FxController
         this.configuration = configuration;
         this.tracks = tracks;
         this.selectedTrackName = selectedTrackName;
+        Arrays.fill (this.slotPositions, -1);
     }
 
 
@@ -77,6 +86,7 @@ public class FxController
      */
     public void perform (final Action action)
     {
+        this.resolve (true);
         switch (action)
         {
             case FX_1 -> this.toggleFx (0);
@@ -151,8 +161,25 @@ public class FxController
      */
     public void tick ()
     {
+        this.resolve (false);
         this.followFocus ();
         this.followRemotePage ();
+    }
+
+
+    /** Look the instruments and the "Pacer" page up again, at most every {@link #RESOLVE_INTERVAL_MS}. */
+    private void resolve (final boolean force)
+    {
+        final long now = System.currentTimeMillis ();
+        if (!force && now - this.resolvedAt < RESOLVE_INTERVAL_MS)
+            return;
+        this.resolvedAt = now;
+        for (int slot = 0; slot < this.slotPositions.length; slot++)
+        {
+            final String name = this.configuration.getInstrumentTrack (slot);
+            this.slotPositions[slot] = name.isEmpty () ? -1 : this.findTrack (name);
+        }
+        this.remotePage = FxLookup.findPage (this.tracks.getRemotePageNames (), this.configuration.getRemotePageName ());
     }
 
 
@@ -223,31 +250,20 @@ public class FxController
 
     private FxTarget getTarget (final int index)
     {
-        final int page = this.findRemotePage ();
-        return FxTarget.resolve (page >= 0, page == this.tracks.getSelectedRemotePage (), this.tracks.remoteExists (index), this.tracks.deviceExists (index));
-    }
-
-
-    private int findRemotePage ()
-    {
-        return FxLookup.findPage (this.tracks.getRemotePageNames (), this.configuration.getRemotePageName ());
+        return FxTarget.resolve (this.remotePage >= 0, this.isPageSelected (), this.tracks.remoteExists (index), this.tracks.deviceExists (index));
     }
 
 
     private boolean isPageSelected ()
     {
-        final int page = this.findRemotePage ();
-        return page >= 0 && page == this.tracks.getSelectedRemotePage ();
+        return this.remotePage >= 0 && this.remotePage == this.tracks.getSelectedRemotePage ();
     }
 
 
     private void followRemotePage ()
     {
-        if (!this.isFocusReady ())
-            return;
-        final int page = this.findRemotePage ();
-        if (page >= 0 && page != this.tracks.getSelectedRemotePage ())
-            this.tracks.selectRemotePage (page);
+        if (this.isFocusReady () && this.remotePage >= 0 && this.remotePage != this.tracks.getSelectedRemotePage ())
+            this.tracks.selectRemotePage (this.remotePage);
     }
 
 
@@ -325,8 +341,7 @@ public class FxController
 
     private LedState instrumentLed (final int slot)
     {
-        final String name = this.configuration.getInstrumentTrack (slot);
-        final int position = name.isEmpty () ? -1 : this.findTrack (name);
+        final int position = this.slotPositions[slot];
         if (position < 0)
             return LedState.DARK;
         if (this.tracks.isTrackMuted (position))
@@ -339,8 +354,7 @@ public class FxController
 
     private LedState muteLed (final int slot)
     {
-        final String name = this.configuration.getInstrumentTrack (slot);
-        final int position = name.isEmpty () ? -1 : this.findTrack (name);
+        final int position = this.slotPositions[slot];
         return LedState.when (position >= 0 && this.tracks.isTrackMuted (position), LedColour.RED);
     }
 

@@ -48,7 +48,11 @@ extension when the file changes (so `install` restarts it under a user who is te
   With Windows MIDI Services the ports are multi-client (Bitwig, the editor and tools can share them).
 - Nektar's own `PACER.control.js` claims the `PACER` port too, so it must be disabled while PACER Looper is active.
   What it does on port 2 is documented in docs/ROADMAP.md.
-- Full backup = 4762 SysEx messages / 139544 bytes. The Pacer never answers GET for preset D6.
+- Full backup = 4762 SysEx messages / 139544 bytes (25 presets x 189 + 37 global). The Pacer never answers GET for
+  preset D6 on its own, though a full dump includes it.
+- **A dump can come back short** and every message that did arrive still has a valid checksum, so nothing else gives
+  it away - seen once: 4193 messages, presets B3-B5 simply absent. `pacer-backup.mjs` now checks the count and the
+  preset list, names the file `-INCOMPLETE` and exits 2. Re-running usually gets a clean dump.
 - LED data only comes back when requesting a whole preset (obj 0x7F), not a single control.
 - Preset names are always 5 characters, space-padded.
 

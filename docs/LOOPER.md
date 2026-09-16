@@ -14,10 +14,9 @@ workflow, with LED feedback that follows the beat — and nearly everything abou
      once, through the track you are recording on.
    - **MIDI loops:** instrument tracks work the same way and additionally support launcher overdub (layering notes
      into a playing clip).
-2. If they are not the first tracks of the project, move the loop track window from the Pacer: hold *SW A* (left) or
-   *SW B* (right). Bitwig shows "Loop tracks start at …" and the position is saved with the project (setting *Loop
-   tracks start at track*). Bitwig 6 does not show a controller's project settings anywhere in its own panels, so the
-   Pacer is how you set them.
+2. If they are not the first tracks of the project, set *Looper > Loop tracks start at track*. It applies to every
+   project, so a template that starts with a group track only needs it once. Holding *SW A* (left) or *SW B* (right)
+   on the Pacer moves the loop track window and writes the same setting.
 3. Set the tempo (or tap it with **SW D** — its LED then flashes the beat).
 4. In the extension settings set **Launch quantization = 1 bar**. This is what makes loops land on the grid.
 5. Keep the audio buffer low (64–256 samples); Bitwig compensates recording latency automatically.
@@ -259,6 +258,7 @@ multi-colour preset you should see six different colours — that confirms multi
 | | Mute timing | Immediately · On the next beat · On the next bar |
 | | Fade length | 1 · 2 · 4 · 8 bars |
 | | Names for new rows | comma separated text |
+| | Loop tracks start at track | 1–128, used by every project |
 | Bottom row SW 1-6 | SW 1–6 tap / double-tap / hold (when not loop switches) | any action |
 | Top row SW A-D | SW A–D tap / double-tap / hold | any action |
 | FX preset | Active preset (follows the preset selected on the Pacer) | Looper preset · FX preset |
@@ -281,12 +281,13 @@ multi-colour preset you should see six different colours — that confirms multi
 | | Loop length | Keep project setting · Free (press again to close) · Match the first loop of the row · 1 / 2 / 4 / 8 bars (assumes 4/4) |
 | Nektar DAW mode | Serve the Track and Transport presets | Off · On |
 | Feedback | Pop-up notifications | All · Only important ones · Off |
-| **Project: PACER Looper** | Loop tracks start at track | 1–128 |
+| **Project: PACER Looper** | Loop tracks start at track (0 = use the global setting) | 0–128 |
 | **Project: PACER FX** | Instrument A–D (track name) · Focused instrument | text · A–D |
 
 The last two categories are *project* settings: they are saved with each project, but Bitwig 6 shows them nowhere in
 its own panels (older versions listed them in the Studio I/O panel). Set them from the Pacer instead — hold SW A /
-SW B for the loop track position, hold an instrument switch on the FX preset to assign a track.
+SW B for the loop track position, hold an instrument switch on the FX preset to assign a track. The loop track
+position is also a global setting under *Looper*, which every project uses unless its own value is above 0.
 
 "Only important ones" keeps navigation (rows, loop track window), warnings, count-ins, loop lengths and resets, and
 drops confirmations like "Undo" or "All loops muted".

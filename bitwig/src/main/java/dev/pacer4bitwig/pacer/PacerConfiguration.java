@@ -289,8 +289,10 @@ public class PacerConfiguration extends AbstractConfiguration
     private volatile LoopLength              loopLength           = LoopLength.KEEP;
     private volatile boolean                 dawMode              = false;
     private volatile NotificationLevel       notificationLevel    = NotificationLevel.ALL;
-    private volatile int                     loopTrackStart       = 1;
+    private volatile int                     loopTrackStart       = 0;
     private IIntegerSetting                  loopTrackStartSetting;
+    private volatile int                     globalLoopTrackStart = 1;
+    private IIntegerSetting                  globalLoopTrackStartSetting;
     private volatile PresetKind              activePreset         = PresetKind.LOOPER;
     private IEnumSetting                     activePresetSetting;
     private volatile int                     snapshotsPerInstrument = 2;
@@ -364,7 +366,7 @@ public class PacerConfiguration extends AbstractConfiguration
         enumSetting (globalSettings, "Pop-up notifications", CATEGORY_FEEDBACK, NotificationLevel.values (), NotificationLevel.ALL, value -> this.notificationLevel = value);
 
         // Stored in the project: where this project's loop tracks are
-        this.loopTrackStartSetting = documentSettings.getRangeSetting ("Loop tracks start at track", CATEGORY_PROJECT, 1, MAX_LOOP_TRACK_START, 1, "", 1);
+        this.loopTrackStartSetting = documentSettings.getRangeSetting ("Loop tracks start at track (0 = use the global setting)", CATEGORY_PROJECT, 0, MAX_LOOP_TRACK_START, 1, "", 0);
         this.loopTrackStartSetting.addValueObserver (value -> {
             this.loopTrackStart = value.intValue ();
             this.notifyObservers (LOOP_TRACK_START);
@@ -401,6 +403,13 @@ public class PacerConfiguration extends AbstractConfiguration
         enumSetting (settings, "Mute timing", CATEGORY_LOOPER, MuteTiming.values (), MuteTiming.IMMEDIATE, value -> this.muteTiming = value);
         enumSetting (settings, "Fade length", CATEGORY_LOOPER, FadeLength.values (), FadeLength.BARS_2, value -> this.fadeLength = value);
         settings.getStringSetting ("Names for new rows (comma separated)", CATEGORY_LOOPER, 200, "").addValueObserver (value -> this.rowNames = value == null ? "" : value);
+
+        // Where the loop tracks start in every project; moving the window from the Pacer updates this one
+        this.globalLoopTrackStartSetting = settings.getRangeSetting ("Loop tracks start at track", CATEGORY_LOOPER, 1, MAX_LOOP_TRACK_START, 1, "", 1);
+        this.globalLoopTrackStartSetting.addValueObserver (value -> {
+            this.globalLoopTrackStart = value.intValue ();
+            this.notifyObservers (LOOP_TRACK_START);
+        });
     }
 
 
@@ -917,24 +926,32 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
-     * @return The first loop track of this project, 1-based
+     * The first loop track, 1-based: the project overrides the global setting when it has a value of its own.
+     *
+     * @return The first loop track
      */
     public int getLoopTrackStart ()
     {
-        return this.loopTrackStart;
+        return this.loopTrackStart > 0 ? this.loopTrackStart : this.globalLoopTrackStart;
     }
 
 
     /**
-     * Remember a new loop track position in the project.
+     * Remember a new loop track position: in the project while it overrides the global setting, otherwise globally.
      *
      * @param oneBased The first loop track, 1-based
      */
     public void setLoopTrackStart (final int oneBased)
     {
         final int value = Math.max (1, Math.min (MAX_LOOP_TRACK_START, oneBased));
-        if (this.loopTrackStartSetting != null && value != this.loopTrackStart)
-            this.loopTrackStartSetting.set (value);
+        if (this.loopTrackStart > 0)
+        {
+            if (this.loopTrackStartSetting != null && value != this.loopTrackStart)
+                this.loopTrackStartSetting.set (value);
+            return;
+        }
+        if (this.globalLoopTrackStartSetting != null && value != this.globalLoopTrackStart)
+            this.globalLoopTrackStartSetting.set (value);
     }
 
 

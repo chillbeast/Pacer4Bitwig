@@ -840,7 +840,7 @@ node pacer-send.mjs ../presets/bitwig-fx-two-colour-D2.syx --confirm D2</code></
   </div>
   <ol class="steps">
     <li><p><strong>Create the loop tracks</strong> next to each other, e.g. <em>Loop 1&ndash;4</em>. The looper manages 1&ndash;6 tracks (setting <em>Loop tracks</em>). Audio tracks take your interface input; instrument tracks work too, and can overdub notes into a playing clip.</p></li>
-    <li><p><strong>Tell the extension where they are</strong> if they are not the first tracks: <em>Loop tracks start at track</em>. Hold <span class="sw">SW A</span> or <span class="sw">SW B</span> to move the loop track window: Bitwig shows where the loop tracks now start, and the position is saved with the project. Bitwig 6 shows a controller's project settings nowhere in its own panels, so the Pacer is how you set them.</p></li>
+    <li><p><strong>Tell the extension where they are</strong> if they are not the first tracks: <em>Looper &rsaquo; Loop tracks start at track</em>. It applies to every project, so a template that starts with a group track only needs it once. Holding <span class="sw">SW A</span> or <span class="sw">SW B</span> moves the loop track window and writes the same setting.</p></li>
     <li><p><strong>Set Launch quantization to 1 bar</strong> in the extension settings. That is what makes loops start and end on the grid.</p></li>
     <li><p><strong>Set the tempo</strong>, or tap it with <span class="sw">SW D</span>.</p></li>
     <li><p><strong>Keep the audio buffer low</strong>, 64&ndash;256 samples. Bitwig compensates recording latency itself.</p></li>
@@ -1236,7 +1236,7 @@ node pacer-send.mjs ../presets/bitwig-fx-two-colour-D2.syx --confirm D2</code></
 <section class="chapter" id="settings">
   <div class="chapter-head">
     <h3>Settings</h3>
-    <p>Bitwig: <em>Settings &rsaquo; Controllers &rsaquo; PACER Looper</em>. The two <em>Project</em> categories at the end are saved with each project; Bitwig 6 does not show them in its own panels, so they are set from the Pacer (hold SW A / SW B for the loop tracks, hold an instrument switch on the FX preset).</p>
+    <p>Bitwig: <em>Settings &rsaquo; Controllers &rsaquo; PACER Looper</em>. The two <em>Project</em> categories at the end are saved with each project; Bitwig 6 does not show them in its own panels, so they are set from the Pacer (hold SW A / SW B for the loop tracks, hold an instrument switch on the FX preset). The loop track position also has a global setting under <em>Looper</em> that every project uses.</p>
   </div>
   <div class="filter">
     <label for="settings-filter" class="eyebrow">Find a setting</label>
@@ -1265,6 +1265,7 @@ node pacer-send.mjs ../presets/bitwig-fx-two-colour-D2.syx --confirm D2</code></
         <tr><td class="wrap">Mute timing</td><td class="wrap">Immediately &middot; On the next beat &middot; On the next bar</td></tr>
         <tr><td class="wrap">Fade length</td><td class="wrap">1 &middot; 2 &middot; 4 &middot; 8 bars</td></tr>
         <tr><td class="wrap">Names for new rows (comma separated)</td><td class="wrap">Text, e.g. Intro, Verse, Chorus</td></tr>
+        <tr><td class="wrap">Loop tracks start at track</td><td class="wrap">1&ndash;128, used by every project unless that project sets its own value</td></tr>
         <tr class="cat-row"><th colspan="2">Looper preset switches</th></tr>
         <tr><td class="wrap">SW 1&ndash;6 tap / double-tap / hold (when not loop switches)</td><td class="wrap">Any action</td></tr>
         <tr><td class="wrap">SW A&ndash;D tap / double-tap / hold</td><td class="wrap">Any action</td></tr>
@@ -1296,7 +1297,7 @@ node pacer-send.mjs ../presets/bitwig-fx-two-colour-D2.syx --confirm D2</code></
         <tr class="cat-row"><th colspan="2">Feedback</th></tr>
         <tr><td class="wrap">Pop-up notifications</td><td class="wrap">All &middot; Only important ones &middot; Off. "Only important ones" keeps navigation, warnings, count-ins, loop lengths, resets and focus changes.</td></tr>
         <tr class="cat-row"><th colspan="2">Project: PACER Looper</th></tr>
-        <tr><td class="wrap">Loop tracks start at track</td><td class="wrap">1&ndash;128</td></tr>
+        <tr><td class="wrap">Loop tracks start at track (0 = use the global setting)</td><td class="wrap">0&ndash;128</td></tr>
         <tr class="cat-row"><th colspan="2">Project: PACER FX</th></tr>
         <tr><td class="wrap">Instrument A&ndash;D (track name)</td><td class="wrap">Text; holding a switch on the FX preset fills it in</td></tr>
         <tr><td class="wrap">Focused instrument</td><td class="wrap">A &middot; B &middot; C &middot; D</td></tr>

@@ -9,7 +9,7 @@ Ideas that are not built yet, with what is already known about them. Pick one, o
 - Exclusive arm, mute/solo, mute all, fade out/in, double/halve loops
 - Assignable switches and jacks (tap + hold), safer holds for clearing actions
 - Expression pedals: Bitwig parameters or MIDI (CC 1/2/7/11/74, pressure, pitch bend), response curves
-- Beat-synced two-colour LEDs, experimental multi-colour LEDs, LED test
+- Live colours, names and modes on one preset (docs/LIVE-COLOURS-AND-MODES.md), beat-synced LEDs, LED test
 - Pacer Studio editor with the Bitwig Looper template and LED Lab
 - FX preset: instrument focus, FX switches on track remote controls or devices, snapshots, momentary holds
   ([FX-PRESET.md](FX-PRESET.md))

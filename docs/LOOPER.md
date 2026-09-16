@@ -42,41 +42,67 @@ open its entry in *Settings > Controllers* and pick the port-2 devices (or remov
 Nektar's own *PACER* script uses the same ports, so disable it while PACER Looper is active — PACER Looper can take
 over its job (see *Nektar DAW mode*).
 
-## 3. Load the looper preset onto the Pacer
+## 3. Load the preset onto the Pacer
 
 ```bash
 cd tools
-node looper-preset.mjs
-node pacer-send.mjs ../presets/bitwig-looper-two-colour-D1.syx --confirm D1
+node pacer-preset.mjs
+node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1
 ```
 
-…or use the **Bitwig Looper** template in Pacer Studio (`editor/`). `pacer-send.mjs` backs the slot up to `backups/`
-before it writes. Start with the **two-colour** variant; switch to multi-colour only after the LED test passes (see
-section 6).
+…or use the **Bitwig Pacer** template in Pacer Studio (`editor/`). `pacer-send.mjs` backs the slot up to `backups/`
+before it writes.
 
-On the Pacer, select preset D1. The preset sends CC 119 when loaded, which makes the extension repaint every LED.
+**There is only one preset.** What each switch does, what colour it is and what the display says are written to the
+Pacer *live* while it plays, and they change with the extension's active mode (section 5). Those writes go to preset
+index 0 — the loaded preset's RAM copy — so the Pacer's stored presets are never touched and nothing wears the
+EEPROM: selecting any preset undoes the lot.
+
+On the Pacer, select preset D1. The preset sends CC 119 when loaded, which makes the extension write the whole board
+again.
 
 ## 4. Your other presets
 
 All other presets keep doing whatever they are programmed to do. The looper only reacts to **MIDI channel 16** on
 port 1; everything the Pacer sends on channels 1–15 goes to Bitwig through the note input **"PACER"** — pick it (or
 *All ins*) as a track's MIDI input to play instruments, or use it for MIDI mapping. Avoid channel 16 in other presets
-(CCs 20–69 and 102–119 on channel 16 are the looper's).
+(CCs 102–119 on channel 16 are the looper's).
 
 The Pacer's built-in **Track** and **Transport** DAW presets work when *Nektar DAW mode* is on (section 5).
 
-## 5. What the switches do
+## 5. Modes: what the switches do
 
-Every switch and jack has three gestures — **tap**, **double-tap** and **hold** — and every one of them can be
-reassigned, except that loop switches always do the smart loop on tap. Defaults:
+The Pacer holds **one preset** and the extension paints a **mode** onto it — a whole board of assignments, colours
+and a name on the display. Four modes are built in and fixed; the fifth is yours to lay out.
+
+### SW 6 is the mode switch
+
+It sits under the display and the encoder, apart from the rest of the bottom row, and it is the mode switch in every
+mode:
+
+- **hold** — open the mode menu. It **stays open when your foot comes off**: a foot cannot hold one switch and
+  press another.
+- then **tap a mode** on SW 1–4 — you go there and the menu closes. One press, one foot.
+- **tap SW 6** — closes the menu again without changing mode, so you can open it just to look. With the menu shut,
+  a tap goes back to the mode you were in before (an A/B toggle).
+- the **navigation** slots leave the menu open, so you can step through rows or tracks with repeated presses
+
+| Held on SW 6 | |
+|---|---|
+| **SW 1–5** | Looper · FX · Mixer · Song · Custom |
+| **SW A / SW B** | Move the loop track window left / right |
+| **SW C / SW D** | Next / previous scene row — the panel already prints ▼ and ▲ on those two |
+
+Navigation lives in the menu because it is wanted from every mode; paying for it once leaves each mode its full nine
+switches. Any footswitch jack can also be set to *Next mode*, *Previous mode (toggle)* or *Go to the … mode*.
+
+### Looper mode (`LOOP`)
 
 | Control | Tap | Hold |
 |---------|-----|------|
-| **SW 1–4** (loop switches) | Smart loop on loop track 1–4 (see below) | Delete that loop |
-| **SW 5** | Undo | Redo |
-| **SW 6** | Stop all loops, or play the whole row if nothing plays | Clear every loop in the row |
-| **SW A** | Previous scene row | Move the loop track window left |
-| **SW B** | Next scene row (adds a scene after the last one) | Move the loop track window right |
+| **SW 1–5** (loop switches) | Smart loop on loop track 1–5 (see below) | Delete that loop |
+| **SW A** | Undo | Redo |
+| **SW B** | Stop all loops, or play the whole row if nothing plays | Clear every loop in the row |
 | **SW C** | Launcher overdub on/off | Metronome on/off |
 | **SW D** | Tap tempo | Transport play/stop |
 | **FS 1** (jack) | **One-button looper**: record the next layer | Clear the last recorded loop |
@@ -85,13 +111,45 @@ reassigned, except that loop switches always do the smart loop on tap. Defaults:
 | **EXP 1** | Volume of the selected track | – |
 | **EXP 2** | Master volume | – |
 
-No double-taps are assigned by default.
+A switch is a loop switch only while the project has that many loop tracks (*Loop tracks*), so with three tracks
+SW 4 and SW 5 do nothing.
 
-**Loop switches** (setting *Loop switches*: none, SW 1, SW 1-2 … SW 1-6): SW 1 upwards control loop track 1
-upwards. Bottom switches that are not loop switches take their assigned actions — with *None* the Pacer becomes a
-fully custom Bitwig pedalboard (the one-button looper, row actions and pedals still manage the loop tracks). When SW
-1–4 are not loop switches they default to: SW 1 one-button looper / clear last loop, SW 2 mute all / fade out, SW 3
-smart loop on the selected track / clear it, SW 4 next / previous loop track.
+### Mixer mode (`MIX`)
+
+SW 1–4 sit under the words printed on the panel and light **that word** rather than the colour strip, so the Pacer
+labels itself: **`Solo`** solos the selected loop, **`Mute`** mutes it, **`Rec Arm`** toggles its input monitoring,
+**`Click`** is the metronome. SW 5 steps to the next loop track (hold: previous). SW A mutes everything (hold:
+reset), SW B fades out (hold: fades in), SW C stops all (hold: plays the row), SW D shows the looper status.
+
+### Song mode (`SONG`)
+
+The same trick with the **transport icon row**: SW 1–5 sit under the loop, ◀◀, ▶▶, ■ and ▶ icons and light those.
+SW 1 plays/stops the row (hold: clears it), SW 2 and SW 3 step through scene rows, SW 4 stops everything (hold:
+fades out), SW 5 is transport play/stop (hold: tap tempo). SW A duplicates the row, SW B starts the loop tracks at
+the track selected in Bitwig, SW C is undo/redo, SW D shows the status.
+
+### FX mode (`FX`)
+
+The pedalboard of [docs/FX-PRESET.md](FX-PRESET.md): SW 1–4 focus instruments A–D (double-tap mutes, hold assigns
+the track selected in Bitwig), SW 5 steps through snapshots, SW A–D are the focused instrument's FX switches 1–4.
+
+### Custom mode (`CUST`)
+
+The fifth slot is empty until you fill it, in *Settings > Custom mode*. Every switch except SW 6 (the mode switch)
+gets five settings:
+
+| Setting | |
+|---------|--|
+| **tap / double-tap / hold** | any of the actions, exactly like a footswitch jack |
+| **colour** | one of the Pacer's twelve, or *Automatic* — which picks one from the action, so a board looks deliberate without choosing twelve colours by hand |
+| **LED** | which of the switch's LEDs lights: the colour strip, the icon row, or the word row. SW A–D have no word row, so they fall back to the strip |
+
+Plus **Name on the Pacer display** (five characters, `CUST` by default) and **Loop switches** — how many of SW 1–5
+are loop tracks rather than actions, so a custom board can be a looper too.
+
+Changing any of it repaints the Pacer at once while you are standing in the mode.
+
+No double-taps are assigned except where a mode says so.
 
 **Double-tap:** the first tap always runs straight away (timing stays tight); a second tap within the *Double-tap
 speed* window runs the double-tap action *instead of* a second tap. For loop switches choose what the second tap does
@@ -155,9 +213,11 @@ way; on slots that already hold a loop the switch works as usual (tap and hold).
   shown even when notifications are off.
 - **Reset the looper:** the panic button — stops all loops, cancels count-ins, fades and waiting mutes, unmutes,
   unsolos and disarms the loop tracks and switches launcher overdub off.
-- **Hold time for clearing actions** (*Long* / *Very long*): deleting holds — a loop switch's delete, *Clear the last
+- **Hold time for clearing actions** (*Long* by default): deleting holds — a loop switch's delete, *Clear the last
   recorded loop*, *Clear selected loop*, *Clear all loops in the row* — only run if the switch stays down for 1.5 or
-  2.5 seconds. Other holds keep the normal half second.
+  2.5 seconds. Other holds keep the normal half second. *Normal* gives the deleting holds no margin at all, so a
+  foot resting on a loop switch deletes the take it just started; it is there for anyone who wants it, not as a
+  sensible default.
 
 ### Actions
 
@@ -167,8 +227,32 @@ Available for every switch that is not a loop switch, SW A–D and FS 1–4, as 
 |-------|---------|
 | Loops | one-button looper · clear the last recorded loop · smart loop / stop / mute / solo / clear the selected track · input monitoring on/off · double / halve the selected loop · select previous / next loop track |
 | Row | play row / stop all · stop all · play row · clear row · mute/unmute all loops · fade out and stop · fade in the row · reset the looper |
-| Navigation | previous / next row · duplicate row · move loop tracks left / right |
+| Navigation | previous / next row · duplicate row · move loop tracks left / right · loop tracks start at the selected track |
 | Transport & misc | undo · redo · launcher overdub · metronome · tap tempo · transport play/stop · show looper status · LED test |
+
+### The pedals follow the mode
+
+Two pedals and no spare footswitches is the normal Pacer rig, so each mode gives them their own targets — ten
+settings, *EXP 1 · Looper* through *EXP 2 · Custom*. Two controls become ten. The defaults:
+
+| Mode | EXP 1 | EXP 2 |
+|------|-------|-------|
+| **Looper** | Selected track volume | Master volume |
+| **FX** | Focused instrument: remote 7 | Focused instrument: remote 8 |
+| **Mixer** | Selected track volume | Selected track send 1 |
+| **Song** | Master volume | Project remote control 1 |
+| **Custom** | – | – |
+
+Response curve, heel and toe are the pedal's physical calibration, so they stay shared across modes.
+
+### The display
+
+The display normally shows the mode's name. When a mode has something more useful to say it shows that instead:
+the **FX** mode names the focused instrument, the **Song** mode names the row (from *Names for new rows*). Turn it
+off with *Show what the mode is doing on the display*.
+
+Switching off the extension, or closing Bitwig, darkens the whole board and writes `OFF`, so a Pacer nobody is
+driving does not look live. Selecting any preset on it brings its own colours back.
 
 ### Expression pedals
 
@@ -211,36 +295,46 @@ the Pacer's Track/Transport buttons to switch between them.
 While the transport runs, blinking follows the beat (setting *Blink in time with the transport*); when it is stopped,
 LEDs blink on the wall clock.
 
-**Two-colour mode** (default):
+Every switch rests at its mode's colour, dimmed, and lights in the colour of whatever it is doing — so the board
+reads even when nothing is playing:
 
 | Loop | LED |
 |------|-----|
-| empty | off |
-| has a loop, stopped — or muted | short flash on every downbeat (once a second when stopped) |
-| playing | on, with a short gap on every downbeat |
-| waiting (record/play/stop), counting in, mute waiting for its beat | fast blink (eighth notes) |
-| recording, or overdubbing | blinks on every beat |
+| empty | the mode colour, dimmed |
+| has a loop, stopped | amber |
+| playing | green, with a short gap on every downbeat |
+| muted | blue |
+| recording, or overdubbing | red, with a gap on the downbeat |
+| waiting (record/play/stop), counting in, mute waiting for its beat | fast blink in the colour it is heading for |
 
-**Multi-colour mode** (experimental): empty = off, stopped = amber, playing = green (gap on the downbeat),
-muted = blue, recording/overdubbing = red, waiting = blinking in the target colour. The four loop colours can be
-changed (*Multi-colour: stopped / playing / recording / muted loop*: white, red, green, amber, blue, purple). Requires the
-multi-colour preset variant.
+The four loop colours can be changed (*Loop colour: stopped / playing / recording / muted*: white, red, green,
+amber, blue, purple).
+
+Colours are written to the Pacer as SysEx, which makes its display flash `LOAD SYS` for a moment. The extension only
+writes a colour when it actually changes, so during play the display sits on the mode name.
 
 Assignable switches light up when their tap action has something to do: undo/redo possible, loops playing (play/stop
 all: green playing, amber loaded), previous/next row available (next row shows blue when it would add a scene),
 overdub on (red), metronome on, transport running (green), any loop muted (blue), selected loop soloed (amber),
 input monitoring on (green), reset available (purple). The one-button looper shows the loop it is busy with; fade
 actions blink while a fade runs. **Tap tempo** flashes every beat — white on the downbeat, green on the others in
-multi-colour mode. The beat counter temporarily takes over SW A–D (section 5).
+its mode. The beat counter temporarily takes over SW A–D (section 5).
 
 **LED test:** *Settings > Pacer LEDs > Test the LEDs* (or the *Test the LEDs* action) lights every switch white,
-red, green, amber, blue, purple for a second each. With the two-colour preset every step just looks "on"; with the
-multi-colour preset you should see six different colours — that confirms multi-colour mode works on your Pacer.
+red, green, amber, blue, purple for a second each.
 
 ## 7. Settings (Bitwig: Settings > Controllers > PACER Looper)
 
 | Category | Setting | Options |
 |----------|---------|---------|
+| Modes | Mode at startup | Whatever this project used last (default) · Looper · FX pedalboard · Mixer · Song · Custom |
+| | Put the mode name back on the display after a press | On · Off (each restore is one SysEx, which flashes `LOAD SYS`) |
+| | Show what the mode is doing on the display | On · Off |
+| Custom mode | Name on the Pacer display | 5 characters (default `CUST`) |
+| | Loop switches | None · SW 1 · SW 1-2 … SW 1-6 |
+| | SW 1–5, SW A–D tap / double-tap / hold | any action |
+| | SW 1–5, SW A–D colour | Automatic (from the action) · Off · the Pacer's twelve colours |
+| | SW 1–5, SW A–D LED | Colour strip · Icon row · Word row (SW 1-6 only) |
 | Looper | Looper MIDI channel (must match the Pacer preset) | 1–16 (default 16; changing it restarts the extension) |
 | | Loop tracks | 1–6 |
 | | Loop switches | None · SW 1 · SW 1-2 · … · SW 1-6 |
@@ -250,7 +344,7 @@ multi-colour preset you should see six different colours — that confirms multi
 | | Hold a loop switch | Delete the clip · Stop · Nothing |
 | | Double-tap a loop switch | Nothing · Stop · Mute/unmute · Clear · Undo |
 | | Double-tap speed | Fast (0.25 s) · Normal (0.35 s) · Relaxed (0.5 s) |
-| | Hold time for clearing actions | Normal (0.5 s) · Long (1.5 s) · Very long (2.5 s) |
+| | Hold time for clearing actions | Normal (0.5 s) · **Long (1.5 s, default)** · Very long (2.5 s) |
 | | Arm the track when recording | On · Off |
 | | Exclusive arm (disarm finished loops) | On · Off |
 | | Select the track on press | On · Off (EXP targets follow the selected track) |
@@ -259,23 +353,17 @@ multi-colour preset you should see six different colours — that confirms multi
 | | Fade length | 1 · 2 · 4 · 8 bars |
 | | Names for new rows | comma separated text |
 | | Loop tracks start at track | 1–128, used by every project |
-| Bottom row SW 1-6 | SW 1–6 tap / double-tap / hold (when not loop switches) | any action |
-| Top row SW A-D | SW A–D tap / double-tap / hold | any action |
-| FX preset | Active preset (follows the preset selected on the Pacer) | Looper preset · FX preset |
-| | Snapshots per instrument | 2 · 3 · 4 |
+| FX | Snapshots per instrument | 2 · 3 · 4 |
 | | Focusing an instrument selects its track in Bitwig | Off · On |
 | | Remote controls page name | text (default "Pacer") |
-| FX preset: SW 1-6, SW A-D | FX SW 1–6, FX SW A–D tap / double-tap / hold | any action (defaults: docs/FX-PRESET.md) |
-| Footswitch jacks (both presets) | FS 1–4 tap / double-tap / hold | any action |
-| Expression pedals | EXP 1, EXP 2 | any pedal target |
-| | EXP 1, EXP 2 on the FX preset | any pedal target (default: focused instrument remote control 7 / 8) |
+| Footswitch jacks | FS 1–4 tap / double-tap / hold | any action, including *Next mode* and *Go to the … mode* |
+| Expression pedals | EXP 1 · Looper … EXP 2 · Custom | any pedal target, one per mode (ten settings) |
 | | EXP 1, EXP 2 response | Linear · Inverted · Slow start · Fast start |
 | | EXP 1, EXP 2 heel (minimum) / toe (maximum) | 0–100 % |
 | | MIDI channel for pedal messages | 1–16 |
-| Pacer LEDs | LED mode | Automatic (the looper preset tells — default) · Two-colour (safe) · Multi-colour (experimental) |
-| | Blink in time with the transport | On · Off |
+| Pacer LEDs | Blink in time with the transport | On · Off |
 | | Count beats on SW A-D (count-in and recording) | On · Off |
-| | Multi-colour: stopped / playing / recording / muted loop | White · Red · Green · Amber · Blue · Purple |
+| | Loop colour: stopped / playing / recording / muted | White · Red · Green · Amber · Blue · Purple |
 | | Test the LEDs | button |
 | Clip launcher | Launch quantization | Keep project setting · None · 1/16 … 8 bars |
 | | Loop length | Keep project setting · Free (press again to close) · Match the first loop of the row · 1 / 2 / 4 / 8 bars (assumes 4/4) |
@@ -310,8 +398,9 @@ How you hear your instrument while looping audio:
 |---------|-----|
 | "MIDI input PACER is currently being used" | Nektar's own PACER script (or another controller) holds the port — disable it in *Settings > Controllers*. |
 | Switches do nothing | Pacer on the looper preset (D1)? *Looper MIDI channel* equal to the preset's channel? Port 1 = `PACER`? |
-| LEDs never light | LED mode *Automatic* or matching the preset variant; select the looper preset again (it announces itself); run *Test the LEDs*. |
-| LEDs show odd colours | You are in multi-colour mode with the two-colour preset (or the multi-colour hypothesis does not hold on your Pacer) — use two-colour. |
+| LEDs never light | Select the preset again on the Pacer — it announces itself and the extension writes the whole board. Then run *Test the LEDs*. |
+| The display says `LOAD SYS` and stays there | Something is writing SysEx continuously. Every colour change costs one message; the extension only sends them when a colour really changes, so a stuck display means another tool is talking to the Pacer. |
+| The display lost the mode name | A switch press replaces it with that switch's CC readout; the extension writes the name back shortly after. Switching mode always rewrites it. |
 | Other presets do not reach instruments | The track's input must be "PACER" or *All ins*, and the preset must not use the looper channel. |
 | Pedal set to mod wheel / expression does nothing | The Pacer always shows and sends CC 116/117; the extension converts them inside Bitwig. The instrument's track needs input "PACER" or *All ins* and must be armed (or monitoring), and the patch must respond to that controller. |
 | Track/Transport presets do nothing | Enable *Nektar DAW mode* and assign port 2 (`MIDIIN2 (PACER)` / `MIDIOUT2 (PACER)`). |
@@ -353,9 +442,19 @@ Run these once with the Pacer on preset D1 and the controller added in Bitwig.
 24. [ ] *Names for new rows* = `Intro, Verse`: SW B past the last row creates a row named "Verse" (if it is row 2).
 25. [ ] *Show looper status* pops up the row and loop overview.
 26. [ ] *Nektar DAW mode* on, port 2 assigned: the Pacer's Transport preset starts/stops Bitwig and its LEDs follow.
-27. [ ] *Test the LEDs* with the multi-colour preset shows six colours; changing *Multi-colour: playing loop* to blue
-        turns playing loops blue.
-28. [ ] Pressing a switch in multi-colour mode does not leave a wrong colour behind (the extension repaints 30 ms
-        after each press).
+27. [ ] *Test the LEDs* lights every switch through white, red, green, amber, blue, purple; changing
+        *Loop colour: playing* to blue turns playing loops blue.
 
-If 27 or 28 fail, stay in two-colour mode and note what you saw in the LED Lab checklist.
+### Modes
+
+28. [ ] On startup the board repaints itself and the display reads `LOOP`.
+29. [ ] Hold SW 6 and take your foot off: the display reads `MODE`, SW 1–4 light green / magenta / blue / gold and
+        SW A–D lavender, and the menu stays open. Tap SW 6 again — it closes, mode unchanged.
+30. [ ] Hold SW 6 and tap SW 3: the display reads `MIX`, and SW 1–4 light their printed **words**
+        (`Solo`, `Mute`, `Rec Arm`, `Click`) instead of the colour strip.
+31. [ ] Tap SW 6: back to `LOOP`. Tap again: back to `MIX`.
+32. [ ] Hold SW 6 and tap SW 4: `SONG`, with SW 1–5 lighting the **transport icons** instead of the strip.
+33. [ ] In any mode, hold SW 6 and tap SW C / SW D: the scene row moves; SW A / SW B move the loop track window.
+34. [ ] Press a switch: the display briefly shows its CC, then goes back to the mode name.
+35. [ ] Select a different preset on the Pacer and come back to D1: the whole board is painted again.
+36. [ ] Set *FS 3 tap* to *Next mode*: the jack cycles LOOP → FX → MIX → SONG → LOOP.

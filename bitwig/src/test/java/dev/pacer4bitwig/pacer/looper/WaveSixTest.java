@@ -7,7 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.pacer4bitwig.pacer.controller.MidiFilters;
-import dev.pacer4bitwig.pacer.led.LedMode;
+import dev.pacer4bitwig.pacer.led.LedColour;
+import dev.pacer4bitwig.pacer.live.PacerColour;
 
 import org.junit.jupiter.api.Test;
 
@@ -18,15 +19,12 @@ import java.util.List;
 class WaveSixTest
 {
     @Test
-    void ledModeFollowsThePresetInAutomaticMode ()
+    void everyStateColourSurvivesTheTripToTheHardwarePalette ()
     {
-        assertEquals (LedMode.TWO_COLOUR, LedMode.resolve (LedMode.AUTO, LedMode.TWO_COLOUR));
-        assertEquals (LedMode.MULTI_COLOUR, LedMode.resolve (LedMode.AUTO, LedMode.MULTI_COLOUR));
-        assertEquals (LedMode.TWO_COLOUR, LedMode.resolve (LedMode.AUTO, LedMode.AUTO));
-        // An explicit setting wins
-        assertEquals (LedMode.TWO_COLOUR, LedMode.resolve (LedMode.TWO_COLOUR, LedMode.MULTI_COLOUR));
-        assertEquals (LedMode.MULTI_COLOUR, LedMode.resolve (LedMode.MULTI_COLOUR, LedMode.TWO_COLOUR));
-        // Decoding the preset-loaded value: FxPresetTest
+        // The light cache carries a LedColour; the Pacer is written a PacerColour
+        for (final LedColour colour: LedColour.values ())
+            assertEquals (colour == LedColour.OFF, colour.toPacer () == PacerColour.OFF, colour + " maps to a real colour");
+        assertEquals (PacerColour.GOLD, LedColour.AMBER.toPacer (), "amber is the Pacer's gold");
     }
 
 

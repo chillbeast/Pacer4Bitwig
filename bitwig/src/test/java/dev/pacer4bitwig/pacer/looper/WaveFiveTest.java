@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.pacer4bitwig.pacer.command.TapHoldCommand;
 import dev.pacer4bitwig.pacer.led.LedColour;
-import dev.pacer4bitwig.pacer.led.LedMode;
 import dev.pacer4bitwig.pacer.led.LedPattern;
 import dev.pacer4bitwig.pacer.led.LedState;
 
@@ -126,11 +125,11 @@ class WaveFiveTest
     void customLoopColours ()
     {
         final LoopColours colours = new LoopColours (LedColour.WHITE, LedColour.BLUE, LedColour.PURPLE, LedColour.AMBER);
-        assertEquals (LedState.solid (LedColour.WHITE), LoopLeds.forLoop (LoopState.STOPPED, false, false, LedMode.MULTI_COLOUR, colours));
-        assertEquals (new LedState (LedColour.BLUE, LedPattern.SOLID_DIP), LoopLeds.forLoop (LoopState.PLAYING, false, false, LedMode.MULTI_COLOUR, colours));
-        assertEquals (new LedState (LedColour.PURPLE, LedPattern.SOLID_DIP), LoopLeds.forLoop (LoopState.PLAYING, true, false, LedMode.MULTI_COLOUR, colours));
-        assertEquals (LedState.solid (LedColour.AMBER), LoopLeds.forLoop (LoopState.PLAYING, false, true, LedMode.MULTI_COLOUR, colours));
-        assertEquals (new LedState (LedColour.PURPLE, LedPattern.BLINK_FAST), LoopLeds.forLoop (LoopState.RECORD_QUEUED, false, false, LedMode.MULTI_COLOUR, colours));
+        assertEquals (LedState.solid (LedColour.WHITE), LoopLeds.forLoop (LoopState.STOPPED, false, false, colours));
+        assertEquals (new LedState (LedColour.BLUE, LedPattern.SOLID_DIP), LoopLeds.forLoop (LoopState.PLAYING, false, false, colours));
+        assertEquals (new LedState (LedColour.PURPLE, LedPattern.SOLID_DIP), LoopLeds.forLoop (LoopState.PLAYING, true, false, colours));
+        assertEquals (LedState.solid (LedColour.AMBER), LoopLeds.forLoop (LoopState.PLAYING, false, true, colours));
+        assertEquals (new LedState (LedColour.PURPLE, LedPattern.BLINK_FAST), LoopLeds.forLoop (LoopState.RECORD_QUEUED, false, false, colours));
         assertEquals (LoopColours.Choice.PURPLE, LoopColours.Choice.of (LedColour.PURPLE));
     }
 

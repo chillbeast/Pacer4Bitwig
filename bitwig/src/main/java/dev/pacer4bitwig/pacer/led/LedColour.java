@@ -4,26 +4,28 @@ package dev.pacer4bitwig.pacer.led;
 
 import de.mossgrabers.framework.controller.color.ColorEx;
 
+import dev.pacer4bitwig.pacer.live.PacerColour;
+
 
 /**
- * The colours the extension can show. The ordinal is the light "code" handed through the DrivenByMoss light
- * cache and, in multi-colour mode, also the Pacer step whose LED shows the colour (see docs/PACER-MAP.md).
+ * The colours the extension can show. The ordinal is the light "code" handed through the DrivenByMoss light cache,
+ * which only carries an int; {@link #toPacer()} turns it into the colour actually written to the hardware.
  */
 public enum LedColour
 {
     /** Dark. */
     OFF (ColorEx.BLACK, -1),
-    /** Step 1. */
+    /** White. */
     WHITE (ColorEx.WHITE, -1),
-    /** Step 2. */
+    /** Red. */
     RED (ColorEx.RED, 0),
-    /** Step 3. */
+    /** Green. */
     GREEN (ColorEx.GREEN, 120),
-    /** Step 4. */
+    /** Amber. */
     AMBER (ColorEx.ORANGE, 35),
-    /** Step 5. */
+    /** Blue. */
     BLUE (ColorEx.BLUE, 225),
-    /** Step 6. */
+    /** Purple. */
     PURPLE (ColorEx.PURPLE, 280);
 
 
@@ -56,13 +58,23 @@ public enum LedColour
 
 
     /**
-     * Get the Pacer step which carries this colour in multi-colour mode.
+     * The hardware colour this state colour is written as. The light cache only carries an int, so state still
+     * travels as a {@link LedColour}; the real colour reaches the Pacer as a live SysEx write.
      *
-     * @return 1-6, 0 for OFF
+     * @return The Pacer colour
      */
-    public int getStep ()
+    public PacerColour toPacer ()
     {
-        return this.ordinal ();
+        return switch (this)
+        {
+            case OFF -> PacerColour.OFF;
+            case WHITE -> PacerColour.WHITE;
+            case RED -> PacerColour.RED;
+            case GREEN -> PacerColour.GREEN;
+            case AMBER -> PacerColour.GOLD;
+            case BLUE -> PacerColour.BLUE;
+            case PURPLE -> PacerColour.PURPLE;
+        };
     }
 
 

@@ -78,5 +78,5 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Generate the looper presets (includes a 189-message self-check)
-        run: node looper-preset.mjs
+      - name: Generate the Pacer preset (includes a 189-message self-check)
+        run: node pacer-preset.mjs

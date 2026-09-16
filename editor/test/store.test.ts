@@ -49,7 +49,7 @@ describe('editor store', () => {
   });
 
   it('sends the whole preset when the device content is unknown', () => {
-    get().loadPresets([{ index: 19, preset: buildBitwigLooperPreset('two-colour'), labels: LOOPER_LABELS }], 'template', 'Template');
+    get().loadPresets([{ index: 19, preset: buildBitwigLooperPreset(), labels: LOOPER_LABELS }], 'template', 'Template');
     expect(isSlotEdited(get().slots[19])).toBe(true);
     expect(slotPendingParts(get().slots[19], 19)).toHaveLength(189);
     setDeviceTruth([{ index: 19, preset: A1 }], false);
@@ -141,7 +141,7 @@ describe('editor store', () => {
   });
 
   it('applies a template preview as a single undoable step', () => {
-    const preset = buildBitwigLooperPreset('multi-colour');
+    const preset = buildBitwigLooperPreset();
     get().startPreview({ preset, labels: LOOPER_LABELS, slot: 19, title: 'Bitwig Looper' });
     expect(get().slots[19].preset).toBeNull();
     get().applyPreview();

@@ -45,15 +45,6 @@ public final class PacerMap
     /** Sent by the preset's "on load" MIDI setting; the extension re-sends all LEDs. */
     public static final int      PRESET_LOADED_CC         = 119;
 
-    /** First colour-slot CC (SW 1, step 2). */
-    public static final int      COLOUR_SLOT_CC_BASE      = 20;
-    /** Steps 2-6 of every switch are colour slots. */
-    public static final int      COLOUR_SLOTS_PER_SWITCH  = 5;
-    /** Step number of the first colour slot. */
-    public static final int      FIRST_COLOUR_SLOT_STEP   = 2;
-    /** Step number of the last colour slot. */
-    public static final int      LAST_COLOUR_SLOT_STEP    = 6;
-
 
     private PacerMap ()
     {
@@ -72,18 +63,4 @@ public final class PacerMap
         return SWITCH_CC_BASE + switchIndex;
     }
 
-
-    /**
-     * Get the CC a colour-slot step of a switch listens to.
-     *
-     * @param switchIndex 0-9
-     * @param step 2-6
-     * @return The CC
-     */
-    public static int colourSlotCC (final int switchIndex, final int step)
-    {
-        if (step < FIRST_COLOUR_SLOT_STEP || step > LAST_COLOUR_SLOT_STEP)
-            throw new IllegalArgumentException ("Colour slots are steps 2-6, got " + step);
-        return COLOUR_SLOT_CC_BASE + switchIndex * COLOUR_SLOTS_PER_SWITCH + step - FIRST_COLOUR_SLOT_STEP;
-    }
 }

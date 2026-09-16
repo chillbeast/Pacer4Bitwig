@@ -9,7 +9,6 @@ import dev.pacer4bitwig.pacer.fx.FxTarget;
 import dev.pacer4bitwig.pacer.fx.FxTracks;
 import dev.pacer4bitwig.pacer.fx.SnapshotBank;
 import dev.pacer4bitwig.pacer.led.LedColour;
-import dev.pacer4bitwig.pacer.led.LedMode;
 import dev.pacer4bitwig.pacer.led.LedPattern;
 import dev.pacer4bitwig.pacer.led.LedState;
 import dev.pacer4bitwig.pacer.looper.Action;
@@ -34,7 +33,7 @@ public class FxController
     private static final long         FOCUS_RETRY_MS     = 500;
     /** How often the instruments' track positions and the "Pacer" page are looked up again. */
     private static final long         RESOLVE_INTERVAL_MS = 500;
-    /** Multi-colour LED of snapshots 1-4. */
+    /** LED colour of snapshots 1-4. */
     private static final LedColour [] SNAPSHOT_COLOURS   =
     {
         LedColour.WHITE,
@@ -404,7 +403,10 @@ public class FxController
     }
 
 
-    private String getFocusedInstrumentName ()
+    /**
+     * @return The name of the focused instrument's track, empty if the slot is not assigned
+     */
+    public String getFocusedInstrumentName ()
     {
         return this.configuration.getInstrumentTrack (this.configuration.getFocusedInstrument ());
     }
@@ -521,8 +523,6 @@ public class FxController
         final double [] stored = bank.get (index);
         final boolean changed = stored != null && !SnapshotBank.matches (stored, this.captureValues ());
         final LedPattern pattern = changed ? LedPattern.BLINK_MEDIUM : LedPattern.SOLID;
-        if (this.configuration.getEffectiveLedMode () != LedMode.MULTI_COLOUR)
-            return index == 0 && !changed ? LedState.DARK : new LedState (LedColour.WHITE, pattern);
         return new LedState (SNAPSHOT_COLOURS[index], pattern);
     }
 

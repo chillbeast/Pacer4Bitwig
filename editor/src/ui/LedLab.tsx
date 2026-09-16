@@ -67,7 +67,7 @@ export function LedLab() {
   const [verdicts, setVerdicts] = useState<Record<string, Verdict>>(loadVerdicts);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const litRef = useRef<number | null>(null);
-  const previewPreset = useRef(buildBitwigLooperPreset('multi-colour'));
+  const previewPreset = useRef(buildBitwigLooperPreset());
 
   const preset = slot.preset ?? previewPreset.current;
   const labels = slot.preset ? slot.labels : LOOPER_LABELS;
@@ -149,10 +149,10 @@ export function LedLab() {
           <h1 className="stage__name">LED Lab</h1>
           <p className="hint">
             Sends plain CCs on channel {channel} to the Pacer to test how its LEDs react. Load the <b>Bitwig Looper
-            (multi-colour)</b> preset on the Pacer first (LED MIDI Ctrl on). Only clicks send MIDI.
+            </b> preset on the Pacer first, with LED MIDI Ctrl on for the switch you are probing. Only clicks send MIDI.
           </p>
           <p className="hint">
-            Rendering: {slot.preset ? `${slotLabel(selectedSlot)} “${displayName(slot.preset.name)}”` : 'Bitwig Looper multi-colour template (no preset in the selected slot)'}
+            Rendering: {slot.preset ? `${slotLabel(selectedSlot)} “${displayName(slot.preset.name)}”` : 'Bitwig Pacer template (no preset in the selected slot)'}
           </p>
         </div>
         <PacerDevice
@@ -248,7 +248,7 @@ export function LedLab() {
               options={[1, 2, 4].map((v) => ({ value: v, label: `${v} Hz` }))}
             />
           </div>
-          <p className="hint">Colour cycle steps through slots 1–6 every 0.8 s. Blink toggles CC {slotCc(key, 1)} (two-colour strategy).</p>
+          <p className="hint">Colour cycle steps through the step CCs every 0.8 s. Blink toggles CC {slotCc(key, 1)}, the switch&rsquo;s own action CC.</p>
         </div>
 
         <div className="inspector__section">

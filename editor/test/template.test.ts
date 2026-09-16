@@ -1,18 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { MSG, clonePreset, describeMidiMessage, encodePreset, splitSysex, toHex } from '../src/pacer';
-import { FX_DEFAULT_SLOT, buildBitwigFxPreset } from '../src/templates/bitwigFx';
+import { MSG, describeMidiMessage, encodePreset, splitSysex, toHex } from '../src/pacer';
 import {
   LOOPER_ACTION_CC,
   LOOPER_DEFAULT_SLOT,
   LOOPER_FOOTSWITCHES,
+  LOOPER_MODE_SWITCH_INDEX,
+  LOOPER_PRESET_LOADED_VALUE,
   LOOPER_SWITCHES,
   buildBitwigLooperPreset,
   colourSlotCc,
-  type LooperLedMode,
 } from '../src/templates/bitwigLooper';
 import { fixture } from './helpers';
-
-const MODES: LooperLedMode[] = ['two-colour', 'multi-colour'];
 
 // Two independent implementations of PACER-MAP.md must agree exactly (order may differ).
 function expectSameMessages(mine: Uint8Array[], theirs: Uint8Array[]): void {
@@ -22,117 +20,74 @@ function expectSameMessages(mine: Uint8Array[], theirs: Uint8Array[]): void {
   expect(summarise(mine)).toEqual(summarise(theirs));
 }
 
-describe('Bitwig Looper template (docs/PACER-MAP.md)', () => {
+describe('Bitwig Pacer template (docs/PACER-MAP.md)', () => {
+  const preset = buildBitwigLooperPreset();
+
   it('targets D1 by default', () => {
     expect(LOOPER_DEFAULT_SLOT).toBe(0x13);
   });
 
-  it('has the documented colour-slot CC ranges', () => {
+  it('names the preset PACER and uses "all steps at once"', () => {
+    // The extension replaces the name with the active mode's name as soon as it starts
+    expect(preset.name).toBe('PACER');
+    for (const control of Object.values(preset.controls)) expect(control.mode).toBe(0);
+  });
+
+  it('maps switches to CC Trigger 127/0 on channel 16', () => {
+    LOOPER_SWITCHES.forEach((key, s) => {
+      expect(LOOPER_ACTION_CC[key]).toBe(102 + s);
+      expect(preset.controls[key].steps[0]).toEqual({
+        channel: 16,
+        msgType: MSG.SW_CC_TRIGGER,
+        data: [102 + s, 127, 0],
+        active: true,
+      });
+    });
+  });
+
+  it('maps footswitches, expression pedals and the preset-loaded message', () => {
+    LOOPER_FOOTSWITCHES.forEach((key, f) => {
+      expect(preset.controls[key].steps[0]).toEqual({
+        channel: 16,
+        msgType: MSG.SW_CC_TRIGGER,
+        data: [112 + f, 127, 0],
+        active: true,
+      });
+      expect(preset.controls[key].steps.slice(1).every((st) => !st.active)).toBe(true);
+    });
+    expect(preset.controls.EXP1.steps[0]).toEqual({ channel: 16, msgType: MSG.AD_CC, data: [116, 0, 127], active: true });
+    expect(preset.controls.EXP2.steps[0]).toEqual({ channel: 16, msgType: MSG.AD_CC, data: [117, 0, 127], active: true });
+    expect(preset.midi[0]).toEqual({ channel: 16, msgType: MSG.LOAD_CC, data: [119, LOOPER_PRESET_LOADED_VALUE, 0] });
+    expect(preset.midi.slice(1).every((m) => m.msgType === MSG.OFF)).toBe(true);
+  });
+
+  it('uses only step 1, so steps 2-6 send nothing', () => {
+    LOOPER_SWITCHES.forEach((key) => {
+      const control = preset.controls[key];
+      expect(control.steps.slice(1).every((st) => !st.active && st.msgType === MSG.OFF)).toBe(true);
+      expect(control.leds!.slice(1).every((l) => !l.midiCtrl)).toBe(true);
+    });
+  });
+
+  it('leaves the LEDs to the Pacer until the extension takes them over', () => {
+    // LED MIDI control off means the board still lights up without Bitwig; the extension turns it on per switch
+    LOOPER_SWITCHES.forEach((key, s) => {
+      const led = preset.controls[key].leds![0];
+      expect(led.midiCtrl).toBe(false);
+      expect(led.onColor).toBe(s === LOOPER_MODE_SWITCH_INDEX ? 0x17 : 0x03);
+      expect(led.num).toBe(0);
+    });
+  });
+
+  it('matches the independent generator (tools/pacer-preset.mjs) byte for byte', () => {
+    expectSameMessages(encodePreset(preset, LOOPER_DEFAULT_SLOT), splitSysex(fixture('bitwig-pacer-D1.syx')));
+  });
+
+  it('still exposes the LED Lab colour-slot CCs, which are not part of the contract', () => {
     const ranges = LOOPER_SWITCHES.map((_, s) => [colourSlotCc(s, 2), colourSlotCc(s, 6)]);
     expect(ranges).toEqual([
       [20, 24], [25, 29], [30, 34], [35, 39], [40, 44],
       [45, 49], [50, 54], [55, 59], [60, 64], [65, 69],
     ]);
   });
-
-  for (const mode of MODES) {
-    describe(mode, () => {
-      const preset = buildBitwigLooperPreset(mode);
-
-      it('names the preset LOOPS and uses "all steps at once"', () => {
-        expect(preset.name).toBe('LOOPS');
-        for (const control of Object.values(preset.controls)) expect(control.mode).toBe(0);
-      });
-
-      it('maps switches to CC Trigger 127/0 on channel 16', () => {
-        LOOPER_SWITCHES.forEach((key, s) => {
-          expect(LOOPER_ACTION_CC[key]).toBe(102 + s);
-          expect(preset.controls[key].steps[0]).toEqual({
-            channel: 16,
-            msgType: MSG.SW_CC_TRIGGER,
-            data: [102 + s, 127, 0],
-            active: true,
-          });
-        });
-      });
-
-      it('maps footswitches, expression pedals and the preset-loaded message', () => {
-        LOOPER_FOOTSWITCHES.forEach((key, f) => {
-          expect(preset.controls[key].steps[0]).toEqual({
-            channel: 16,
-            msgType: MSG.SW_CC_TRIGGER,
-            data: [112 + f, 127, 0],
-            active: true,
-          });
-          expect(preset.controls[key].steps.slice(1).every((st) => !st.active)).toBe(true);
-        });
-        expect(preset.controls.EXP1.steps[0]).toEqual({ channel: 16, msgType: MSG.AD_CC, data: [116, 0, 127], active: true });
-        expect(preset.controls.EXP2.steps[0]).toEqual({ channel: 16, msgType: MSG.AD_CC, data: [117, 0, 127], active: true });
-        // preset-loaded value announces the LED variant: 127 two-colour, 2 multi-colour
-        expect(preset.midi[0]).toEqual({ channel: 16, msgType: MSG.LOAD_CC, data: [119, mode === 'multi-colour' ? 2 : 127, 0] });
-        expect(preset.midi.slice(1).every((m) => m.msgType === MSG.OFF)).toBe(true);
-      });
-
-      if (mode === 'two-colour') {
-        it('puts LED config on step 1 only (red loops, white others)', () => {
-          LOOPER_SWITCHES.forEach((key, s) => {
-            const control = preset.controls[key];
-            expect(control.leds![0]).toEqual({ midiCtrl: true, onColor: s < 4 ? 0x03 : 0x17, offColor: 0x00, num: 0 });
-            expect(control.leds!.slice(1).every((l) => !l.midiCtrl)).toBe(true);
-            expect(control.steps.slice(1).every((st) => !st.active && st.msgType === MSG.OFF)).toBe(true);
-          });
-        });
-      } else {
-        it('uses steps 2–6 as colour slots', () => {
-          const colours = [0x17, 0x03, 0x0d, 0x07, 0x11, 0x15];
-          LOOPER_SWITCHES.forEach((key, s) => {
-            const control = preset.controls[key];
-            for (let step = 2; step <= 6; step++) {
-              expect(control.steps[step - 1]).toEqual({
-                channel: 16,
-                msgType: MSG.SW_CC_TRIGGER,
-                data: [20 + s * 5 + (step - 2), 127, 0],
-                active: true,
-              });
-            }
-            control.leds!.forEach((led, i) =>
-              expect(led).toEqual({ midiCtrl: true, onColor: colours[i], offColor: 0x00, num: 0 }),
-            );
-          });
-        });
-      }
-
-      it('matches the independent generator (tools/looper-preset.mjs) byte for byte', () => {
-        expectSameMessages(encodePreset(preset, LOOPER_DEFAULT_SLOT), splitSysex(fixture(`bitwig-looper-${mode}-D1.syx`)));
-      });
-    });
-  }
-});
-
-describe('Bitwig FX template (docs/FX-PRESET.md)', () => {
-  it('targets D2 by default', () => {
-    expect(FX_DEFAULT_SLOT).toBe(0x14);
-  });
-
-  for (const mode of MODES) {
-    describe(mode, () => {
-      const preset = buildBitwigFxPreset(mode);
-
-      it('is the looper preset with name “FX”, its own preset-loaded value and two-colour LEDs', () => {
-        const expected = clonePreset(buildBitwigLooperPreset(mode));
-        expected.name = 'FX   ';
-        // preset-loaded value: FX preset × 16 + variant
-        expected.midi[0].data = [119, mode === 'multi-colour' ? 18 : 17, 0];
-        if (mode === 'two-colour') {
-          // green FX switches 1–6, white A–D
-          LOOPER_SWITCHES.forEach((key, s) => (expected.controls[key].leds![0].onColor = s < 6 ? 0x0d : 0x17));
-        }
-        expect(preset).toEqual(expected);
-      });
-
-      it('matches the independent generator (tools/looper-preset.mjs --preset fx) byte for byte', () => {
-        expectSameMessages(encodePreset(preset, FX_DEFAULT_SLOT), splitSysex(fixture(`bitwig-fx-${mode}-D2.syx`)));
-      });
-    });
-  }
 });

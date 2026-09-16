@@ -12,8 +12,7 @@ import {
   type Preset,
 } from '../pacer';
 import { useEditor } from '../store/editor';
-import { FX_TAP_HOLD } from '../templates/bitwigFx';
-import { LOOPER_TAP_HOLD, isLooperLayout, presetAnnouncementOf, type TapHold } from '../templates/bitwigLooper';
+import { LOOPER_TAP_HOLD, isLooperLayout, type TapHold } from '../templates/bitwigLooper';
 import { ledAppearance, ledVars } from './led';
 
 interface PrintState {
@@ -44,7 +43,7 @@ export type BitwigRoles = Readonly<Record<ControlKey, TapHold>>;
 /** PACER Looper default roles of a looper-layout preset (FX roles when it announces the FX preset), otherwise null. */
 export function bitwigRolesOf(preset: Preset): BitwigRoles | null {
   if (!isLooperLayout(preset)) return null;
-  return presetAnnouncementOf(preset)?.kind === 'fx' ? FX_TAP_HOLD : LOOPER_TAP_HOLD;
+  return LOOPER_TAP_HOLD;
 }
 
 /** Bitwig preset → PACER Looper default roles; otherwise editor labels; otherwise the message type. */
@@ -80,11 +79,7 @@ export function CheatSheet() {
             {slotLabel(slotIndex)} · {displayName(preset.name) || 'unnamed'}
           </h1>
           <p>
-            {roles === FX_TAP_HOLD
-              ? 'Bitwig PACER Looper, FX preset — default roles (tap · hold)'
-              : roles
-                ? 'Bitwig PACER Looper — default roles (tap · hold)'
-                : 'Nektar Pacer preset'}
+            {roles ? 'Bitwig PACER Looper, Looper mode — default roles (tap · hold)' : 'Nektar Pacer preset'}
           </p>
         </div>
         <p className="cheat-sheet__meta">

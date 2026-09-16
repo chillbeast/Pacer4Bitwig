@@ -12,8 +12,8 @@ import de.mossgrabers.framework.daw.IHost;
 import de.mossgrabers.framework.daw.midi.ArpeggiatorMode;
 
 import dev.pacer4bitwig.pacer.controller.PacerMap;
-import dev.pacer4bitwig.pacer.led.LedMode;
 import dev.pacer4bitwig.pacer.looper.Action;
+import dev.pacer4bitwig.pacer.live.LedRow;
 import dev.pacer4bitwig.pacer.looper.ClearHoldTime;
 import dev.pacer4bitwig.pacer.looper.CountIn;
 import dev.pacer4bitwig.pacer.looper.DoubleTapWindow;
@@ -24,6 +24,11 @@ import dev.pacer4bitwig.pacer.looper.LoopColours;
 import dev.pacer4bitwig.pacer.looper.LoopDoubleTap;
 import dev.pacer4bitwig.pacer.looper.LoopLength;
 import dev.pacer4bitwig.pacer.looper.LoopSwitchCount;
+import dev.pacer4bitwig.pacer.mode.Mode;
+import dev.pacer4bitwig.pacer.mode.ModeBoard;
+import dev.pacer4bitwig.pacer.mode.StartupMode;
+import dev.pacer4bitwig.pacer.mode.SwitchColour;
+import dev.pacer4bitwig.pacer.mode.SwitchLayout;
 import dev.pacer4bitwig.pacer.looper.LoopSwitchMode;
 import dev.pacer4bitwig.pacer.looper.MuteTiming;
 import dev.pacer4bitwig.pacer.looper.NotificationLevel;
@@ -45,8 +50,6 @@ import java.util.function.Consumer;
  */
 public class PacerConfiguration extends AbstractConfiguration
 {
-    /** Setting ID: LED mode (the setting or the variant announced by the preset). */
-    public static final Integer              LED_MODE             = Integer.valueOf (1000);
     /** Setting ID: launch quantization. */
     public static final Integer              LAUNCH_QUANTIZATION  = Integer.valueOf (1001);
     /** Setting ID: loop length. */
@@ -61,10 +64,10 @@ public class PacerConfiguration extends AbstractConfiguration
     public static final Integer              DAW_MODE             = Integer.valueOf (1006);
     /** Setting ID: the project's loop track position. */
     public static final Integer              LOOP_TRACK_START     = Integer.valueOf (1007);
+    /** Setting ID: the custom mode's layout changed. */
+    public static final Integer              CUSTOM_MODE          = Integer.valueOf (1009);
     /** Setting ID: the looper MIDI channel. */
     public static final Integer              LOOPER_CHANNEL       = Integer.valueOf (1008);
-    /** Setting ID: the preset selected on the Pacer (looper or FX). */
-    public static final Integer              ACTIVE_PRESET        = Integer.valueOf (1009);
 
     /** Number of expression pedal jacks. */
     public static final int                  NUM_EXPRESSION       = 2;
@@ -73,104 +76,6 @@ public class PacerConfiguration extends AbstractConfiguration
     /** Instruments of the FX preset. */
     public static final int                  NUM_INSTRUMENTS      = 4;
 
-    /** Default tap / hold actions of SW 1-6 (when not loop switches) and SW A-D. */
-    private static final Action [] []        SWITCH_DEFAULTS      =
-    {
-        {
-            Action.RECORD_NEXT_LAYER,
-            Action.CLEAR_LAST_LOOP
-        },
-        {
-            Action.MUTE_ALL_TOGGLE,
-            Action.FADE_OUT
-        },
-        {
-            Action.LOOP_SELECTED,
-            Action.CLEAR_SELECTED
-        },
-        {
-            Action.SELECT_NEXT_LOOP,
-            Action.SELECT_PREVIOUS_LOOP
-        },
-        {
-            Action.UNDO,
-            Action.REDO
-        },
-        {
-            Action.PLAY_STOP_ALL,
-            Action.CLEAR_ROW
-        },
-        {
-            Action.ROW_PREVIOUS,
-            Action.TRACKS_LEFT
-        },
-        {
-            Action.ROW_NEXT,
-            Action.TRACKS_RIGHT
-        },
-        {
-            Action.LAUNCHER_OVERDUB,
-            Action.METRONOME
-        },
-        {
-            Action.TAP_TEMPO,
-            Action.TRANSPORT_PLAY_STOP
-        }
-    };
-    /** Default tap / double-tap / hold actions of SW 1-6 and SW A-D on the FX preset. */
-    private static final Action [] []        FX_SWITCH_DEFAULTS   =
-    {
-        {
-            Action.FX_1,
-            Action.NONE,
-            Action.MOMENTARY
-        },
-        {
-            Action.FX_2,
-            Action.NONE,
-            Action.MOMENTARY
-        },
-        {
-            Action.FX_3,
-            Action.NONE,
-            Action.MOMENTARY
-        },
-        {
-            Action.FX_4,
-            Action.NONE,
-            Action.MOMENTARY
-        },
-        {
-            Action.FX_5,
-            Action.NONE,
-            Action.MOMENTARY
-        },
-        {
-            Action.FX_6,
-            Action.NONE,
-            Action.MOMENTARY
-        },
-        {
-            Action.FOCUS_A,
-            Action.MUTE_A,
-            Action.ASSIGN_A
-        },
-        {
-            Action.FOCUS_B,
-            Action.MUTE_B,
-            Action.ASSIGN_B
-        },
-        {
-            Action.FOCUS_C,
-            Action.MUTE_C,
-            Action.ASSIGN_C
-        },
-        {
-            Action.SNAPSHOT_NEXT,
-            Action.SNAPSHOT_FIRST,
-            Action.SNAPSHOT_STORE
-        }
-    };
     /** Default tap / hold actions of FS 1-4 (shared by both presets). */
     private static final Action [] []        FOOTSWITCH_DEFAULTS  =
     {
@@ -191,24 +96,44 @@ public class PacerConfiguration extends AbstractConfiguration
             Action.NONE
         }
     };
-    private static final ExpressionTarget [] EXPRESSION_DEFAULTS  =
+    /**
+     * What the two pedals do in each mode, in {@link Mode} order. Two pedals and no spare footswitches is the normal
+     * Pacer rig, so letting them follow the mode is what turns two controls into ten.
+     */
+    private static final ExpressionTarget [] [] EXPRESSION_DEFAULTS =
     {
-        ExpressionTarget.SELECTED_VOLUME,
-        ExpressionTarget.MASTER_VOLUME
-    };
-    private static final ExpressionTarget [] FX_EXPRESSION_DEFAULTS =
-    {
-        ExpressionTarget.FOCUSED_REMOTE_7,
-        ExpressionTarget.FOCUSED_REMOTE_8
+        // Looper: ride the loop you are on, and the room
+        {
+            ExpressionTarget.SELECTED_VOLUME,
+            ExpressionTarget.MASTER_VOLUME
+        },
+        // FX: the two spare slots of the instrument's "Pacer" page - a wah and a filter, say
+        {
+            ExpressionTarget.FOCUSED_REMOTE_7,
+            ExpressionTarget.FOCUSED_REMOTE_8
+        },
+        // Mixer: level and a send, so a reverb throw is under the other foot
+        {
+            ExpressionTarget.SELECTED_VOLUME,
+            ExpressionTarget.SELECTED_SEND_1
+        },
+        // Song: the master for endings, and a project macro for whatever the song needs
+        {
+            ExpressionTarget.MASTER_VOLUME,
+            ExpressionTarget.PROJECT_REMOTE_1
+        },
+        // Custom: yours, like the rest of it
+        {
+            ExpressionTarget.NONE,
+            ExpressionTarget.NONE
+        }
     };
 
     private static final String              CATEGORY_LOOPER      = "Looper";
-    private static final String              CATEGORY_BOTTOM_ROW  = "Bottom row SW 1-6 (switches that are not loop switches)";
-    private static final String              CATEGORY_TOP_ROW     = "Top row SW A-D";
-    private static final String              CATEGORY_FX          = "FX preset";
-    private static final String              CATEGORY_FX_BOTTOM   = "FX preset: SW 1-6";
-    private static final String              CATEGORY_FX_TOP      = "FX preset: SW A-D";
-    private static final String              CATEGORY_JACKS       = "Footswitch jacks FS 1-4 (both presets)";
+    private static final String              CATEGORY_MODES       = "Modes";
+    private static final String              CATEGORY_CUSTOM      = "Custom mode";
+    private static final String              CATEGORY_FX          = "FX mode";
+    private static final String              CATEGORY_JACKS       = "Footswitch jacks FS 1-4";
     private static final String              CATEGORY_PEDALS      = "Expression pedals";
     private static final String              CATEGORY_LEDS        = "Pacer LEDs";
     private static final String              CATEGORY_LAUNCHER    = "Clip launcher (pushed into the project)";
@@ -246,14 +171,13 @@ public class PacerConfiguration extends AbstractConfiguration
 
     private volatile int                     looperMidiChannel    = PacerMap.DEFAULT_MIDI_CHANNEL;
     private volatile int                     loopTrackCount       = 4;
-    private volatile LoopSwitchCount         loopSwitchCount      = LoopSwitchCount.FOUR;
     private volatile LoopSwitchMode          loopSwitchMode       = LoopSwitchMode.TAP;
     private volatile boolean                 loopOnPress          = true;
     private volatile PlayingTapAction        playingTapAction     = PlayingTapAction.STOP;
     private volatile HoldAction              loopHoldAction       = HoldAction.DELETE;
     private volatile LoopDoubleTap           loopDoubleTap        = LoopDoubleTap.NOTHING;
     private volatile DoubleTapWindow         doubleTapWindow      = DoubleTapWindow.NORMAL;
-    private volatile ClearHoldTime           clearHoldTime        = ClearHoldTime.NORMAL;
+    private volatile ClearHoldTime           clearHoldTime        = ClearHoldTime.LONG;
     private volatile boolean                 armOnRecord          = true;
     private volatile boolean                 exclusiveArm         = true;
     private volatile boolean                 selectOnPress        = true;
@@ -261,25 +185,56 @@ public class PacerConfiguration extends AbstractConfiguration
     private volatile MuteTiming              muteTiming           = MuteTiming.IMMEDIATE;
     private volatile FadeLength              fadeLength           = FadeLength.BARS_2;
     private volatile String                  rowNames             = "";
-    private final Action []                  switchTap            = new Action [PacerMap.NUM_SWITCHES];
-    private final Action []                  switchHold           = new Action [PacerMap.NUM_SWITCHES];
-    private final Action []                  switchDoubleTap      = new Action [PacerMap.NUM_SWITCHES];
-    private final Action []                  fxSwitchTap          = new Action [PacerMap.NUM_SWITCHES];
-    private final Action []                  fxSwitchDoubleTap    = new Action [PacerMap.NUM_SWITCHES];
-    private final Action []                  fxSwitchHold         = new Action [PacerMap.NUM_SWITCHES];
     private final Action []                  footswitchTap        = new Action [PacerMap.NUM_FOOTSWITCHES];
     private final Action []                  footswitchHold       = new Action [PacerMap.NUM_FOOTSWITCHES];
     private final Action []                  footswitchDoubleTap  = new Action [PacerMap.NUM_FOOTSWITCHES];
-    private final ExpressionTarget []        expressionTargets    = EXPRESSION_DEFAULTS.clone ();
-    private final ExpressionTarget []        fxExpressionTargets  = FX_EXPRESSION_DEFAULTS.clone ();
+    private final ExpressionTarget [] []     expressionTargets    = new ExpressionTarget [Mode.values ().length] [NUM_EXPRESSION];
     private final PedalCurve []              pedalCurves          = new PedalCurve [NUM_EXPRESSION];
     private final int []                     pedalMinimum         = new int [NUM_EXPRESSION];
     private final int []                     pedalMaximum         = new int [NUM_EXPRESSION];
     private volatile int                     pedalMidiChannel     = 0;
-    private volatile LedMode                 ledMode              = LedMode.AUTO;
-    private volatile LedMode                 announcedLedMode     = LedMode.TWO_COLOUR;
     private volatile boolean                 beatSyncedLeds       = true;
     private volatile boolean                 countBeats           = true;
+    private volatile StartupMode             startupMode          = StartupMode.REMEMBER;
+    private volatile Mode                    projectMode          = Mode.LOOP;
+    private IEnumSetting                     projectModeSetting;
+    private volatile boolean                 showContext          = true;
+    private volatile boolean                 keepModeName         = true;
+    private volatile String                  customName           = "CUST";
+    private volatile LoopSwitchCount         customLoopSwitches   = LoopSwitchCount.NONE;
+    private final Action []                  customTap            = new Action [PacerMap.NUM_SWITCHES];
+    private final Action []                  customDoubleTap      = new Action [PacerMap.NUM_SWITCHES];
+    private final Action []                  customHold           = new Action [PacerMap.NUM_SWITCHES];
+    private final SwitchColour []            customColour         = new SwitchColour [PacerMap.NUM_SWITCHES];
+    private final LedRow []                  customRow            = new LedRow [PacerMap.NUM_SWITCHES];
+    /** Rebuilt whenever a custom setting changes, so painting never allocates. */
+    private final SwitchLayout []            customLayouts        = new SwitchLayout [PacerMap.NUM_SWITCHES];
+    /** Reads the settings above; the layouts themselves are prebuilt, so this does no work per paint. */
+    private final ModeBoard                  customBoard          = new ModeBoard ()
+    {
+        /** {@inheritDoc} */
+        @Override
+        public String getDisplayName ()
+        {
+            return PacerConfiguration.this.customName;
+        }
+
+
+        /** {@inheritDoc} */
+        @Override
+        public SwitchLayout getLayout (final int switchIndex)
+        {
+            return PacerConfiguration.this.customLayouts[switchIndex];
+        }
+
+
+        /** {@inheritDoc} */
+        @Override
+        public int getLoopSwitches ()
+        {
+            return PacerConfiguration.this.customLoopSwitches.getCount ();
+        }
+    };
     private volatile LoopColours.Choice      colourStopped        = LoopColours.Choice.of (LoopColours.DEFAULT.stopped ());
     private volatile LoopColours.Choice      colourPlaying        = LoopColours.Choice.of (LoopColours.DEFAULT.playing ());
     private volatile LoopColours.Choice      colourRecording      = LoopColours.Choice.of (LoopColours.DEFAULT.recording ());
@@ -290,8 +245,6 @@ public class PacerConfiguration extends AbstractConfiguration
     private volatile NotificationLevel       notificationLevel    = NotificationLevel.ALL;
     private volatile int                     loopTrackStart       = 1;
     private IIntegerSetting                  loopTrackStartSetting;
-    private volatile PresetKind              activePreset         = PresetKind.LOOPER;
-    private IEnumSetting                     activePresetSetting;
     private volatile int                     snapshotsPerInstrument = 2;
     private volatile boolean                 focusSelectsTrack    = false;
     private volatile String                  remotePageName       = "Pacer";
@@ -314,21 +267,26 @@ public class PacerConfiguration extends AbstractConfiguration
     {
         super (host, valueChanger, arpeggiatorModes);
 
-        for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
-        {
-            this.switchTap[i] = SWITCH_DEFAULTS[i][0];
-            this.switchHold[i] = SWITCH_DEFAULTS[i][1];
-            this.fxSwitchTap[i] = FX_SWITCH_DEFAULTS[i][0];
-            this.fxSwitchDoubleTap[i] = FX_SWITCH_DEFAULTS[i][1];
-            this.fxSwitchHold[i] = FX_SWITCH_DEFAULTS[i][2];
-        }
         for (int i = 0; i < PacerMap.NUM_FOOTSWITCHES; i++)
         {
             this.footswitchTap[i] = FOOTSWITCH_DEFAULTS[i][0];
             this.footswitchHold[i] = FOOTSWITCH_DEFAULTS[i][1];
         }
-        Arrays.fill (this.switchDoubleTap, Action.NONE);
         Arrays.fill (this.footswitchDoubleTap, Action.NONE);
+        Arrays.fill (this.customTap, Action.NONE);
+        Arrays.fill (this.customDoubleTap, Action.NONE);
+        Arrays.fill (this.customHold, Action.NONE);
+        Arrays.fill (this.customColour, SwitchColour.AUTO);
+        Arrays.fill (this.customRow, LedRow.STRIP);
+        for (int mode = 0; mode < this.expressionTargets.length; mode++)
+        {
+            // A mode added without a default row still gets something rather than nulls
+            if (mode < EXPRESSION_DEFAULTS.length)
+                System.arraycopy (EXPRESSION_DEFAULTS[mode], 0, this.expressionTargets[mode], 0, NUM_EXPRESSION);
+            else
+                Arrays.fill (this.expressionTargets[mode], ExpressionTarget.NONE);
+        }
+        this.rebuildCustomLayouts ();
         Arrays.fill (this.pedalCurves, PedalCurve.LINEAR);
         Arrays.fill (this.pedalMaximum, 100);
         Arrays.fill (this.instrumentTracks, "");
@@ -341,7 +299,9 @@ public class PacerConfiguration extends AbstractConfiguration
     public void init (final ISettingsUI globalSettings, final ISettingsUI documentSettings)
     {
         this.initLooper (globalSettings);
-        this.initSwitches (globalSettings);
+        this.initModes (globalSettings);
+        this.initJacks (globalSettings);
+        this.initCustom (globalSettings);
         this.initFx (globalSettings);
         this.initPedals (globalSettings);
         this.initLeds (globalSettings);
@@ -378,14 +338,14 @@ public class PacerConfiguration extends AbstractConfiguration
 
         final IEnumSetting trackCountSetting = settings.getEnumSetting ("Loop tracks", CATEGORY_LOOPER, LOOP_TRACK_COUNTS, LOOP_TRACK_COUNTS[3]);
         trackCountSetting.addValueObserver (value -> this.loopTrackCount = Math.max (0, Arrays.asList (LOOP_TRACK_COUNTS).indexOf (value)) + 1);
-        enumSetting (settings, "Loop switches", CATEGORY_LOOPER, LoopSwitchCount.values (), LoopSwitchCount.FOUR, value -> this.loopSwitchCount = value);
         enumSetting (settings, "Loop switch mode", CATEGORY_LOOPER, LoopSwitchMode.values (), LoopSwitchMode.TAP, value -> this.loopSwitchMode = value);
         onOffSetting (settings, "Loop switch fires on press (off: on release)", CATEGORY_LOOPER, true, value -> this.loopOnPress = value);
         enumSetting (settings, "Tap on a playing loop", CATEGORY_LOOPER, PlayingTapAction.values (), PlayingTapAction.STOP, value -> this.playingTapAction = value);
         enumSetting (settings, "Hold a loop switch", CATEGORY_LOOPER, HoldAction.values (), HoldAction.DELETE, value -> this.loopHoldAction = value);
         enumSetting (settings, "Double-tap a loop switch", CATEGORY_LOOPER, LoopDoubleTap.values (), LoopDoubleTap.NOTHING, value -> this.loopDoubleTap = value);
         enumSetting (settings, "Double-tap speed", CATEGORY_LOOPER, DoubleTapWindow.values (), DoubleTapWindow.NORMAL, value -> this.doubleTapWindow = value);
-        enumSetting (settings, "Hold time for clearing actions", CATEGORY_LOOPER, ClearHoldTime.values (), ClearHoldTime.NORMAL, value -> this.clearHoldTime = value);
+        // Long by default: at the plain half second a foot resting on a loop switch deletes the take it just started
+        enumSetting (settings, "Hold time for clearing actions", CATEGORY_LOOPER, ClearHoldTime.values (), ClearHoldTime.LONG, value -> this.clearHoldTime = value);
         onOffSetting (settings, "Arm the track when recording", CATEGORY_LOOPER, true, value -> this.armOnRecord = value);
         onOffSetting (settings, "Exclusive arm (disarm finished loops)", CATEGORY_LOOPER, true, value -> this.exclusiveArm = value);
         onOffSetting (settings, "Select the track on press", CATEGORY_LOOPER, true, value -> this.selectOnPress = value);
@@ -404,18 +364,79 @@ public class PacerConfiguration extends AbstractConfiguration
     }
 
 
-    private void initSwitches (final ISettingsUI settings)
+    private void initModes (final ISettingsUI settings)
+    {
+        enumSetting (settings, "Mode at startup", CATEGORY_MODES, StartupMode.values (), StartupMode.REMEMBER, value -> this.startupMode = value);
+        // Every restore is one SysEx, which flashes LOAD SYS; turn it off to leave the display on the CC readout
+        onOffSetting (settings, "Put the mode name back on the display after a press", CATEGORY_MODES, true, value -> this.keepModeName = value);
+        onOffSetting (settings, "Show what the mode is doing on the display", CATEGORY_MODES, true, value -> this.showContext = value);
+    }
+
+
+    /**
+     * The custom mode is laid out here, switch by switch. SW 6 is missing on purpose: it is the mode switch in every
+     * mode, including this one.
+     */
+    private void initCustom (final ISettingsUI settings)
+    {
+        settings.getStringSetting ("Name on the Pacer display (5 characters)", CATEGORY_CUSTOM, 5, "CUST").addValueObserver (value -> {
+            this.customName = value == null || value.isBlank () ? "CUST" : value;
+            this.rebuildCustomLayouts ();
+        });
+        enumSetting (settings, "Loop switches", CATEGORY_CUSTOM, LoopSwitchCount.values (), LoopSwitchCount.NONE, value -> {
+            this.customLoopSwitches = value;
+            this.rebuildCustomLayouts ();
+        });
+
+        for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
+        {
+            if (Mode.isModeSwitch (i))
+                continue;
+            final int index = i;
+            final String name = PacerMap.SWITCH_NAMES[i];
+            enumSetting (settings, name + " tap", CATEGORY_CUSTOM, Action.values (), Action.NONE, value -> {
+                this.customTap[index] = value;
+                this.rebuildCustomLayouts ();
+            });
+            enumSetting (settings, name + " double-tap", CATEGORY_CUSTOM, Action.values (), Action.NONE, value -> {
+                this.customDoubleTap[index] = value;
+                this.rebuildCustomLayouts ();
+            });
+            enumSetting (settings, name + " hold", CATEGORY_CUSTOM, Action.values (), Action.NONE, value -> {
+                this.customHold[index] = value;
+                this.rebuildCustomLayouts ();
+            });
+            enumSetting (settings, name + " colour", CATEGORY_CUSTOM, SwitchColour.values (), SwitchColour.AUTO, value -> {
+                this.customColour[index] = value;
+                this.rebuildCustomLayouts ();
+            });
+            enumSetting (settings, name + " LED", CATEGORY_CUSTOM, LedRow.values (), LedRow.STRIP, value -> {
+                this.customRow[index] = value;
+                this.rebuildCustomLayouts ();
+            });
+        }
+    }
+
+
+    private void rebuildCustomLayouts ()
     {
         for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
         {
-            final int index = i;
-            final String name = PacerMap.SWITCH_NAMES[i];
-            final String category = i < PacerMap.FIRST_TOP_ROW_SWITCH ? CATEGORY_BOTTOM_ROW : CATEGORY_TOP_ROW;
-            enumSetting (settings, name + " tap", category, Action.values (), SWITCH_DEFAULTS[i][0], value -> this.switchTap[index] = value);
-            enumSetting (settings, name + " double-tap", category, Action.values (), Action.NONE, value -> this.switchDoubleTap[index] = value);
-            enumSetting (settings, name + " hold", category, Action.values (), SWITCH_DEFAULTS[i][1], value -> this.switchHold[index] = value);
+            if (Mode.isModeSwitch (i))
+            {
+                this.customLayouts[i] = SwitchLayout.MODE_SWITCH;
+                continue;
+            }
+            final Action tap = this.customTap[i];
+            this.customLayouts[i] = new SwitchLayout (tap, this.customDoubleTap[i], this.customHold[i], this.customColour[i].resolve (tap), this.customRow[i].orStripOn (i));
         }
+        this.notifyObservers (CUSTOM_MODE);
+    }
 
+
+    /** The stomp switches belong to the modes; only the jacks are assignable. */
+    private void initJacks (final ISettingsUI settings)
+    {
         for (int i = 0; i < PacerMap.NUM_FOOTSWITCHES; i++)
         {
             final int index = i;
@@ -429,27 +450,10 @@ public class PacerConfiguration extends AbstractConfiguration
 
     private void initFx (final ISettingsUI settings)
     {
-        // Follows the preset-loaded CC; also a manual override
-        this.activePresetSetting = settings.getEnumSetting ("Active preset (follows the preset selected on the Pacer)", CATEGORY_FX, Labelled.labels (PresetKind.values ()), PresetKind.LOOPER.getLabel ());
-        this.activePresetSetting.addValueObserver (value -> {
-            this.activePreset = Labelled.fromLabel (PresetKind.values (), value, PresetKind.LOOPER);
-            this.notifyObservers (ACTIVE_PRESET);
-        });
-
         final IEnumSetting snapshotSetting = settings.getEnumSetting ("Snapshots per instrument", CATEGORY_FX, SNAPSHOT_COUNTS, SNAPSHOT_COUNTS[0]);
         snapshotSetting.addValueObserver (value -> this.snapshotsPerInstrument = Math.max (0, Arrays.asList (SNAPSHOT_COUNTS).indexOf (value)) + 2);
         onOffSetting (settings, "Focusing an instrument selects its track in Bitwig", CATEGORY_FX, false, value -> this.focusSelectsTrack = value);
         settings.getStringSetting ("Remote controls page name", CATEGORY_FX, 40, "Pacer").addValueObserver (value -> this.remotePageName = value == null ? "" : value.trim ());
-
-        for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
-        {
-            final int index = i;
-            final String name = "FX " + PacerMap.SWITCH_NAMES[i];
-            final String category = i < PacerMap.FIRST_TOP_ROW_SWITCH ? CATEGORY_FX_BOTTOM : CATEGORY_FX_TOP;
-            enumSetting (settings, name + " tap", category, Action.values (), FX_SWITCH_DEFAULTS[i][0], value -> this.fxSwitchTap[index] = value);
-            enumSetting (settings, name + " double-tap", category, Action.values (), FX_SWITCH_DEFAULTS[i][1], value -> this.fxSwitchDoubleTap[index] = value);
-            enumSetting (settings, name + " hold", category, Action.values (), FX_SWITCH_DEFAULTS[i][2], value -> this.fxSwitchHold[index] = value);
-        }
     }
 
 
@@ -464,6 +468,11 @@ public class PacerConfiguration extends AbstractConfiguration
 
         this.focusedInstrumentSetting = settings.getEnumSetting ("Focused instrument", CATEGORY_FX_PROJECT, INSTRUMENT_LETTERS, INSTRUMENT_LETTERS[0]);
         this.focusedInstrumentSetting.addValueObserver (value -> this.focusedInstrument = Math.max (0, Arrays.asList (INSTRUMENT_LETTERS).indexOf (value)));
+
+        // Internal state: which mode this project was last left in, for "Mode at startup = whatever this project used last"
+        this.projectModeSetting = settings.getEnumSetting ("Mode", CATEGORY_FX_PROJECT, Labelled.labels (Mode.values ()), Mode.LOOP.getLabel ());
+        this.projectModeSetting.addValueObserver (value -> this.projectMode = Labelled.fromLabel (Mode.values (), value, Mode.LOOP));
+        this.projectModeSetting.setVisible (false);
 
         for (int i = 0; i < NUM_INSTRUMENTS; i++)
         {
@@ -483,14 +492,15 @@ public class PacerConfiguration extends AbstractConfiguration
             final int index = i;
             final Integer settingID = i == 0 ? EXPRESSION_1 : EXPRESSION_2;
             final String name = "EXP " + (i + 1);
-            enumSetting (settings, name, CATEGORY_PEDALS, ExpressionTarget.values (), EXPRESSION_DEFAULTS[i], value -> {
-                this.expressionTargets[index] = value;
-                this.notifyObservers (settingID);
-            });
-            enumSetting (settings, name + " on the FX preset", CATEGORY_PEDALS, ExpressionTarget.values (), FX_EXPRESSION_DEFAULTS[i], value -> {
-                this.fxExpressionTargets[index] = value;
-                this.notifyObservers (settingID);
-            });
+            // One target per mode: the pedals are the only controls a bare Pacer has to spare
+            for (final Mode mode: Mode.values ())
+            {
+                final int modeIndex = mode.ordinal ();
+                enumSetting (settings, name + " · " + mode.getLabel (), CATEGORY_PEDALS, ExpressionTarget.values (), EXPRESSION_DEFAULTS[modeIndex][i], value -> {
+                    this.expressionTargets[modeIndex][index] = value;
+                    this.notifyObservers (settingID);
+                });
+            }
             enumSetting (settings, name + " response", CATEGORY_PEDALS, PedalCurve.values (), PedalCurve.LINEAR, value -> {
                 this.pedalCurves[index] = value;
                 this.notifyObservers (settingID);
@@ -511,16 +521,12 @@ public class PacerConfiguration extends AbstractConfiguration
 
     private void initLeds (final ISettingsUI settings)
     {
-        enumSetting (settings, "LED mode", CATEGORY_LEDS, LedMode.values (), LedMode.AUTO, value -> {
-            this.ledMode = value;
-            this.notifyObservers (LED_MODE);
-        });
         onOffSetting (settings, "Blink in time with the transport", CATEGORY_LEDS, true, value -> this.beatSyncedLeds = value);
         onOffSetting (settings, "Count beats on SW A-D (count-in and recording)", CATEGORY_LEDS, true, value -> this.countBeats = value);
-        enumSetting (settings, "Multi-colour: stopped loop", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourStopped, value -> this.colourStopped = value);
-        enumSetting (settings, "Multi-colour: playing loop", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourPlaying, value -> this.colourPlaying = value);
-        enumSetting (settings, "Multi-colour: recording loop", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourRecording, value -> this.colourRecording = value);
-        enumSetting (settings, "Multi-colour: muted loop", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourMuted, value -> this.colourMuted = value);
+        enumSetting (settings, "Loop colour: stopped", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourStopped, value -> this.colourStopped = value);
+        enumSetting (settings, "Loop colour: playing", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourPlaying, value -> this.colourPlaying = value);
+        enumSetting (settings, "Loop colour: recording", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourRecording, value -> this.colourRecording = value);
+        enumSetting (settings, "Loop colour: muted", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourMuted, value -> this.colourMuted = value);
         settings.getSignalSetting ("Cycle every LED through all colours", CATEGORY_LEDS, "Test the LEDs").addSignalObserver (value -> this.notifyObservers (LED_TEST));
     }
 
@@ -558,11 +564,50 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
-     * @return How many bottom switches are loop switches
+     * @return The custom mode's board, laid out entirely in the settings
      */
-    public LoopSwitchCount getLoopSwitchCount ()
+    public ModeBoard getCustomBoard ()
     {
-        return this.loopSwitchCount;
+        return this.customBoard;
+    }
+
+
+    /**
+     * @return The mode to start in, honouring "whatever this project used last"
+     */
+    public Mode getModeAtStartup ()
+    {
+        return this.startupMode.resolve (this.projectMode);
+    }
+
+
+    /**
+     * Remember the mode with the project.
+     *
+     * @param mode The mode
+     */
+    public void setProjectMode (final Mode mode)
+    {
+        if (this.projectModeSetting != null && mode != this.projectMode)
+            this.projectModeSetting.set (mode.getLabel ());
+    }
+
+
+    /**
+     * @return True to show what the mode is doing on the display rather than just its name
+     */
+    public boolean isShowContext ()
+    {
+        return this.showContext;
+    }
+
+
+    /**
+     * @return True to write the mode name again after a switch press took the display
+     */
+    public boolean isKeepModeName ()
+    {
+        return this.keepModeName;
     }
 
 
@@ -692,65 +737,6 @@ public class PacerConfiguration extends AbstractConfiguration
     }
 
 
-    /**
-     * @param switchIndex 0-9
-     * @return The tap action of a switch that is not a loop switch
-     */
-    public Action getSwitchTap (final int switchIndex)
-    {
-        return this.switchTap[switchIndex];
-    }
-
-
-    /**
-     * @param switchIndex 0-9
-     * @return The hold action of a switch that is not a loop switch
-     */
-    public Action getSwitchHold (final int switchIndex)
-    {
-        return this.switchHold[switchIndex];
-    }
-
-
-    /**
-     * @param switchIndex 0-9
-     * @return The double-tap action of a switch that is not a loop switch
-     */
-    public Action getSwitchDoubleTap (final int switchIndex)
-    {
-        return this.switchDoubleTap[switchIndex];
-    }
-
-
-    /**
-     * @param switchIndex 0-9
-     * @return The tap action of a switch on the FX preset
-     */
-    public Action getFxSwitchTap (final int switchIndex)
-    {
-        return this.fxSwitchTap[switchIndex];
-    }
-
-
-    /**
-     * @param switchIndex 0-9
-     * @return The double-tap action of a switch on the FX preset
-     */
-    public Action getFxSwitchDoubleTap (final int switchIndex)
-    {
-        return this.fxSwitchDoubleTap[switchIndex];
-    }
-
-
-    /**
-     * @param switchIndex 0-9
-     * @return The hold action of a switch on the FX preset
-     */
-    public Action getFxSwitchHold (final int switchIndex)
-    {
-        return this.fxSwitchHold[switchIndex];
-    }
-
 
     /**
      * @param index 0-3
@@ -783,22 +769,13 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
+     * @param mode The active mode - each has its own pedal targets
      * @param index 0-1
-     * @return The target of an expression pedal on the looper preset
+     * @return The target of an expression pedal
      */
-    public ExpressionTarget getExpressionTarget (final int index)
+    public ExpressionTarget getExpressionTarget (final Mode mode, final int index)
     {
-        return this.expressionTargets[index];
-    }
-
-
-    /**
-     * @param index 0-1
-     * @return The target of an expression pedal on the FX preset
-     */
-    public ExpressionTarget getFxExpressionTarget (final int index)
-    {
-        return this.fxExpressionTargets[index];
+        return this.expressionTargets[mode.ordinal ()][index];
     }
 
 
@@ -822,38 +799,6 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
-     * @return The LED mode setting, may be AUTO
-     */
-    public LedMode getLedMode ()
-    {
-        return this.ledMode;
-    }
-
-
-    /**
-     * @return The mode LEDs are driven in: the setting, or the variant the preset announced
-     */
-    public LedMode getEffectiveLedMode ()
-    {
-        return LedMode.resolve (this.ledMode, this.announcedLedMode);
-    }
-
-
-    /**
-     * Remember the LED variant the preset announced when it was loaded.
-     *
-     * @param announced TWO_COLOUR or MULTI_COLOUR
-     */
-    public void setAnnouncedLedMode (final LedMode announced)
-    {
-        final LedMode before = this.getEffectiveLedMode ();
-        this.announcedLedMode = announced;
-        if (this.getEffectiveLedMode () != before)
-            this.notifyObservers (LED_MODE);
-    }
-
-
-    /**
      * @return True if LED patterns follow the transport while it runs
      */
     public boolean isBeatSyncedLeds ()
@@ -872,7 +817,7 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
-     * @return The multi-colour palette of loop switches
+     * @return The colours of loop switches
      */
     public LoopColours getLoopColours ()
     {
@@ -935,27 +880,6 @@ public class PacerConfiguration extends AbstractConfiguration
         final int value = Math.max (1, Math.min (MAX_LOOP_TRACK_START, oneBased));
         if (this.loopTrackStartSetting != null && value != this.loopTrackStart)
             this.loopTrackStartSetting.set (value);
-    }
-
-
-    /**
-     * @return The preset selected on the Pacer
-     */
-    public PresetKind getActivePreset ()
-    {
-        return this.activePreset;
-    }
-
-
-    /**
-     * Remember the preset the Pacer announced.
-     *
-     * @param kind The preset
-     */
-    public void setActivePreset (final PresetKind kind)
-    {
-        if (this.activePresetSetting != null && kind != this.activePreset)
-            this.activePresetSetting.set (kind.getLabel ());
     }
 
 

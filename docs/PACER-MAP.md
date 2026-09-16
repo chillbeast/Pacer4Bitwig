@@ -78,11 +78,39 @@ The single source of truth for how the **Pacer preset** (written by the editor) 
   element with the real D1 dump (0 missing, 0 length mismatches). D1 held the factory preset `G-MST` — it is in the
   backup.
 
+## Live edits: writing to preset index 0
+
+**Verified on hardware 2026-09-16.** A SET to preset index `0x00` ("current", the slot a full backup reports as
+`CUR`) edits the *loaded* preset immediately, and only in RAM: selecting any preset restores the stored one, so this
+costs no EEPROM wear.
+
+- **Colour:** `01 01 00 <switch obj> 41 01 <on colour> 00 42 01 <off colour>` recolours a switch on the spot.
+  Confirmed by cycling SW 1 through all twelve colours.
+- **Function:** `01 01 00 <switch obj> 03 01 <cc>` changes what step 1 of a switch sends (element 3 = data 1).
+  Confirmed: SW 5 sent CC 60 instead of CC 106 straight away.
+
+So the extension can repaint and reassign the Pacer while it plays. State colours, and "modes" that change the whole
+board without selecting another preset, both rest on this.
+
+### The colour table (Pacer user guide, page 12)
+
+Twelve colours, each with a full (A) and a dimmed (b) variant in consecutive bytes:
+
+| # | Colour | Full | Dim | | # | Colour | Full | Dim |
+|---|--------|------|-----|-|---|--------|------|-----|
+| 1 | Magenta | `0x01` | `0x02` | | 7 | Dark green | `0x0D` | `0x0E` |
+| 2 | Red | `0x03` | `0x04` | | 8 | Cyan | `0x0F` | `0x10` |
+| 3 | Orange | `0x05` | `0x06` | | 9 | Blue | `0x11` | `0x12` |
+| 4 | Gold | `0x07` | `0x08` | | 10 | Lavender | `0x13` | `0x14` |
+| 5 | Yellow | `0x09` | `0x0A` | | 11 | Purple | `0x15` | `0x16` |
+| 6 | Green | `0x0B` | `0x0C` | | 12 | White | `0x17` | `0x18` |
+
 ## LEDs
 
 The Pacer has no "set LED to colour N" message. What it does have (manual, LED settings): with a step's
 **LED MIDI Ctrl = 1**, *"LED on and off colors are triggered by the assigned MIDI message received via the USB MIDI
-port"* — i.e. the extension echoes the step's own CC back: **127 → on colour, 0 → off colour**.
+port"* — i.e. the extension echoes the step's own CC back: **127 → on colour, 0 → off colour**. Which colours those
+are is now settable live (see above).
 
 Two strategies, selectable in the extension settings (`LED mode`) and in the editor's looper template:
 

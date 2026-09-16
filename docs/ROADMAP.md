@@ -78,7 +78,8 @@ map DAW function numbers to names (log the `0x10` reports while switching DAW pr
 
 ### Hardware questions (need someone with a Pacer)
 
-- Does the multi-colour hypothesis hold (see PACER-MAP.md)? Results decide whether multi-colour becomes the default.
+- ~~Does the multi-colour hypothesis hold?~~ No: tested 2026-09-16, one light bar per switch, colour comes from step 1
+  only (PACER-MAP.md). Open instead: make the on/off colour pair of each switch configurable in the presets.
 - How long does the Pacer keep a SysEx preset write in RAM vs. EEPROM — is a SET to preset idx 0 ("current") RAM only?
 - Which LED numbers (bottom/middle/top) exist on SW 1–6 vs SW A–D?
 

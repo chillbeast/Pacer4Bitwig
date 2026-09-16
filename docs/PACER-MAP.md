@@ -99,7 +99,17 @@ off colour `0x00` Off, LED num `0` default. The extension expresses state with b
 | record/play queued  | fast blink (≈ 4 Hz)               |
 | recording           | medium blink (≈ 2 Hz)             |
 
-### `multi-colour` (experimental — verify with the editor's LED Lab first)
+### `multi-colour` — tested on hardware 2026-09-16: **it does not work**
+
+Each stomp switch has exactly one light bar, and its colour comes from **step 1's On colour / Off colour**. Neither
+the colour slots on steps 2-6 nor the LED numbers 1-3 change it (LED numbers address the Pacer's labelled indicators,
+not the switch bar), and the live colour message Nektar's DAW mode uses (target `0x06`) is ignored outside the DAW
+presets. What follows is the original hypothesis, kept for the record.
+
+The manual numbers the colours **1A-12A** (full) and **1b-12b** (dimmed), which are consecutive byte values: 1A =
+`0x01`, 1b = `0x02`, 2A = `0x03` … 12A = `0x17`, 12b = `0x18`. A switch can therefore show one bright colour and one
+dim colour: the factory "COLOR" preset uses `0x03` / `0x04` for SW 1 and `0x05` / `0x06` for SW 2. That pair, set on
+step 1, is the only colour choice a preset really has.
 
 Hypothesis: every step has its own LED config and listens to its own message, so steps 2–6 can act as colour
 slots on the same LED. Steps 2–6 are **CC Trigger** on their colour-slot CC (127/0), active = 1, LED MIDI Ctrl 1,

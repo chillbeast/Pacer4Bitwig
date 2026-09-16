@@ -8,6 +8,8 @@ Nektar Pacer as a live-looper controller for Bitwig Studio, plus a new Pacer pre
   strategy, preset-loaded values). Change it first, then both sides.
 - `docs/LOOPER.md` — user guide: Bitwig project setup, switch functions, settings, hardware test checklist.
 - `docs/FX-PRESET.md` — FX preset guide (instrument focus, FX switches, snapshots) with its own hardware checklist.
+- `docs/LIVE-COLOURS-AND-MODES.md` — **next wave**: what the Pacer's LEDs really do (verified), live edits through
+  preset index 0, and the plan for state colours and modes. Read it before touching LED code.
 - `docs/manual.html` — the styled manual built from the Markdown docs; keep it in step with them. Written in Artifact
   format (starts at `<title>`, no doctype/html/head/body): published as the claude.ai Artifact
   https://claude.ai/artifact/Wxrg7UxPZpbCL7VREDpyZk (checklist results in its db, `checklists/results`) and, wrapped by

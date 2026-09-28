@@ -158,11 +158,11 @@ class ModePainterTest
     @Test
     void aSwitchRestsAtItsModeColourAndLightsInItsStateColour ()
     {
-        // SW A is white in LOOP mode; while undo is available the looper asks for white, but say it went red
+        // SW A is lavender in LOOP mode; while there is a previous row the looper asks for white, but say it went red
         ModePainter.paintMode (this.board, Mode.LOOP, index -> index == 6 ? PacerColour.RED : PacerColour.OFF);
         final String swA = this.sent.stream ().filter (m -> m.startsWith ("F0 00 01 77 7F 01 01 00 14")).findFirst ().orElseThrow ();
         assertTrue (swA.contains (String.format ("41 01 %02X", Integer.valueOf (PacerColour.RED.getFull ()))), "lit in the state colour");
-        assertTrue (swA.contains (String.format ("42 01 %02X", Integer.valueOf (PacerColour.WHITE.getDim ()))), "at rest in the mode colour, dimmed");
+        assertTrue (swA.contains (String.format ("42 01 %02X", Integer.valueOf (PacerColour.LAVENDER.getDim ()))), "at rest in the mode colour, dimmed");
     }
 
 
@@ -170,9 +170,9 @@ class ModePainterTest
     void aSwitchWithNoStateKeepsTheColourItsModeGaveIt ()
     {
         ModePainter.paintMode (this.board, Mode.LOOP, index -> PacerColour.OFF);
-        final String swB = this.sent.stream ().filter (m -> m.startsWith ("F0 00 01 77 7F 01 01 00 15")).findFirst ().orElseThrow ();
-        assertTrue (swB.contains (String.format ("41 01 %02X", Integer.valueOf (PacerColour.GOLD.getFull ()))), "SW B stays gold");
-        assertTrue (swB.contains (String.format ("42 01 %02X", Integer.valueOf (PacerColour.GOLD.getDim ()))));
+        final String swC = this.sent.stream ().filter (m -> m.startsWith ("F0 00 01 77 7F 01 01 00 16")).findFirst ().orElseThrow ();
+        assertTrue (swC.contains (String.format ("41 01 %02X", Integer.valueOf (PacerColour.GOLD.getFull ()))), "SW C (play/stop all) stays gold");
+        assertTrue (swC.contains (String.format ("42 01 %02X", Integer.valueOf (PacerColour.GOLD.getDim ()))));
     }
 
 

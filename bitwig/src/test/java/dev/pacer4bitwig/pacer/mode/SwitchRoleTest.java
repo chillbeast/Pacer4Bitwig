@@ -33,10 +33,11 @@ class SwitchRoleTest
 
 
     @Test
-    void loopModeGivesTheBottomRowToTheLooper ()
+    void loopModeGivesSw1To4ToTheLooper ()
     {
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 4; i++)
             assertEquals (SwitchRole.LOOP_TRACK, role (i, Mode.LOOP, false), "SW " + (i + 1));
+        assertEquals (SwitchRole.ACTION, role (4, Mode.LOOP, false), "SW 5 is undo, even with six loop tracks");
         for (int i = PacerMap.FIRST_TOP_ROW_SWITCH; i < PacerMap.NUM_SWITCHES; i++)
             assertEquals (SwitchRole.ACTION, role (i, Mode.LOOP, false), "the top row runs actions");
     }
@@ -45,12 +46,12 @@ class SwitchRoleTest
     @Test
     void aModeNeverHasMoreLoopSwitchesThanTheProjectHasTracks ()
     {
-        // Three loop tracks: SW 4 and SW 5 have nothing to control
+        // Three loop tracks: SW 4 has nothing to control, SW 5 keeps its action
         assertEquals (SwitchRole.LOOP_TRACK, SwitchRole.of (2, Mode.LOOP, false, 3));
         assertEquals (SwitchRole.NONE, SwitchRole.of (3, Mode.LOOP, false, 3));
-        assertEquals (SwitchRole.NONE, SwitchRole.of (4, Mode.LOOP, false, 3));
+        assertEquals (SwitchRole.ACTION, SwitchRole.of (4, Mode.LOOP, false, 3));
         // And with none at all, no switch loops
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 4; i++)
             assertEquals (SwitchRole.NONE, SwitchRole.of (i, Mode.LOOP, false, 0));
     }
 

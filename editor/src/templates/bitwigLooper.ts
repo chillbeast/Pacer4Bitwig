@@ -35,8 +35,8 @@ export const LOOPER_PRESET_LOADED_CC = 119;
 export const LOOPER_PRESET_LOADED_VALUE = 127;
 /** SW 6 is the mode switch in every mode: tap toggles, hold opens the mode menu. */
 export const LOOPER_MODE_SWITCH_INDEX = 5;
-/** SW1..SW5 are loop tracks in the Looper mode. */
-export const LOOPER_LOOP_SWITCH_COUNT = 5;
+/** SW1..SW4 are loop tracks in the Looper mode. */
+export const LOOPER_LOOP_SWITCH_COUNT = 4;
 
 export const LOOPER_COLOURS = {
   off: 0x00,
@@ -94,11 +94,11 @@ export const LOOPER_TAP_HOLD: Readonly<Record<ControlKey, TapHold>> = {
   SW2: { tap: 'Loop 2', hold: 'Delete loop' },
   SW3: { tap: 'Loop 3', hold: 'Delete loop' },
   SW4: { tap: 'Loop 4', hold: 'Delete loop' },
-  SW5: { tap: 'Loop 5', hold: 'Delete loop' },
+  SW5: { tap: 'Undo', hold: 'Redo' },
   SW6: { tap: 'Previous mode', hold: 'Mode menu' },
-  SWA: { tap: 'Undo', hold: 'Redo' },
-  SWB: { tap: 'Play/stop all', hold: 'Clear row' },
-  SWC: { tap: 'Overdub', hold: 'Metronome' },
+  SWA: { tap: 'Row −', hold: 'Tracks ←' },
+  SWB: { tap: 'Row +', hold: 'Tracks →' },
+  SWC: { tap: 'Play/stop all', hold: 'Clear row' },
   SWD: { tap: 'Tap tempo', hold: 'Play/stop' },
   FS1: { tap: 'One-button looper', hold: 'Clear last' },
   FS2: { tap: 'Play/stop all', hold: 'Clear row' },
@@ -180,11 +180,11 @@ export const LOOPER_LABELS: ControlLabels = {
   SW2: 'LOOP 2',
   SW3: 'LOOP 3',
   SW4: 'LOOP 4',
-  SW5: 'LOOP 5',
+  SW5: 'UNDO',
   SW6: 'MODE',
-  SWA: 'UNDO',
-  SWB: 'PLAY ALL',
-  SWC: 'OVERDUB',
+  SWA: 'PREV ROW',
+  SWB: 'NEXT ROW',
+  SWC: 'PLAY ALL',
   SWD: 'TAP',
   FS1: '1-BTN LOOP',
   FS2: 'PLAY ALL',

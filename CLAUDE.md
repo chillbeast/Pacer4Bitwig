@@ -114,11 +114,12 @@ extension when the file changes (so `install` restarts it under a user who is te
 - Double/halve use the launcher cursor clip: `model.ensureClip ()` in `createModel` creates it (init phase); select
   the slot, then act on `model.getCursorClip ()` ~150 ms later once the cursor has followed.
 - A switch is a loop switch when the active mode says so *and* the project has that many loop tracks
-  (`getLoopTrackCount`); the Looper mode claims SW 1-5. Every other switch uses its layout's tap / double-tap / hold
-  `Action`s.
+  (`getLoopTrackCount`); the Looper mode claims SW 1-4, like the default *Loop tracks* = 4. Every other switch uses
+  its layout's tap / double-tap / hold `Action`s.
 - Double-tap never delays the tap (`TapHoldCommand.withDoubleTap`): a second tap inside the window runs the double-tap
   action instead of a second tap. Holds reset the double-tap window.
-- The loop track position is a *document* setting (`documentSettings.getRangeSetting`, saved per project);
+- The loop track position is a *global* setting (*Loop tracks start at track*, used by every project - Bitwig 6
+  shows project settings nowhere, so a stale per-project value could neither be seen nor fixed);
   `LooperController.applyLoopTrackStart` scrolls the bank to it, and moving the window from the Pacer writes it back.
 - Notifications go through `notify` (confirmations, level "All" only) or `notifyImportant` (navigation, warnings,
   count-ins, loop lengths, resets, focus changes). "Show looper status" always shows.

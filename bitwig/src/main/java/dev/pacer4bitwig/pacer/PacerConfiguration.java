@@ -14,6 +14,7 @@ import de.mossgrabers.framework.daw.midi.ArpeggiatorMode;
 import dev.pacer4bitwig.pacer.controller.PacerMap;
 import dev.pacer4bitwig.pacer.looper.Action;
 import dev.pacer4bitwig.pacer.live.LedRow;
+import dev.pacer4bitwig.pacer.live.PacerColour;
 import dev.pacer4bitwig.pacer.looper.ClearHoldTime;
 import dev.pacer4bitwig.pacer.looper.CountIn;
 import dev.pacer4bitwig.pacer.looper.DoubleTapWindow;
@@ -428,7 +429,9 @@ public class PacerConfiguration extends AbstractConfiguration
                 continue;
             }
             final Action tap = this.customTap[i];
-            this.customLayouts[i] = new SwitchLayout (tap, this.customDoubleTap[i], this.customHold[i], this.customColour[i].resolve (tap), this.customRow[i].orStripOn (i));
+            final boolean loopSwitch = i < this.customLoopSwitches.getCount ();
+            final PacerColour colour = this.customColour[i].resolve (loopSwitch, tap, this.customDoubleTap[i], this.customHold[i]);
+            this.customLayouts[i] = new SwitchLayout (tap, this.customDoubleTap[i], this.customHold[i], colour, this.customRow[i].orStripOn (i));
         }
         this.notifyObservers (CUSTOM_MODE);
     }

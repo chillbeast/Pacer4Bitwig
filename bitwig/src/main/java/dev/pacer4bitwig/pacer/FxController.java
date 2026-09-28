@@ -183,15 +183,16 @@ public class FxController
 
 
     /**
-     * Show which instrument the FX preset controls.
+     * Show which instrument the FX mode controls.
      */
     public void showFocus ()
     {
         final String name = this.getFocusedInstrumentName ();
         if (name.isEmpty ())
-            this.notifyImportant ("FX preset: select an instrument's track in Bitwig, then hold SW A to assign it");
+            // In the FX mode SW 1-4 are instruments A-D, and holding one assigns the selected track to it
+            this.notifyImportant ("FX: select an instrument's track in Bitwig, then hold its switch (SW 1-4) to assign it");
         else
-            this.notifyImportant ("FX preset: " + name);
+            this.notifyImportant ("FX: " + name);
     }
 
 
@@ -315,7 +316,8 @@ public class FxController
         }
         final boolean mute = !this.tracks.isTrackMuted (position);
         this.tracks.setTrackMuted (position, mute);
-        this.notifyImportant (name + (mute ? " muted" : " unmuted"));
+        // A confirmation: the track header shows it too
+        this.notify (name + (mute ? " muted" : " unmuted"));
     }
 
 

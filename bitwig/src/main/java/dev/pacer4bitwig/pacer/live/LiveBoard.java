@@ -15,6 +15,9 @@ import java.util.Arrays;
  * flash, but a trickle of a few messages per second holds it there and hides the mode name. So this class remembers
  * what it has already written and sends nothing when a switch would not change - callers may repaint as often as
  * they like. Throughput itself is not a constraint (measured at ~3300 messages/s on the hardware).
+ * <p>
+ * A {@link WriteGate} can hold writes back - while the Pacer is on another preset, say. A held-back write is not
+ * remembered as done, so it goes out on the first paint after the gate opens.
  */
 public final class LiveBoard
 {
@@ -33,6 +36,7 @@ public final class LiveBoard
     private static final int  UNKNOWN = -1;
 
     private final SysexSender sender;
+    private WriteGate         gate    = WriteGate.OPEN;
     /** What each switch was last told to show, as a cheap key - painting runs often, so it must not build strings. */
     private final int []      lastLed = new int [PacerMap.NUM_SWITCHES];
     private String            lastName;
@@ -48,6 +52,26 @@ public final class LiveBoard
     {
         this.sender = sender;
         Arrays.fill (this.lastLed, UNKNOWN);
+    }
+
+
+    /**
+     * @param gate Decides whether writes may go out
+     */
+    public void setGate (final WriteGate gate)
+    {
+        this.gate = gate == null ? WriteGate.OPEN : gate;
+    }
+
+
+    /**
+     * Send a request that only reads (a GET). It changes nothing on the Pacer, so the gate does not hold it back.
+     *
+     * @param hex The message
+     */
+    public void request (final String hex)
+    {
+        this.sender.send (hex);
     }
 
 
@@ -81,7 +105,7 @@ public final class LiveBoard
     public boolean setLed (final int switchIndex, final PacerColour on, final boolean onDimmed, final PacerColour off, final boolean offDimmed, final LedRow row)
     {
         final int key = (on.getValue (onDimmed) << 16) | (off.getValue (offDimmed) << 8) | row.getNumber ();
-        if (key == this.lastLed[switchIndex])
+        if (key == this.lastLed[switchIndex] || !this.mayWrite ())
             return false;
         this.lastLed[switchIndex] = key;
         this.send (PacerSysex.led (switchIndex, on, onDimmed, off, offDimmed, row));
@@ -99,10 +123,11 @@ public final class LiveBoard
     public boolean setName (final String name)
     {
         final String padded = PacerSysex.pad (name);
-        if (padded.equals (this.lastName))
+        if (padded.equals (this.lastName) || !this.mayWrite ())
             return false;
         this.lastName = padded;
         this.send (PacerSysex.name (padded));
+        this.gate.nameWritten (padded);
         return true;
     }
 
@@ -114,24 +139,35 @@ public final class LiveBoard
      */
     public boolean repeatName ()
     {
-        if (this.lastName == null)
+        if (this.lastName == null || !this.mayWrite ())
             return false;
         this.send (PacerSysex.name (this.lastName));
+        this.gate.nameWritten (this.lastName);
         return true;
     }
 
 
     /**
      * Darken every switch and say so on the display, so a board the extension is no longer driving does not look
-     * live. Selecting any preset on the Pacer brings its own colours back.
+     * live. Selecting any preset on the Pacer brings its own colours back. This is the last word, so the gate does not
+     * wait for it; the caller skips it when the Pacer is known to be on another preset.
      *
      * @param name What to show on the display
      */
     public void blackout (final String name)
     {
-        for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
-            this.setLed (i, PacerColour.OFF, PacerColour.OFF, LedRow.STRIP);
-        this.setName (name);
+        final WriteGate previous = this.gate;
+        this.gate = WriteGate.OPEN;
+        try
+        {
+            for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
+                this.setLed (i, PacerColour.OFF, PacerColour.OFF, LedRow.STRIP);
+            this.setName (name);
+        }
+        finally
+        {
+            this.gate = previous;
+        }
     }
 
 
@@ -152,6 +188,15 @@ public final class LiveBoard
     public int getMessageCount ()
     {
         return this.written;
+    }
+
+
+    private boolean mayWrite ()
+    {
+        if (this.gate.mayWrite ())
+            return true;
+        this.gate.blocked ();
+        return false;
     }
 
 

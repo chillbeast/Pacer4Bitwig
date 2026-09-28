@@ -58,7 +58,7 @@ import java.util.function.Predicate;
  * {@link PacerController} decides what each switch does on the active preset; {@link #tick()} runs every few tens of
  * milliseconds for everything that watches state.
  * <p>
- * The looper manages the first "loop tracks" of the track bank (1-6). Each loop switch controls the slot of the
+ * The looper manages the first "loop tracks" of the track bank (1-8). Each loop switch controls the slot of the
  * track with the same number in the current scene row (the track bank is one scene high, so scrolling its scene
  * bank moves the row for every loop).
  */
@@ -176,7 +176,7 @@ public class LooperController
     /**
      * A loop switch was tapped.
      *
-     * @param trackIndex The loop track, 0-5
+     * @param trackIndex The loop track, 0-7
      */
     public void loopSwitchTap (final int trackIndex)
     {
@@ -197,7 +197,7 @@ public class LooperController
     /**
      * A loop switch was double-tapped (the first tap has already run).
      *
-     * @param trackIndex The loop track, 0-5
+     * @param trackIndex The loop track, 0-7
      */
     public void loopSwitchDoubleTap (final int trackIndex)
     {
@@ -222,7 +222,7 @@ public class LooperController
     /**
      * A loop switch was held.
      *
-     * @param trackIndex The loop track, 0-5
+     * @param trackIndex The loop track, 0-7
      */
     public void loopSwitchHold (final int trackIndex)
     {
@@ -235,7 +235,7 @@ public class LooperController
     /**
      * A loop switch was released.
      *
-     * @param trackIndex The loop track, 0-5
+     * @param trackIndex The loop track, 0-7
      */
     public void loopSwitchRelease (final int trackIndex)
     {
@@ -277,7 +277,7 @@ public class LooperController
 
 
     /**
-     * @param trackIndex The loop track, 0-5
+     * @param trackIndex The loop track, 0-7
      * @return What the loop switch's LED shows
      */
     public LedState loopSwitchLed (final int trackIndex)
@@ -412,14 +412,14 @@ public class LooperController
             }
             case RECORD_NEXT_LAYER -> this.recordNextLayer ();
             case CLEAR_LAST_LOOP -> this.clearLastLoop ();
-            case LOOP_1, LOOP_2, LOOP_3, LOOP_4, LOOP_5, LOOP_6 -> {
+            case LOOP_1, LOOP_2, LOOP_3, LOOP_4, LOOP_5, LOOP_6, LOOP_7, LOOP_8 -> {
                 // As a plain action (a double-tap or a hold slot): the smart loop tap. As a switch's tap, the switch
                 // is a loop switch and never gets here.
                 final int track = action.getLoopTrack ();
                 if (track < this.getLoopCount ())
                     this.loopTap (this.getTrackBank ().getItem (track));
             }
-            case MUTE_LOOP_1, MUTE_LOOP_2, MUTE_LOOP_3, MUTE_LOOP_4, MUTE_LOOP_5, MUTE_LOOP_6 -> {
+            case MUTE_LOOP_1, MUTE_LOOP_2, MUTE_LOOP_3, MUTE_LOOP_4, MUTE_LOOP_5, MUTE_LOOP_6, MUTE_LOOP_7, MUTE_LOOP_8 -> {
                 final int track = action.getMutedLoopTrack ();
                 final ITrack item = this.getTrackBank ().getItem (track);
                 if (track < this.getLoopCount () && item.doesExist ())
@@ -507,13 +507,13 @@ public class LooperController
         return switch (action)
         {
             case NONE -> LedState.DARK;
-            case LOOP_1, LOOP_2, LOOP_3, LOOP_4, LOOP_5, LOOP_6 -> {
+            case LOOP_1, LOOP_2, LOOP_3, LOOP_4, LOOP_5, LOOP_6, LOOP_7, LOOP_8 -> {
                 final int track = action.getLoopTrack ();
                 yield track < this.getLoopCount () ? this.loopLed (trackBank.getItem (track)) : LedState.DARK;
             }
             case RECORD_NEXT_LAYER -> this.layerLed ();
             case CLEAR_LAST_LOOP -> LedState.when (this.anyLoop (false), LedColour.RED);
-            case MUTE_LOOP_1, MUTE_LOOP_2, MUTE_LOOP_3, MUTE_LOOP_4, MUTE_LOOP_5, MUTE_LOOP_6 -> {
+            case MUTE_LOOP_1, MUTE_LOOP_2, MUTE_LOOP_3, MUTE_LOOP_4, MUTE_LOOP_5, MUTE_LOOP_6, MUTE_LOOP_7, MUTE_LOOP_8 -> {
                 final int track = action.getMutedLoopTrack ();
                 if (track >= this.getLoopCount ())
                     yield LedState.DARK;

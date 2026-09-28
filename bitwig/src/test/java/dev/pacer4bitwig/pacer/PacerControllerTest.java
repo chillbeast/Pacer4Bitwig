@@ -15,6 +15,7 @@ import dev.pacer4bitwig.pacer.led.LedState;
 import dev.pacer4bitwig.pacer.live.LiveBoard;
 import dev.pacer4bitwig.pacer.looper.Action;
 import dev.pacer4bitwig.pacer.mode.Mode;
+import dev.pacer4bitwig.pacer.mode.ShiftLayer;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,9 @@ class PacerControllerTest
     private static final int         SW_1   = 0;
     private static final int         SW_4   = 3;
     private static final int         SW_6   = Mode.MODE_SWITCH_INDEX;
+    private static final int         SW_5   = 4;
     private static final int         SW_A   = 6;
+    private static final int         SW_D   = 9;
 
     private final List<String>       ran    = new ArrayList<> ();
     private final List<Runnable>     later  = new ArrayList<> ();
@@ -348,6 +351,179 @@ class PacerControllerTest
     }
 
 
+    @Test
+    void doubleTappingSw6LatchesTheShiftLayerWithoutChangingTheMode ()
+    {
+        this.controller.perform (Action.MODE_MIX);
+        final TapHoldCommand sw6 = this.command (SW_6);
+        tap (sw6);
+        assertEquals (Mode.MIX, this.controller.getMode (), "the tap waits for a possible second one");
+        tap (sw6);
+        this.runLater ();
+
+        assertEquals (Mode.MIX, this.controller.getMode (), "the first tap of a double-tap never ran");
+        assertEquals (ShiftLayer.State.ON, this.controller.getShiftState ());
+    }
+
+
+    @Test
+    void aSingleSw6TapStillTogglesTheModeOnceTheWindowHasPassed ()
+    {
+        this.controller.perform (Action.MODE_MIX);
+        this.tap (SW_6);
+        this.runLater ();
+        assertEquals (Mode.LOOP, this.controller.getMode ());
+        assertEquals (ShiftLayer.State.OFF, this.controller.getShiftState ());
+    }
+
+
+    @Test
+    void withoutASw6DoubleTapItsTapIsInstant ()
+    {
+        this.setField ("modeSwitchDoubleTap", Action.NONE);
+        this.controller.perform (Action.MODE_MIX);
+        this.tap (SW_6);
+        assertEquals (Mode.LOOP, this.controller.getMode (), "no waiting when there is nothing to wait for");
+    }
+
+
+    @Test
+    void sw6DoubleTapCanRunAnyAction ()
+    {
+        this.setField ("modeSwitchDoubleTap", Action.MODE_SONG);
+        final TapHoldCommand sw6 = this.command (SW_6);
+        tap (sw6);
+        tap (sw6);
+        this.runLater ();
+        assertEquals (Mode.SONG, this.controller.getMode ());
+    }
+
+
+    @Test
+    void shiftedLoopSwitchesRunLoopTracks5To8 ()
+    {
+        this.setField ("loopTrackCount", Integer.valueOf (8));
+        this.loopTapOnPress = true;
+        this.controller.perform (Action.SHIFT_TOGGLE);
+        this.tap (SW_1);
+        this.controller.perform (Action.SHIFT_TOGGLE);
+        this.tap (SW_1);
+        assertEquals (List.of ("loop tap 5", "loop release 5", "loop tap 1", "loop release 1"), this.ran);
+    }
+
+
+    @Test
+    void aShiftedLoopSwitchBeyondTheProjectsLoopTracksDoesNothing ()
+    {
+        // Loop tracks defaults to 4
+        this.loopTapOnPress = true;
+        this.controller.perform (Action.SHIFT_TOGGLE);
+        this.tap (SW_1);
+        assertTrue (this.ran.isEmpty (), "loop track 5 does not exist: " + this.ran);
+    }
+
+
+    @Test
+    void aLayerForOnePressIsUsedUpByTheNextSwitch ()
+    {
+        this.controller.perform (Action.SHIFT_ONCE);
+        this.tap (SW_D);
+        assertEquals (ShiftLayer.State.OFF, this.controller.getShiftState ());
+        this.tap (SW_D);
+        assertEquals (List.of ("TRANSPORT_PLAY_STOP", "LAUNCHER_OVERDUB"), this.ran, "shifted once, then SW D's own tap");
+    }
+
+
+    @Test
+    void aJackHoldsTheLayerUpWhileItIsDown ()
+    {
+        this.setJackTap (0, Action.SHIFT_HOLD);
+        final TapHoldCommand fs1 = this.jack (0);
+        fs1.execute (ButtonEvent.DOWN, 127);
+        assertEquals (ShiftLayer.State.HELD, this.controller.getShiftState ());
+        this.tap (SW_D);
+        fs1.execute (ButtonEvent.UP, 0);
+        assertEquals (ShiftLayer.State.OFF, this.controller.getShiftState ());
+        this.tap (SW_D);
+        assertEquals (List.of ("TRANSPORT_PLAY_STOP", "LAUNCHER_OVERDUB"), this.ran);
+    }
+
+
+    @Test
+    void aSwitchWithNothingOnItsShiftLayerKeepsItsJob ()
+    {
+        this.controller.perform (Action.MODE_MIX);
+        this.controller.perform (Action.SHIFT_TOGGLE);
+        this.tap (SW_5);
+        assertEquals (List.of ("SELECT_NEXT_LOOP"), this.ran, "the Mixer has no shift layer");
+    }
+
+
+    @Test
+    void changingTheModeTakesTheLayerDown ()
+    {
+        this.controller.perform (Action.SHIFT_TOGGLE);
+        this.controller.perform (Action.MODE_FX);
+        assertEquals (ShiftLayer.State.OFF, this.controller.getShiftState ());
+    }
+
+
+    @Test
+    void sw6ShowsTheShiftLayer ()
+    {
+        final int white = dev.pacer4bitwig.pacer.led.LedColour.WHITE.ordinal ();
+        final int amber = dev.pacer4bitwig.pacer.led.LedColour.AMBER.ordinal ();
+        assertEquals (white, this.controller.getLedCode (SW_6));
+        this.controller.perform (Action.SHIFT_TOGGLE);
+        assertEquals (amber, this.controller.getLedCode (SW_6));
+    }
+
+
+    @Test
+    void goingToTheCustomModeFollowsTheLayoutToTheModeItChanges ()
+    {
+        this.controller.perform (Action.MODE_CUSTOM);
+        assertEquals (Mode.CUSTOM, this.controller.getMode ());
+
+        final var custom = this.configuration.getCustomBoard ();
+        custom.setTarget (dev.pacer4bitwig.pacer.mode.CustomTarget.SONG);
+        custom.rebuild ();
+        this.controller.perform (Action.MODE_LOOP);
+        this.controller.perform (Action.MODE_CUSTOM);
+        assertEquals (Mode.SONG, this.controller.getMode ());
+    }
+
+
+    private static void tap (final TapHoldCommand command)
+    {
+        command.execute (ButtonEvent.DOWN, 127);
+        command.execute (ButtonEvent.UP, 0);
+    }
+
+
+    private void runLater ()
+    {
+        final List<Runnable> due = new ArrayList<> (this.later);
+        this.later.clear ();
+        due.forEach (Runnable::run);
+    }
+
+
+    private void setField (final String name, final Object value)
+    {
+        try
+        {
+            final java.lang.reflect.Field field = PacerConfiguration.class.getDeclaredField (name);
+            field.setAccessible (true);
+            field.set (this.configuration, value);
+        }
+        catch (final ReflectiveOperationException ex)
+        {
+            throw new IllegalStateException (ex);
+        }
+    }
+
+
     private void setJackTap (final int index, final Action action)
     {
         try
@@ -367,7 +543,7 @@ class PacerControllerTest
     private TapHoldCommand jack (final int index)
     {
         final PacerController c = this.controller;
-        return new TapHoldCommand ( () -> c.isFootswitchTapOnPress (index), () -> c.footswitchTap (index), () -> c.footswitchHold (index), () -> c.footswitchRelease (index), null, () -> c.getFootswitchExtraHoldMillis (index), (task, delay) -> task.run ()).withDoubleTap ( () -> c.footswitchDoubleTap (index), () -> c.isFootswitchDoubleTapEnabled (index), () -> 350, System::currentTimeMillis);
+        return new TapHoldCommand ( () -> c.isFootswitchTapOnPress (index), () -> c.footswitchTap (index), () -> c.footswitchHold (index), () -> c.footswitchRelease (index), null, () -> c.getFootswitchExtraHoldMillis (index), (task, delay) -> task.run ()).withPress ( () -> c.footswitchPress (index)).withDoubleTap ( () -> c.footswitchDoubleTap (index), () -> c.isFootswitchDoubleTapEnabled (index), () -> 350, System::currentTimeMillis);
     }
 
 
@@ -403,7 +579,7 @@ class PacerControllerTest
     private TapHoldCommand command (final int index)
     {
         final PacerController c = this.controller;
-        return new TapHoldCommand ( () -> c.isTapOnPress (index), () -> c.tap (index), () -> c.hold (index), () -> c.release (index), null, () -> c.getExtraHoldMillis (index), (task, delay) -> this.later.add (task)).withPress ( () -> c.press (index)).withDoubleTap ( () -> c.doubleTap (index), () -> c.isDoubleTapEnabled (index), () -> 350, System::currentTimeMillis);
+        return new TapHoldCommand ( () -> c.isTapOnPress (index), () -> c.tap (index), () -> c.hold (index), () -> c.release (index), null, () -> c.getExtraHoldMillis (index), (task, delay) -> this.later.add (task)).withPress ( () -> c.press (index)).withDoubleTap ( () -> c.doubleTap (index), () -> c.isDoubleTapEnabled (index), () -> 350, System::currentTimeMillis).withDelayedTap ( () -> Mode.isModeSwitch (index));
     }
 
 

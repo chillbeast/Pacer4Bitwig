@@ -15,7 +15,9 @@ import java.util.function.LongSupplier;
  * <li>The tap fires either on press (tight timing; a later hold then fires as well) or on release (only if the switch
  * was not held).</li>
  * <li>A double-tap never delays the tap: the first tap runs as usual, and a second tap within the window runs the
- * double-tap action instead of a second tap.</li>
+ * double-tap action instead of a second tap. The one exception is opt-in ({@link #withDelayedTap(BooleanSupplier)}):
+ * a switch whose tap must not run at all when it turns out to be a double-tap - SW 6, whose tap changes the mode -
+ * waits out the window first.</li>
  * <li>A hold can require the switch to stay down for longer than the framework's hold time, which protects
  * destructive actions. An optional release action runs on every release.</li>
  * <li>Whether the tap fires on press or on release is decided once, when the switch goes down: what the switch does
@@ -51,12 +53,16 @@ public class TapHoldCommand implements TriggerCommand
     private BooleanSupplier       doubleTapEnabled = () -> false;
     private LongSupplier          doubleTapWindow  = () -> 0;
     private LongSupplier          clock            = System::currentTimeMillis;
+    private BooleanSupplier       delayTap         = () -> false;
 
     private boolean               holdSeen;
     private boolean               pressed;
     private boolean               tapFiredOnPress;
     private int                   pressGeneration;
     private long                  lastTapAt        = NO_TAP;
+    /** Bumped whenever a waiting tap is settled, so the scheduled one knows it is stale. */
+    private int                   tapGeneration;
+    private boolean               tapWaiting;
 
 
     /**
@@ -129,6 +135,20 @@ public class TapHoldCommand implements TriggerCommand
     }
 
 
+    /**
+     * Let the tap wait for the double-tap window, so a double-tap runs only the double-tap action. Only while a
+     * double-tap is enabled; costs the tap the length of the window.
+     *
+     * @param delay True while the tap should wait
+     * @return This command
+     */
+    public TapHoldCommand withDelayedTap (final BooleanSupplier delay)
+    {
+        this.delayTap = delay;
+        return this;
+    }
+
+
     /** {@inheritDoc} */
     @Override
     public void execute (final ButtonEvent event, final int velocity)
@@ -146,8 +166,10 @@ public class TapHoldCommand implements TriggerCommand
         }
         else if (event == ButtonEvent.LONG)
         {
-            // A hold is never the first half of a double-tap
+            // A hold is never the first half of a double-tap. A tap still waiting for one runs now, before the
+            // hold, as it would have without the wait.
             this.lastTapAt = NO_TAP;
+            this.runWaitingTap ();
             if (this.hold != null)
             {
                 // A hold, even one released before its extra time, never also fires a tap on release
@@ -189,14 +211,40 @@ public class TapHoldCommand implements TriggerCommand
         if (this.doubleTap != null && this.doubleTapEnabled.getAsBoolean ())
         {
             final long now = this.clock.getAsLong ();
-            if (this.lastTapAt != NO_TAP && now - this.lastTapAt <= this.doubleTapWindow.getAsLong ())
+            final long window = this.doubleTapWindow.getAsLong ();
+            if (this.lastTapAt != NO_TAP && now - this.lastTapAt <= window)
             {
                 this.lastTapAt = NO_TAP;
+                // The first tap never runs
+                this.tapWaiting = false;
+                this.tapGeneration++;
                 this.doubleTap.run ();
                 return;
             }
             this.lastTapAt = now;
+            if (this.delayTap.getAsBoolean ())
+            {
+                this.tapWaiting = true;
+                final int generation = ++this.tapGeneration;
+                this.scheduler.schedule ( () -> {
+                    if (this.tapGeneration == generation)
+                        this.runWaitingTap ();
+                }, window);
+                return;
+            }
         }
         this.tap.run ();
+    }
+
+
+    private void runWaitingTap ()
+    {
+        if (!this.tapWaiting)
+            return;
+        this.tapWaiting = false;
+        this.tapGeneration++;
+        this.tap.run ();
+        if (this.afterEvent != null)
+            this.afterEvent.run ();
     }
 }

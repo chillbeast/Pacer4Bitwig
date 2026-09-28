@@ -17,7 +17,7 @@ public final class PacerMap
     /** The four footswitch jacks. */
     public static final int      NUM_FOOTSWITCHES         = 4;
     /** The most loop tracks any layout uses. */
-    public static final int      MAX_LOOP_TRACKS          = 6;
+    public static final int      MAX_LOOP_TRACKS          = 8;
 
     /** Switch names in index order. */
     public static final String [] SWITCH_NAMES            =

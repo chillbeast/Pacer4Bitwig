@@ -33,6 +33,10 @@ public enum Action implements Labelled
     LOOP_5 ("Loop track 5 (makes it a loop switch)", true, false),
     /** Loop track 6. */
     LOOP_6 ("Loop track 6 (makes it a loop switch)", true, false),
+    /** Loop track 7. */
+    LOOP_7 ("Loop track 7 (makes it a loop switch)", true, false),
+    /** Loop track 8. */
+    LOOP_8 ("Loop track 8 (makes it a loop switch)", true, false),
 
     /** Mute/unmute loop track 1 (honours "Mute timing"). */
     MUTE_LOOP_1 ("Mute/unmute loop track 1", true, false),
@@ -46,6 +50,10 @@ public enum Action implements Labelled
     MUTE_LOOP_5 ("Mute/unmute loop track 5", true, false),
     /** Mute/unmute loop track 6. */
     MUTE_LOOP_6 ("Mute/unmute loop track 6", true, false),
+    /** Mute/unmute loop track 7. */
+    MUTE_LOOP_7 ("Mute/unmute loop track 7", true, false),
+    /** Mute/unmute loop track 8. */
+    MUTE_LOOP_8 ("Mute/unmute loop track 8", true, false),
 
     /** Smart loop on the selected track. */
     LOOP_SELECTED ("Smart loop: selected track", true, false),
@@ -178,7 +186,16 @@ public enum Action implements Labelled
     /** Go to the mixer mode. */
     MODE_MIX ("Go to the Mixer mode", true, false, false, true),
     /** Go to the song mode. */
-    MODE_SONG ("Go to the Song mode", true, false, false, true);
+    MODE_SONG ("Go to the Song mode", true, false, false, true),
+    /** Go to the custom mode, or to the built-in mode the custom layout changes. */
+    MODE_CUSTOM ("Go to the Custom mode", true, false, false, true),
+
+    /** Latch the shift layer on, or switch it off. */
+    SHIFT_TOGGLE ("Shift layer on/off", true, false, false, true),
+    /** Raise the shift layer for the next switch press only. */
+    SHIFT_ONCE ("Shift layer for the next press", true, false, false, true),
+    /** Raise the shift layer while the switch or jack stays down. Fires on press, so it is up before the foot moves on. */
+    SHIFT_HOLD ("Shift layer while held", true, false, false, true);
 
 
     private final String  label;
@@ -257,7 +274,7 @@ public enum Action implements Labelled
      * double-tap and hold-to-record follow the Looper settings. Run as a plain action (a double-tap slot, say) it is
      * the smart loop tap.
      *
-     * @return The loop track's bank position 0-5, -1 if this is not a loop track action
+     * @return The loop track's bank position 0-7, -1 if this is not a loop track action
      */
     public int getLoopTrack ()
     {
@@ -269,13 +286,15 @@ public enum Action implements Labelled
             case LOOP_4 -> 3;
             case LOOP_5 -> 4;
             case LOOP_6 -> 5;
+            case LOOP_7 -> 6;
+            case LOOP_8 -> 7;
             default -> -1;
         };
     }
 
 
     /**
-     * @return The loop track a mute action is for, 0-5, -1 if this is not a loop track mute
+     * @return The loop track a mute action is for, 0-7, -1 if this is not a loop track mute
      */
     public int getMutedLoopTrack ()
     {
@@ -287,13 +306,15 @@ public enum Action implements Labelled
             case MUTE_LOOP_4 -> 3;
             case MUTE_LOOP_5 -> 4;
             case MUTE_LOOP_6 -> 5;
+            case MUTE_LOOP_7 -> 6;
+            case MUTE_LOOP_8 -> 7;
             default -> -1;
         };
     }
 
 
     /**
-     * @param track The loop track's bank position 0-5
+     * @param track The loop track's bank position 0-7
      * @return The action that makes a switch a loop switch for it
      */
     public static Action loopTrack (final int track)
@@ -306,6 +327,8 @@ public enum Action implements Labelled
             case 3 -> LOOP_4;
             case 4 -> LOOP_5;
             case 5 -> LOOP_6;
+            case 6 -> LOOP_7;
+            case 7 -> LOOP_8;
             default -> throw new IllegalArgumentException ("No loop track " + track);
         };
     }
@@ -320,5 +343,16 @@ public enum Action implements Labelled
     public boolean isMode ()
     {
         return this.mode;
+    }
+
+
+    /**
+     * The shift actions raise or drop the shift layer; the controller runs them like the mode actions.
+     *
+     * @return True for the shift actions
+     */
+    public boolean isShift ()
+    {
+        return this == SHIFT_TOGGLE || this == SHIFT_ONCE || this == SHIFT_HOLD;
     }
 }

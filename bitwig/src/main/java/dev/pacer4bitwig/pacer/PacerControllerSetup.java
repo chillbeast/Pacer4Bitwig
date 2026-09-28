@@ -216,7 +216,7 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         {
             final int index = i;
             final IHwButton button = surface.createButton (ButtonID.get (ButtonID.ROW1_1, i), PacerMap.SWITCH_NAMES[i]);
-            button.bind (new TapHoldCommand ( () -> this.controller.isTapOnPress (index), () -> this.controller.tap (index), () -> this.controller.hold (index), () -> this.controller.release (index), () -> this.afterSwitchEvent (index), () -> this.controller.getExtraHoldMillis (index), this.host::scheduleTask).withDoubleTap ( () -> this.controller.doubleTap (index), () -> this.controller.isDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis));
+            button.bind (new TapHoldCommand ( () -> this.controller.isTapOnPress (index), () -> this.controller.tap (index), () -> this.controller.hold (index), () -> this.controller.release (index), () -> this.afterSwitchEvent (index), () -> this.controller.getExtraHoldMillis (index), this.host::scheduleTask).withPress ( () -> this.controller.press (index)).withDoubleTap ( () -> this.controller.doubleTap (index), () -> this.controller.isDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis));
             button.bind (input, BindType.CC, this.midiChannel, PacerMap.switchCC (i));
 
             final SwitchLedWriter writer = new SwitchLedWriter (i, (cc, value) -> output.sendCCEx (this.midiChannel, cc, value));

@@ -26,8 +26,6 @@ import dev.pacer4bitwig.pacer.mode.SwitchRole;
 import dev.pacer4bitwig.pacer.preset.PresetAnnouncement;
 import dev.pacer4bitwig.pacer.preset.PresetKind;
 
-import java.util.Arrays;
-
 
 /**
  * The Pacer's switches, jacks and pedals - and what its LEDs show - for the active {@link Mode}. The Pacer stays on
@@ -56,6 +54,14 @@ public class PacerController
     private Runnable                 modeListener;
     /** The tap action a momentary hold runs again on release, null if none. */
     private final Action []          momentarySwitches     = new Action [PacerMap.NUM_SWITCHES];
+    /**
+     * What each switch was for when it went down, and on which board. A press can change the mode - a menu slot does
+     * exactly that on press - and its hold and release must still belong to the switch that was pressed, not to
+     * whatever the new mode puts there: holding the Song slot a moment too long used to run Song's SW 4 hold, a fade
+     * out of every loop.
+     */
+    private final SwitchRole []      pressRoles            = new SwitchRole [PacerMap.NUM_SWITCHES];
+    private final ModeBoard []       pressBoards           = new ModeBoard [PacerMap.NUM_SWITCHES];
     private final Action []          momentaryFootswitches = new Action [PacerMap.NUM_FOOTSWITCHES];
 
 
@@ -206,12 +212,25 @@ public class PacerController
     // ---- Stomp switches -----------------------------------------------------------------------------------------
 
     /**
+     * A switch went down. Runs before anything else about the press is asked: from here until the next press, the
+     * switch keeps the role and board it has now, whatever the mode does in between.
+     *
+     * @param switchIndex 0-9
+     */
+    public void press (final int switchIndex)
+    {
+        this.pressRoles[switchIndex] = this.role (switchIndex);
+        this.pressBoards[switchIndex] = this.getBoard ();
+    }
+
+
+    /**
      * @param switchIndex 0-9
      * @return True if the switch fires its tap on press
      */
     public boolean isTapOnPress (final int switchIndex)
     {
-        return switch (this.role (switchIndex))
+        return switch (this.pressRole (switchIndex))
         {
             // The mode switch must let a hold pre-empt its tap, and menu slots should answer at once
             case MODE_SWITCH -> false;
@@ -229,7 +248,7 @@ public class PacerController
      */
     public long getExtraHoldMillis (final int switchIndex)
     {
-        return switch (this.role (switchIndex))
+        return switch (this.pressRole (switchIndex))
         {
             // The menu opens at the normal hold time - waiting longer for it would feel broken
             case MODE_SWITCH, MODE_SLOT, NAVIGATION, NONE -> 0;
@@ -245,7 +264,7 @@ public class PacerController
      */
     public boolean isDoubleTapEnabled (final int switchIndex)
     {
-        return switch (this.role (switchIndex))
+        return switch (this.pressRole (switchIndex))
         {
             case MODE_SWITCH, MODE_SLOT, NAVIGATION, NONE -> false;
             case LOOP_TRACK -> this.looper.isLoopSwitchDoubleTapEnabled ();
@@ -261,7 +280,7 @@ public class PacerController
      */
     public void tap (final int switchIndex)
     {
-        switch (this.role (switchIndex))
+        switch (this.pressRole (switchIndex))
         {
             case MODE_SWITCH -> {
                 // Closes the menu if it is open, otherwise goes back to the mode before this one
@@ -295,7 +314,7 @@ public class PacerController
      */
     public void doubleTap (final int switchIndex)
     {
-        switch (this.role (switchIndex))
+        switch (this.pressRole (switchIndex))
         {
             case LOOP_TRACK -> this.looper.loopSwitchDoubleTap (switchIndex);
             case ACTION -> this.perform (this.getSwitchDoubleTap (switchIndex));
@@ -321,7 +340,7 @@ public class PacerController
             return;
         }
         this.momentarySwitches[switchIndex] = null;
-        switch (this.role (switchIndex))
+        switch (this.pressRole (switchIndex))
         {
             case LOOP_TRACK -> this.looper.loopSwitchHold (switchIndex);
             case ACTION -> {
@@ -352,14 +371,15 @@ public class PacerController
         this.momentarySwitches[switchIndex] = null;
         if (momentary != null)
             this.perform (momentary);
-        if (this.role (switchIndex) == SwitchRole.LOOP_TRACK)
+        if (this.pressRole (switchIndex) == SwitchRole.LOOP_TRACK)
             this.looper.loopSwitchRelease (switchIndex);
     }
 
 
     private void modeChanged ()
     {
-        Arrays.fill (this.momentarySwitches, null);
+        // Momentary holds stay armed: their release belongs to the press that started them (see pressRoles), so a
+        // held FX switch still switches off when the mode changed under it
         // Saved with the project, for "Mode at startup = whatever this project used last"
         this.configuration.setProjectMode (this.modes.getActive ());
         this.paint ();
@@ -549,7 +569,8 @@ public class PacerController
             // The mode switch is always lit: it is the way back to everything else
             case MODE_SWITCH -> LedState.solid (LedColour.WHITE);
             case ACTION -> {
-                final Action action = this.getSwitchTap (switchIndex);
+                // The board showing now, not the one a held switch was pressed on
+                final Action action = this.getBoard ().getLayout (switchIndex).tap ();
                 yield action.isFx () ? this.fx.actionLed (action) : this.looper.actionLed (action, ledClock);
             }
             default -> LedState.DARK;
@@ -634,9 +655,19 @@ public class PacerController
     }
 
 
+    /** The role the switch had when it was pressed; before its first press, its role now. */
+    private SwitchRole pressRole (final int switchIndex)
+    {
+        final SwitchRole latched = this.pressRoles[switchIndex];
+        return latched == null ? this.role (switchIndex) : latched;
+    }
+
+
+    /** The layout of the switch on the board it was pressed on. */
     private SwitchLayout getLayout (final int switchIndex)
     {
-        return this.getBoard ().getLayout (switchIndex);
+        final ModeBoard latched = this.pressBoards[switchIndex];
+        return (latched == null ? this.getBoard () : latched).getLayout (switchIndex);
     }
 
 

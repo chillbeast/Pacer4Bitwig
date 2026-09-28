@@ -18,6 +18,8 @@ import java.util.function.LongSupplier;
  * double-tap action instead of a second tap.</li>
  * <li>A hold can require the switch to stay down for longer than the framework's hold time, which protects
  * destructive actions. An optional release action runs on every release.</li>
+ * <li>Whether the tap fires on press or on release is decided once, when the switch goes down: what the switch does
+ * can change while it is held (a mode change), and the release must finish the press that started.</li>
  * </ul>
  */
 public class TapHoldCommand implements TriggerCommand
@@ -44,6 +46,7 @@ public class TapHoldCommand implements TriggerCommand
     private final LongSupplier    extraHoldMillis;
     private final Scheduler       scheduler;
 
+    private Runnable              press;
     private Runnable              doubleTap;
     private BooleanSupplier       doubleTapEnabled = () -> false;
     private LongSupplier          doubleTapWindow  = () -> 0;
@@ -51,6 +54,7 @@ public class TapHoldCommand implements TriggerCommand
 
     private boolean               holdSeen;
     private boolean               pressed;
+    private boolean               tapFiredOnPress;
     private int                   pressGeneration;
     private long                  lastTapAt        = NO_TAP;
 
@@ -93,6 +97,20 @@ public class TapHoldCommand implements TriggerCommand
 
 
     /**
+     * Add a press action, which runs first on every press - before the tap logic asks anything - so the caller can
+     * latch what this press is for.
+     *
+     * @param action The action
+     * @return This command
+     */
+    public TapHoldCommand withPress (final Runnable action)
+    {
+        this.press = action;
+        return this;
+    }
+
+
+    /**
      * Add a double-tap action.
      *
      * @param action Runs instead of the second of two quick taps
@@ -120,7 +138,10 @@ public class TapHoldCommand implements TriggerCommand
             this.pressed = true;
             this.pressGeneration++;
             this.holdSeen = false;
-            if (this.tapOnPress.getAsBoolean ())
+            if (this.press != null)
+                this.press.run ();
+            this.tapFiredOnPress = this.tapOnPress.getAsBoolean ();
+            if (this.tapFiredOnPress)
                 this.fireTap ();
         }
         else if (event == ButtonEvent.LONG)
@@ -153,7 +174,7 @@ public class TapHoldCommand implements TriggerCommand
             this.pressed = false;
             if (this.release != null)
                 this.release.run ();
-            if (!this.holdSeen && !this.tapOnPress.getAsBoolean ())
+            if (!this.holdSeen && !this.tapFiredOnPress)
                 this.fireTap ();
             this.holdSeen = false;
         }

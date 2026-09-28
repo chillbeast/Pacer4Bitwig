@@ -10,12 +10,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-    CMD_GET, OBJ_ALL, OBJ_NAME, TGT_BACKUP, TGT_PRESET,
-    concat, isValidPacerMessage, openMidi, presetIndex, presetName, requestFromPacer, timestamp
+    CMD_GET, MESSAGES_PER_PRESET, OBJ_ALL, OBJ_NAME, TGT_BACKUP, TGT_PRESET,
+    concat, isValidPacerMessage, openMidi, presetDumpProblem, presetIndex, presetName, requestFromPacer, timestamp
 } from './lib/pacer.mjs';
 
-/** A preset is 189 SysEx messages; a full dump is CUR + A1..D6 plus the global settings (docs/PACER-MAP.md). */
-const MESSAGES_PER_PRESET = 189;
+/** A full dump is CUR + A1..D6 plus the global settings (docs/PACER-MAP.md). */
 const PRESET_COUNT = 25;
 const GLOBAL_MESSAGES = 37;
 
@@ -59,7 +58,9 @@ if (!presetArg)
     for (let i = 0; i < PRESET_COUNT; i++)
         if (!names.has (i))
             missing.push (presetName (i));
-const complete = messages.length === expected && missing.length === 0 && badChecksums === 0;
+const complete = presetArg
+    ? presetDumpProblem (messages, presetIndex (presetArg)) === null
+    : messages.length === expected && missing.length === 0 && badChecksums === 0;
 
 const root = join (dirname (fileURLToPath (import.meta.url)), '..', 'backups');
 mkdirSync (root, { recursive: true });

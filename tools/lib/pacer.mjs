@@ -17,6 +17,9 @@ export const SWITCH_OBJECTS = [0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x14, 0x15, 0
 export const FOOTSWITCH_OBJECTS = [0x18, 0x19, 0x1A, 0x1B];
 export const EXPRESSION_OBJECTS = [0x36, 0x37];
 
+/** A preset is exactly 189 SysEx messages (docs/PACER-MAP.md). */
+export const MESSAGES_PER_PRESET = 189;
+
 export const MSG_CC = 0x00;             // expression pedal CC
 export const MSG_CC_TRIGGER = 0x40;     // switch: data1 = CC, data2 = down value, data3 = up value
 export const MSG_LOAD_CC = 0x65;        // preset MIDI "on load" CC
@@ -64,6 +67,29 @@ export function isValidPacerMessage (m)
     if (m.length < 9 || HEADER.some ((b, i) => m[i] !== b) || m[m.length - 1] !== 0xF7)
         return false;
     return checksum (Array.from (m.subarray (5, m.length - 2))) === m[m.length - 2];
+}
+
+/**
+ * Why a one-preset dump cannot be trusted as an undo, or null if it can. A dump can come back short - the Pacer simply
+ * stops answering - and every message that did arrive still has a valid checksum, so the count is what gives it away.
+ *
+ * @param {Uint8Array[]} messages The reply to a GET of one whole preset
+ * @param {number} index The preset index that was requested
+ * @returns {string|null} What is wrong, or null
+ */
+export function presetDumpProblem (messages, index)
+{
+    if (messages.length !== MESSAGES_PER_PRESET)
+        return `${messages.length} of ${MESSAGES_PER_PRESET} messages arrived`;
+    const invalid = messages.filter (m => !isValidPacerMessage (m)).length;
+    if (invalid > 0)
+        return `${invalid} messages have a bad checksum`;
+    const foreign = messages.filter (m => m[6] !== TGT_PRESET || m[7] !== index).length;
+    if (foreign > 0)
+        return `${foreign} messages belong to another preset`;
+    if (!messages.some (m => m[8] === OBJ_NAME))
+        return 'the preset name is missing';
+    return null;
 }
 
 // ---- MIDI ports (USB port 1 only; port 2 is Nektar's DAW integration) -------------------------------------------

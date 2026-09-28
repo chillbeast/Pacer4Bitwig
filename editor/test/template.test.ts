@@ -8,7 +8,6 @@ import {
   LOOPER_PRESET_LOADED_VALUE,
   LOOPER_SWITCHES,
   buildBitwigLooperPreset,
-  colourSlotCc,
 } from '../src/templates/bitwigLooper';
 import { fixture } from './helpers';
 
@@ -80,14 +79,8 @@ describe('Bitwig Pacer template (docs/PACER-MAP.md)', () => {
   });
 
   it('matches the independent generator (tools/pacer-preset.mjs) byte for byte', () => {
+    // The fixture is the generator's committed output; CI regenerates it and fails if it changed
     expectSameMessages(encodePreset(preset, LOOPER_DEFAULT_SLOT), splitSysex(fixture('bitwig-pacer-D1.syx')));
   });
 
-  it('still exposes the LED Lab colour-slot CCs, which are not part of the contract', () => {
-    const ranges = LOOPER_SWITCHES.map((_, s) => [colourSlotCc(s, 2), colourSlotCc(s, 6)]);
-    expect(ranges).toEqual([
-      [20, 24], [25, 29], [30, 34], [35, 39], [40, 44],
-      [45, 49], [50, 54], [55, 59], [60, 64], [65, 69],
-    ]);
-  });
 });

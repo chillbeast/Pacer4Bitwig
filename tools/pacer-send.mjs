@@ -10,8 +10,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-    CMD_GET, CMD_SET, OBJ_ALL, TGT_PRESET, concat, findPacerPort, isValidPacerMessage, openMidi, presetIndex,
-    presetName, requestFromPacer, splitSysex, timestamp
+    CMD_GET, CMD_SET, OBJ_ALL, TGT_PRESET, concat, findPacerPort, isValidPacerMessage, openMidi, presetDumpProblem,
+    presetIndex, presetName, requestFromPacer, splitSysex, timestamp
 } from './lib/pacer.mjs';
 
 const DELAY_MS = 10;
@@ -50,11 +50,19 @@ if (backup.length === 0)
     console.error ('No reply to the backup request - not writing.');
     process.exit (2);
 }
+// The backup is the undo for this write, so a partial one must stop it: writing over the slot would lose whatever
+// did not come back
+const problem = presetDumpProblem (backup, idx);
 const root = join (dirname (fileURLToPath (import.meta.url)), '..', 'backups');
 mkdirSync (root, { recursive: true });
-const backupFile = join (root, `pacer-${presetName (idx)}-before-write-${timestamp ()}.syx`);
+const backupFile = join (root, `pacer-${presetName (idx)}-before-write-${timestamp ()}${problem ? '-INCOMPLETE' : ''}.syx`);
 writeFileSync (backupFile, concat (backup));
 console.log (`  ${backup.length} messages -> ${backupFile}`);
+if (problem)
+{
+    console.error (`The backup is incomplete (${problem}) - not writing. Run the command again; a short reply is usually a one-off.`);
+    process.exit (2);
+}
 
 const output = new midi.Output ();
 const port = findPacerPort (output);

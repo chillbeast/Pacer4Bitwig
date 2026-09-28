@@ -34,7 +34,8 @@ if (readOnly || text === undefined)
     process.exit (0);
 }
 
-const chars = [...(pad ? text.padEnd (5).slice (0, 5) : text)].map (c => c.charCodeAt (0));
+// Preset names are five characters; only lengths 1-5 were tried on hardware, so never send more
+const chars = [...(pad ? text.padEnd (5) : text).slice (0, 5)].map (c => c.charCodeAt (0));
 if (chars.some (c => c > 0x7F))
 {
     console.error ('Name must be 7-bit ASCII.');

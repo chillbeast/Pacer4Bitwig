@@ -115,6 +115,11 @@ the whole board without selecting another preset, both rest on this.
   The host can re-write the name when the CC arrives and win - one extra message per press.
 - **Reading back:** a GET of preset index `0` mirrors RAM, so it verifies live edits; a GET of the stored slot reads
   EEPROM and will not show them. Allow ~250 ms after a write, or the GET still returns the old value.
+- **The preset check** reads only the name: `02 01 00 01` (GET, preset, index 0, object 0x01), answered - like any
+  dump - in the SET layout `01 01 00 01 01 <len> <chars>`. The extension's own names, or the stored name `PACER`,
+  mean the Bitwig preset is loaded; anything else means another one, and live writes stop until CC 119. **Not
+  verified yet:** whether the Pacer answers a GET of the name object alone (whole-preset GETs are proven), and
+  whether a GET shows on its display like a SET does.
 - **No EEPROM wear:** after a session of live writes the stored slot read back unchanged.
 
 ### The colour table (Pacer user guide, page 12)

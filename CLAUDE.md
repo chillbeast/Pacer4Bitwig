@@ -120,13 +120,14 @@ extension when the file changes (so `install` restarts it under a user who is te
   (`VolumeFade`) and exclusive arm. Anything that has to watch Bitwig state over time goes there (or in
   `FxController.tick`).
 - `TapHoldCommand` owns tap-vs-hold timing, including the extra delay for destructive holds (it tracks press
-  generations so a re-press never inherits an old hold).
+  generations so a re-press never inherits an old hold). `withDelayedTap` is SW 6's alone: with a *SW 6 double-tap*
+  set, its tap waits out the window so a double-tap never toggles the mode first (a hold runs a waiting tap first).
 - Fades write `getVolumeParameter ().setNormalizedValue (...)` per tick and remember the original volumes
   (`IValueChanger.toNormalizedValue (track.getVolume ())`); a fade-out waits for the loops to really stop before
   restoring them.
 - Double/halve use the launcher cursor clip: `model.ensureClip ()` in `createModel` creates it (init phase); select
   the slot, then act on `model.getCursorClip ()` ~150 ms later once the cursor has followed.
-- **A switch is a loop switch when its tap is a loop-track action** (`Action.LOOP_1..6`, `SwitchLayout.loop (n)`,
+- **A switch is a loop switch when its tap is a loop-track action** (`Action.LOOP_1..8`, `SwitchLayout.loop (n)`,
   `ModeBoard.getLoopTrack`) *and* the project has that many loop tracks (`getLoopTrackCount`); the Looper mode is
   `loop (0)..loop (3)` on SW 1-4, like the default *Loop tracks* = 4. A loop switch's own hold/double-tap are
   ignored: `LooperController.loopSwitch*` take the *track* index and apply the Looper settings. A footswitch jack
@@ -175,9 +176,34 @@ extension when the file changes (so `install` restarts it under a user who is te
   as soon as it starts (`closeWhenRecording`, checked in `tick`).
 - Quantized mutes (`pendingMutes`) apply in `tick` at `MuteTiming.nextBoundary`; anything that moves bank positions
   (track scroll) applies them first.
-- Pedals: a linear parameter target is bound directly (Bitwig binding, take-over etc.); MIDI and FX targets and
-  response curves unbind the parameter so the pedal's `ContinuousCommand` runs (`PacerController.pedalMoved`).
-  Changing the active mode re-binds both pedals.
+- Pedals: a linear parameter target is bound directly (Bitwig binding, take-over etc.); MIDI, FX and loop targets,
+  response curves and *Pedal takeover = Pick up* unbind the parameter so the pedal's `ContinuousCommand` runs
+  (`PacerController.pedalMoved`). Changing the active mode re-binds both pedals, and every re-bind resets the
+  pedal's `looper/PedalPickup` (`pedalRetargeted`). MIDI targets pick up from `midiSent`, the loop fader from
+  `looper/LoopsLevel.getGain`.
+- **The shift layer** (`mode/ShiftLayer`, `mode/ShiftedBoard`): `PacerController.getBoard ()` returns the active
+  board seen through its shift layer while it is up (never while the menu is open) - so roles, loop switches,
+  colours and the press latch work unchanged; `getBaseBoard ()` is for identity checks. A switch whose shift layout
+  is unassigned keeps its normal one; SW 6 is always the mode switch. Shift layouts: `Mode`'s second array (null =
+  none), `CustomBoard`'s shift settings on top. "For the next press" is used up in `press` (not by a switch whose
+  tap is itself a shift action); "while held" needs the control down (`controlDown`, switches 0-9 then jacks,
+  `performingControl`), else it latches. A mode change drops the layer.
+- **Event words** (`REC 2`, `4 BAR`): the looper and FX controller publish them through `setEventSink` (wired in
+  the setup) to `PacerController.showEvent`, and `getDisplayName` shows the word for `EVENT_MILLIS`. At most five
+  characters; each costs two name writes, so only for things the player did, never per beat.
+- **The preset check** (`live/PresetGuard`, pure): `LiveBoard` writes through a `WriteGate` (`GuardedGate`); a
+  held-back write is not remembered as done, so it goes out on the first paint after the gate opens. The setup's
+  `checkPreset` (every tick) sends `PacerSysex.requestName ()` via `LiveBoard.request` when the guard asks, and
+  `sysexReceived` feeds the answers back; CC 119 confirms directly. A Pacer that never answers is treated as
+  before. Not verified on hardware yet (does it answer a GET of the name alone, does a GET flash `LOAD SYS`).
+- **Errors are contained** (`util/FailSoft`): every entry point the setup registers - switch and jack commands and
+  their scheduled holds, lights, pedals, SysEx, CC 119, settings observers, the tick - runs through `failSoft`, and
+  the tick reschedules itself in `finally`. New entry points go through it too. `util/Diagnostics` logs presses,
+  actions, modes, shift and the preset check to the console (setting), SysEx at the highest level.
+- **LED flushes:** the tick requests a flush only while `PacerController.isAnimating ()` (a blink, the beat counter,
+  the LED test) or within a second of `eventHappened ()` in the setup; Bitwig flushes on its own state changes.
+  Anything that changes what the LEDs show *without* a Bitwig state change (a press, CC 119, a settings observer, a
+  new timer) must call `eventHappened ()` or `forceFlush`.
 
 ## Framework notes (DrivenByMoss)
 
@@ -185,7 +211,8 @@ extension when the file changes (so `install` restarts it under a user who is te
   `trackBank.getSceneBank ()` moves the row for every loop track.
 - Lights: `surface.createLight (null, IntSupplier, IntConsumer, IntFunction<ColorEx>, button)`. The consumer only runs
   when the supplied int changes or on `forceFlush`. Blinking = the supplier reads the wall clock, and a
-  `host.scheduleTask` tick calls `ControllerHost.requestFlush ()` every 40 ms.
+  `host.scheduleTask` tick calls `ControllerHost.requestFlush ()` every 40 ms while something moves. Since Bitwig 3.1
+  flush only happens on state changes otherwise (DrivenByMoss' `ModelImpl.flushWorkaround`).
 - The note input "PACER" passes channels 1-15 (`MidiFilters.allChannelsExcept`); channel 16 only reaches the
   hardware bindings. DrivenByMoss' `NoteInputImpl` cannot inject MIDI, so the setup calls `createInput (null)` (no
   note input) and the extension definition creates the Bitwig `NoteInput` itself (`NoteInputFactory`, init phase),

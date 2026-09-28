@@ -16,8 +16,8 @@ touched and nothing wears the EEPROM. See [docs/LIVE-COLOURS-AND-MODES.md](docs/
   on SW A / SW B with the loop track window on their holds, play/stop all on SW C and launcher overdub / metronome on
   SW D), *FX*
   (instruments on SW 1–4, snapshots on SW 5, their FX switches on SW A–D), *MIX* (solo, mute, input monitoring and the metronome) and
-  *SONG* (playing, stopping and navigating scene rows). Modes are fixed for now; settings will come where they turn
-  out to matter.
+  *SONG* (playing, stopping and navigating scene rows). The built-in boards are fixed; the custom layout (below)
+  changes them.
 - **Modes on a footswitch jack:** new actions *Next mode*, *Previous mode (toggle)* and *Go to the … mode*, so a
   spare jack or switch can jump straight to one.
 - **Your own layout** (*Settings > Custom layout*): tap, double-tap, hold, colour and which of the switch's three
@@ -26,9 +26,9 @@ touched and nothing wears the EEPROM. See [docs/LIVE-COLOURS-AND-MODES.md](docs/
   mode* starts from the Looper's board, every switch setting defaults to *As in the mode*, and the Looper keeps its
   slot, name, pedals and beat counter. Tap tempo back on SW D is one setting. Editing it repaints the Pacer straight
   away.
-- **Loops anywhere:** *Loop track 1–6* as a tap makes any switch or footswitch jack a full loop switch for that track
+- **Loops anywhere:** *Loop track 1–8* as a tap makes any switch or footswitch jack a full loop switch for that track
   (hold, double-tap and hold to record included), so loops can sit on the top row or a jack. *Mute/unmute loop
-  track 1–6* gives each loop a mute switch of its own.
+  track 1–8* gives each loop a mute switch of its own. *Loop tracks* goes up to 8.
 - **The expression pedals follow the mode:** ten settings, *EXP 1 · Looper* through *EXP 2 · Custom*. On a Pacer
   with no spare footswitches this is what turns two controls into ten. Defaults: selected volume and master in the
   looper, the instrument's remotes 7 and 8 in FX, volume and send 1 in the mixer, master and a project remote in
@@ -50,6 +50,37 @@ touched and nothing wears the EEPROM. See [docs/LIVE-COLOURS-AND-MODES.md](docs/
   strip, the transport-icon row and the word row — and which one lights is ours to choose. MIX puts solo, mute,
   input monitoring and the metronome under `Solo`, `Mute`, `Rec Arm` and `Click`; SONG puts play, rewind, forward,
   stop and transport under the loop, ◀◀, ▶▶, ■ and ▶ icons. The panel labels itself.
+
+### Shift layer, pedals, display, robustness (new)
+
+- **A shift layer on every board.** Double-tap SW 6 (the new *SW 6 double-tap* setting, default *Shift layer
+  on/off*) and every switch with something on its shift layer does that; SW 6 turns gold. Actions *Shift layer
+  on/off*, *Shift layer for the next press* (SW 6 blinks gold) and *Shift layer while held* put it on a jack or a
+  switch too. The Looper's shift layer holds **loop tracks 5–8** on SW 1–4 (resting in cyan), mute all / reset, duplicate row,
+  status, fades and transport / tap tempo; the FX mode's holds FX 5, FX 6 and previous / next instrument. The custom
+  layout lays it out per switch (*Custom layout: shift layer*: shift tap / double-tap / hold, *As in the mode* by
+  default). A switch with nothing on its shift layer keeps its job; changing mode drops the layer.
+- **SW 6 double-tap** runs any action. So that a double-tap never toggles the mode first, SW 6's tap now waits for
+  the double-tap window; *Nothing* makes it instant again.
+- *Go to the Custom mode* action (goes to the mode the custom layout changes, if it changes one).
+- **Pedal takeover:** *Jump* (as before) or *Pick up* — after a mode change or a new target the pedal leaves the
+  target alone until it reaches or passes its value. MIDI targets pick up from the last value sent.
+- **Loop pedal targets:** loop track 1–8 volume, the loop being recorded (else the last recorded), and all loop
+  tracks at once keeping their balance.
+- **Events on the display:** `REC 2`, `COUNT`, `4 BAR` when a loop closes, `CLR 2`, `CLEAR`, `UNDO`, `REDO`,
+  `MUTE2`/`UNMT2`, `MUTED`/`UNMUT`, `STOP`, `PLAY`, `FDOUT`/`FD IN`, `RESET`, `SNAP2`/`SAVE2`, `SHIFT` — for 1.5 s,
+  then the name is back (*Show events on the display*).
+- **Bar counter:** *While recording, SW A-D count = Bars since the recording started*.
+- **The preset check:** the extension reads the loaded preset's name back before painting (and every 5 s) and leaves
+  another preset alone until the Bitwig preset is selected again; a Pacer unplugged and plugged back in is painted
+  again. *Check the Pacer is on its preset* (every 5 s and before painting / only before painting / off). Not yet
+  tried on hardware; a Pacer that does not answer is treated as before.
+- **Errors are contained:** an exception in the periodic tick used to stop it for good (no more LEDs, count-ins or
+  fades until a restart); now every entry point reports errors to the controller console (once as a notification)
+  and carries on.
+- **Console log for bug reports:** *Log to the controller console* — presses and what they were taken for, actions,
+  mode and shift changes, the preset check, optionally every SysEx message.
+- **Lighter when idle:** the LEDs are flushed on every tick only while one of them moves or just after a press.
 
 ### Changed
 

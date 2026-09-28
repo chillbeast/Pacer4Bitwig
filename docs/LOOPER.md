@@ -7,7 +7,7 @@ workflow, with LED feedback that follows the beat — and nearly everything abou
 
 ## 1. Prepare a Bitwig project
 
-1. Create your loop tracks next to each other, e.g. *Loop 1 … Loop 4* (the looper manages 1–6 tracks; setting
+1. Create your loop tracks next to each other, e.g. *Loop 1 … Loop 4* (the looper manages 1–8 tracks; setting
    *Loop tracks*).
    - **Audio loops:** audio tracks, input = your interface input, monitoring = *Auto*. The looper arms a track when
      it records and disarms it again once that loop is closed (*exclusive arm*), so your input is only monitored
@@ -86,6 +86,9 @@ mode:
 - then **tap a mode** on SW 1–5 — you go there and the menu closes. One press, one foot.
 - **tap SW 6** — closes the menu again without changing mode, so you can open it just to look. With the menu shut,
   a tap goes back to the mode you were in before (an A/B toggle).
+- **double-tap SW 6** — whatever *SW 6 double-tap* says: any action, by default the **shift layer** on/off (below).
+  So that a double-tap never toggles the mode first, SW 6's tap then waits out the *Double-tap speed* window before
+  it toggles; set *SW 6 double-tap* to *Nothing* for an instant tap. With the menu open a tap closes it at once.
 - the **navigation** slots leave the menu open, so you can step through rows or tracks with repeated presses
 
 | Held on SW 6 | |
@@ -118,8 +121,40 @@ play/stop all, moved to SW C, and launcher overdub (hold: metronome) sits on SW 
 | **EXP 2** | Master volume | – |
 
 A switch is a loop switch only while the project has that many loop tracks (*Loop tracks*), so with three tracks
-SW 4 does nothing. Tap tempo and transport play/stop are in the Song mode (SW 5, hold: tap tempo). To change any
-of it — tap tempo back on SW D, a fifth loop switch on SW 5, loops on the top row — see *Your own layout* below.
+SW 4 does nothing. Tap tempo and transport play/stop are in the Song mode (SW 5, hold: tap tempo) and on the shift
+layer's SW D. To change any of it — tap tempo back on SW D, a fifth loop switch on SW 5, loops on the top row — see
+*Your own layout* below.
+
+### The shift layer
+
+Every mode can have a second layer on the same switches. **Double-tap SW 6** (the default *SW 6 double-tap*) and
+SW 6 turns **gold**, the display says `SHIFT` for a moment, and every switch with something on its shift layer does
+that instead; double-tap again to go back. A switch with nothing on its shift layer keeps its normal job, and SW 6
+stays the mode switch. Changing mode drops the shift layer.
+
+Three actions raise it, for SW 6's double-tap, a footswitch jack, or any switch in your own layout:
+
+| Action | |
+|---|---|
+| **Shift layer on/off** | Latches it until the same action again (the default on SW 6's double-tap) |
+| **Shift layer for the next press** | Up for one switch press, then back — SW 6 blinks gold meanwhile. Asking again before that press cancels it |
+| **Shift layer while held** | Up while that switch or jack stays down: hold a footswitch on FS 1 with one foot, play the shifted switches with the other |
+
+The Looper's shift layer is where **loop tracks 5–8** live — set *Loop tracks* to 8 to use them:
+
+| Shifted | Tap | Hold |
+|---------|-----|------|
+| **SW 1–4** (loop switches, resting in cyan) | Smart loop on loop track 5–8 | Delete that loop |
+| **SW 5** | Mute/unmute all loops | Reset the looper |
+| **SW A** | Duplicate the row | – |
+| **SW B** | Show looper status | – |
+| **SW C** | Fade out and stop all loops | Fade the row in |
+| **SW D** | Transport play/stop | Tap tempo |
+
+The FX mode's shift layer puts FX 5 and FX 6 on SW A and SW B (hold: momentary) and previous / next instrument on
+SW C and SW D. The Mixer and Song modes have none yet — their switches keep their jobs when shifted. The custom
+layout lays out the shift layer too (*Custom layout: shift layer*, below), so this is the place to build your own
+workflow.
 
 ### Mixer mode (`MIX`)
 
@@ -139,6 +174,7 @@ the track selected in Bitwig, SW C is undo/redo, SW D shows the status.
 
 The pedalboard of [docs/FX-PRESET.md](FX-PRESET.md): SW 1–4 focus instruments A–D (double-tap mutes, hold assigns
 the track selected in Bitwig), SW 5 steps through snapshots, SW A–D are the focused instrument's FX switches 1–4.
+Shifted, SW A–B are FX 5–6 and SW C–D step through the instruments.
 
 ### Your own layout: change a mode, or build a fifth (`CUST`)
 
@@ -160,14 +196,19 @@ set what differs:
 
 Plus **Name on the display** (five characters; blank keeps the mode's own name, `CUST` for a mode of its own).
 
+**The shift layer** has its own category, *Custom layout: shift layer*: **SW n · shift tap / shift double-tap /
+shift hold**, each starting at *As in the mode* — the mode's own shift layer, which for most switches means "keeps
+its normal job". Set any of them and the switch does that while shift is up; its colour then comes from the action
+and it lights the same LED as normally. A switch whose shift gestures all do *Nothing* keeps its normal job.
+
 **Example — tap tempo back on the Looper's SW D:** *The custom layout changes* = *The Looper mode (changes it)*,
 *SW D · tap* = *Tap tempo*, *SW D · hold* = *Transport play/stop*. Everything else stays the Looper.
 
-**Loops anywhere.** Give a switch the tap *Loop track 1* … *Loop track 6* and it is a full loop switch for that
+**Loops anywhere.** Give a switch the tap *Loop track 1* … *Loop track 8* and it is a full loop switch for that
 track: the smart loop, *Hold a loop switch*, *Double-tap a loop switch*, hold to record and the loop LED all apply
-(its own hold and double-tap settings are ignored). So loops can sit on the top row, and a footswitch jack set to
-*Loop track n* is a loop switch too. Next to them, *Mute/unmute loop track 1–6* gives each loop a mute switch of its
-own, looper-pedal style (they honour *Mute timing*).
+(its own hold and double-tap settings are ignored). So loops can sit on the top row, on the shift layer, and a
+footswitch jack set to *Loop track n* is a loop switch too. Next to them, *Mute/unmute loop track 1–8* gives each
+loop a mute switch of its own, looper-pedal style (they honour *Mute timing*).
 
 Changing any of it repaints the Pacer at once while you are standing in the mode.
 
@@ -214,7 +255,9 @@ way; on slots that already hold a loop the switch works as usual (tap and hold).
   transport with the metronome on, counts in, and starts recording on the next bar. The metronome switches off again
   as recording starts if it was off before. Tap the same switch during the count-in to cancel.
 - **Beat counter:** while counting in or waiting to record (amber) and while recording (red), the top row SW A–D
-  shows the beat of the bar — A = 1, B = 2, C = 3, D = 4 (setting *Count beats on SW A-D*).
+  shows the beat of the bar — A = 1, B = 2, C = 3, D = 4 (setting *Count beats on SW A-D*). With *While recording,
+  SW A-D count = Bars since the recording started* they count bars instead once the recording runs — A = bar 1,
+  B = bar 2 … and A again for bar 5; count-ins always count beats.
 - **Loop length = Match the first loop of the row:** the first loop of a row is recorded free; its length (in bars)
   becomes the fixed length of every later loop in that row, which then close by themselves. When the row is empty
   again the next first loop is free again.
@@ -251,12 +294,13 @@ and hold:
 
 | Group | Actions |
 |-------|---------|
-| Loops | loop track 1–6 (as a tap: makes the switch or jack a loop switch) · mute/unmute loop track 1–6 · one-button looper · clear the last recorded loop · smart loop / stop / mute / solo / clear the selected track · input monitoring on/off · double / halve the selected loop · select previous / next loop track |
+| Loops | loop track 1–8 (as a tap: makes the switch or jack a loop switch) · mute/unmute loop track 1–8 · one-button looper · clear the last recorded loop · smart loop / stop / mute / solo / clear the selected track · input monitoring on/off · double / halve the selected loop · select previous / next loop track |
 | Row | play row / stop all · stop all · play row · clear row · mute/unmute all loops · fade out and stop · fade in the row · reset the looper |
 | Navigation | previous / next row · duplicate row · move loop tracks left / right · loop tracks start at the selected track |
 | Transport & misc | undo · redo · launcher overdub · metronome · tap tempo · transport play/stop · show looper status · LED test |
 | FX | FX 1–6 of the focused instrument · focus instrument A–D / next / previous · mute instrument A–D / the focused one · assign the selected track to instrument A–D · next snapshot · back to snapshot 1 · store the snapshot |
-| Modes | next mode · previous mode (toggle) · go to the Looper / FX / Mixer / Song mode |
+| Modes | next mode · previous mode (toggle) · go to the Looper / FX / Mixer / Song / Custom mode (the custom one goes to the mode the custom layout changes, if it changes one) |
+| Shift | shift layer on/off · shift layer for the next press · shift layer while held |
 | Hold only | momentary: run the tap again on release |
 
 ### The pedals follow the mode
@@ -281,8 +325,34 @@ the **FX** mode names the focused instrument, the **Looper** and **Song** modes 
 name in Bitwig, its name from *Names for new rows*, or `ROW 3`. Turn it off with *Show what the mode is doing on the
 display*.
 
+**Events** take the display for a moment and then give it back (*Show events on the display*, on by default):
+
+| Word | When |
+|------|------|
+| `REC 2` | loop 2 starts recording (`COUNT` while a count-in runs) |
+| `4 BAR` | a loop closed, and how long it is |
+| `CLR 2` · `CLEAR` | loop 2 was cleared · the whole row was |
+| `UNDO` · `REDO` | undo, redo |
+| `MUTE2` · `UNMT2` | loop 2 muted or unmuted (asked for — a waiting mute shows it when you press) |
+| `MUTED` · `UNMUT` | all loops muted or unmuted |
+| `STOP` · `PLAY` | stop all, play the row |
+| `FDOUT` · `FD IN` | a fade started |
+| `RESET` | the looper was reset |
+| `SNAP2` · `SAVE2` | FX snapshot 2 recalled · stored |
+| `SHIFT` | the shift layer went up |
+
+Each event costs two name writes (the word, then the name again 1.5 s later), and each flashes `LOAD SYS`.
+
 Switching off the extension, or closing Bitwig, darkens the whole board and writes `OFF`, so a Pacer nobody is
 driving does not look live. Selecting any preset on it brings its own colours back.
+
+**Another preset loaded.** The extension paints *whatever preset is loaded*, so it checks first that it is still
+its own: it reads the loaded preset's name back (a read-only request) before painting when its last answer is more
+than 1.5 s old, and every 5 s. On another preset it leaves the Pacer alone — Bitwig says so once — until you select
+the Bitwig preset again. The same check notices a Pacer that was unplugged and plugged back in and paints it again.
+*Check the Pacer is on its preset* sets how: every 5 s and before painting (default), only before painting, or off.
+If the display flashes `LOAD SYS` every five seconds, choose *Only before painting* — whether the Pacer shows the
+request on its display has not been tested yet.
 
 ### Expression pedals
 
@@ -290,6 +360,7 @@ driving does not look live. Selecting any preset on it brings its own colours ba
 |------|---------|
 | Bitwig parameters | selected track volume, pan, send 1, send 2 · master volume · selected device remote controls 1–2 · project remote controls 1–2 |
 | FX instrument | focused instrument: remote control 1–8 (its "Pacer" page) |
+| Loops | loop track 1–8: volume (follows the loop track window) · the loop being recorded, else the one recorded last in the row, else the selected loop track: volume · all loop tracks: volume, keeping their balance |
 | MIDI into the "PACER" note input | mod wheel (CC 1) · breath (CC 2) · channel volume (CC 7) · expression (CC 11) · brightness / MPE timbre (CC 74) · channel pressure · pitch bend up (heel = centre, toe = full up) |
 
 MIDI targets reach every instrument on a track whose input is "PACER" or *All ins*, on the channel set in
@@ -300,6 +371,19 @@ swells —, *Fast start* for fine control near the toe) and a **range**: *heel (
 e.g. 20 % – 70 % to keep a filter in its sweet spot. A heel value above the toe value reverses the pedal. A parameter
 target with linear response and full range is bound directly (Bitwig's own pickup behaviour); anything else is
 calculated by the extension.
+
+**Pedal takeover** decides what the first move does after a pedal got its target — a mode change, a new target in
+the settings, startup. *Jump* (the default) sets the target to where the pedal is. *Pick up* leaves the target where
+it is until the pedal reaches it, or passes it between two moves, and follows from then on: switch from the Looper
+(master volume) to the FX mode and back with the pedal at the heel, and the master stays put until you bring the
+pedal up to it. MIDI targets pick up from the last value the pedal sent them. With pick-up every target is
+calculated by the extension, none is bound directly.
+
+**All loop tracks** is one fader over the loops that keeps their balance: at the toe every loop track is at its own
+level, at the heel all are silent, in between each is its level times the pedal. The levels are taken from the
+tracks the first time the pedal moves, and again whenever the pedal leaves the toe — so set the balance in Bitwig
+with the pedal at the toe. **The loop being recorded** follows the recording from track to track (with pick-up, a
+new recording is picked up again).
 
 ### Nektar DAW mode (Track and Transport presets)
 
@@ -348,7 +432,8 @@ Assignable switches light up when their tap action has something to do: undo/red
 all: green playing, amber loaded), previous/next row available (next row shows blue when it would add a scene),
 overdub on (red), metronome on, transport running (green), any loop muted (blue), selected loop soloed (amber),
 input monitoring on (green), reset available (purple). The one-button looper shows the loop it is busy with; fade
-actions blink while a fade runs. A switch's LED follows its *tap* action, so a switch whose tap is **Tap tempo** (in the
+actions blink while a fade runs. SW 6 is white, gold while the shift layer is up and blinking gold while it is up
+for the next press only; a switch whose tap raises the shift layer lights gold the same way. A switch's LED follows its *tap* action, so a switch whose tap is **Tap tempo** (in the
 custom layout) flashes green on every beat; the Song mode's SW 5 (tap: transport, hold: tap tempo) shows whether the
 transport runs. The beat counter temporarily takes over SW A–D in the Looper mode (section 5).
 
@@ -362,13 +447,16 @@ red, green, amber, blue, purple for a second each.
 | Modes | Mode at startup | Whatever this project used last (default) · Looper · FX pedalboard · Mixer · Song · Custom |
 | | Put the mode name back on the display after a press | On · Off (each restore is one SysEx, which flashes `LOAD SYS`) |
 | | Show what the mode is doing on the display | On · Off |
+| | Show events on the display (REC 2, 4 BAR, UNDO, SNAP2...) | On · Off (each event is two name writes) |
+| | SW 6 double-tap | any action, default *Shift layer on/off*; *Nothing* makes SW 6's tap instant again |
 | Custom layout | The custom layout changes | Its own mode (CUST, starts empty — default) · The Looper / FX / Mixer / Song mode (changes it) |
 | | Name on the display | 5 characters (blank: the mode's own name) |
-| | SW n · tap / double-tap / hold (SW 1–5, SW A–D) | As in the mode (default) · any action, including *Loop track 1–6* |
+| | SW n · tap / double-tap / hold (SW 1–5, SW A–D) | As in the mode (default) · any action, including *Loop track 1–8* |
 | | SW n · colour | Automatic (as in the mode, or from the action) · Off · the Pacer's twelve colours |
 | | SW n · LED | As in the mode (default) · Colour strip · Icon row · Word row (SW 1–5 only: SW A–D have no word row) |
+| Custom layout: shift layer | SW n · shift tap / shift double-tap / shift hold | As in the mode (default: the mode's own shift layer) · any action |
 | Looper | Looper MIDI channel (must match the Pacer preset) | 1–16 (default 16; changing it restarts the extension) |
-| | Loop tracks | 1–6 |
+| | Loop tracks | 1–8 (default 4; loop tracks 5–8 are on the Looper's shift layer) |
 | | Loop switch mode | Tap to record, tap again to close · Hold to record, release to close |
 | | Loop switch fires on press | On (tight timing) · Off (on release; hold no longer runs the tap) |
 | | Tap on a playing loop | Stop · Mute/unmute · Toggle launcher overdub (note clips) · Nothing |
@@ -393,14 +481,18 @@ red, green, amber, blue, purple for a second each.
 | | EXP 1, EXP 2 response | Linear · Inverted · Slow start · Fast start |
 | | EXP 1, EXP 2 heel (minimum) / toe (maximum) | 0–100 % |
 | | MIDI channel for pedal messages | 1–16 |
+| | Pedal takeover (after a mode change or a new target) | Jump to the pedal (absolute, default) · Pick up: wait until the pedal passes the current value |
 | Pacer LEDs | Blink in time with the transport | On · Off |
 | | Count beats on SW A-D (count-in and recording) | On · Off |
+| | While recording, SW A-D count | Beats of the bar (default) · Bars since the recording started |
+| | Check the Pacer is on its preset | Before painting, and every 5 s (default) · Only before painting · Off: paint whatever preset is loaded |
 | | Loop colour: stopped / playing / recording / muted | White · Red · Green · Amber · Blue · Purple |
 | | Test the LEDs | button |
 | Clip launcher | Launch quantization | Keep project setting · None · 1/16 … 8 bars |
 | | Loop length | Keep project setting · Free (press again to close) · Match the first loop of the row · 1 / 2 / 4 / 8 bars (assumes 4/4) |
 | Nektar DAW mode | Serve the Track and Transport presets | Off · On |
 | Feedback | Pop-up notifications | All · Only important ones · Off |
+| | Log to the controller console (for bug reports) | Off (default) · Presses, actions and modes · Everything, with every SysEx message |
 | **Project: PACER FX** | Instrument A–D (track name) · Focused instrument | text · A–D |
 
 The *PACER FX* category is saved with each project, but Bitwig 6 shows project settings nowhere in its own panels
@@ -441,6 +533,10 @@ How you hear your instrument while looping audio:
 | I cannot find the project settings | Bitwig 6 does not show a controller's project settings in its panels. They are still saved with the project; set them from the Pacer (in the FX mode, hold SW 1–4 to assign an instrument). |
 | I hear my input twice | Several armed tracks with auto monitoring — keep *Exclusive arm* on, or use a dedicated input track. |
 | Nothing changes after editing settings | Most settings apply immediately; *Looper MIDI channel* restarts the extension. Check Bitwig's controller console for errors. |
+| "The Pacer is on another preset" and the board stays as it is | The extension leaves other presets alone. Select the Bitwig preset (D1) again. If D1 *is* loaded, its name may not be `PACER` (renamed?) — select it again so it announces itself, or set *Check the Pacer is on its preset* to *Off*. |
+| The display flashes `LOAD SYS` every five seconds | The preset check's regular question shows on the Pacer: set *Check the Pacer is on its preset* to *Only before painting*. |
+| SW 6 takes a moment to change the mode | It waits to see whether a double-tap follows. Set *SW 6 double-tap* to *Nothing* for an instant tap (the shift layer can go on a jack instead). |
+| "PACER Looper caught an error … and carried on" | Something went wrong and was contained. Set *Log to the controller console* to *Presses, actions and modes*, do it again, and send the lines from Bitwig's controller console with the report. |
 
 ## 10. Hardware test checklist
 
@@ -510,3 +606,30 @@ Run these once with the Pacer on preset D1 and the controller added in Bitwig.
 42. [ ] *Previous / next row while loops play = Move to it and play it*: with row 1 playing, SW B moves to row 2 and
         plays it at the next launch point; moving to an empty row keeps row 1 playing.
 43. [ ] In the Looper, the display reads the row (`ROW 1`, or the scene's name) and changes with SW A / SW B.
+
+### Shift layer, pedals, display
+
+44. [ ] Double-tap SW 6 in the Looper: SW 6 turns gold, the display shows `SHIFT` for a moment, SW 1–4 rest in cyan.
+        Double-tap again: back to normal. A single tap still toggles the mode, a moment later.
+45. [ ] *Loop tracks* = 8, shift up: SW 1 records on loop track 5, and its LED follows loop 5; shift down, SW 1 is
+        loop 1 again.
+46. [ ] *FS 1 tap = Shift layer while held*: hold FS 1 and tap SW D — the transport starts; let go of FS 1 and tap
+        SW D — launcher overdub.
+47. [ ] *FS 2 tap = Shift layer for the next press*: SW 6 blinks gold; the next switch runs its shifted job, then the
+        layer is gone.
+48. [ ] *SW 6 double-tap = Nothing*: SW 6's tap changes the mode instantly again.
+49. [ ] Custom layout changes the Looper, *SW 5 · shift tap = Tap tempo*: shifted, SW 5 taps the tempo; unshifted it
+        still undoes.
+50. [ ] *Pedal takeover = Pick up*, EXP 2 on master volume: go to the FX mode and back with the pedal at the heel —
+        the master stays put until the pedal comes up to it, then follows.
+51. [ ] EXP 1 · Looper = *All loop tracks: volume*: with two loops at different levels, the heel silences both, the
+        toe brings both back at their own levels.
+52. [ ] EXP 1 · Looper = *Loop being recorded*: while loop 2 records, the pedal rides loop 2's volume.
+53. [ ] Recording shows `REC 1`, closing a 2-bar loop shows `2 BAR`, undo shows `UNDO`; each goes back to the row name.
+54. [ ] *While recording, SW A-D count = Bars*: while a loop records, the lit switch moves once per bar.
+55. [ ] Loops playing, select another Pacer preset: its colours do not change and Bitwig says the Pacer is on another
+        preset. Back on D1 everything is painted again. **Also note whether the display flashes `LOAD SYS` every five
+        seconds** while nothing happens.
+56. [ ] On D1, unplug the Pacer's USB and plug it back in: within a few seconds the board is painted again.
+57. [ ] *Log to the controller console = Presses, actions and modes*: presses and actions appear in Bitwig's controller
+        console.

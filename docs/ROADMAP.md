@@ -23,17 +23,54 @@ Ideas that are not built yet, with what is already known about them. Pick one, o
   wizard with per-control differences, and an installable offline app (PWA) hosted on GitHub Pages
 - FX mode: instrument focus, FX switches on track remote controls or devices, snapshots, momentary holds
   ([FX-PRESET.md](FX-PRESET.md))
+- A shift layer on every board (SW 6 double-tap, or a jack/switch: latched, for one press, while held) with loop
+  tracks 5-8 on the Looper's; up to 8 loop tracks; SW 6's double-tap as a setting
+- Pedal pick-up takeover, and loop pedal targets (a loop track, the loop being recorded, all loops keeping their
+  balance)
+- Event words on the display (`REC 2`, `4 BAR`, `UNDO`...), a bar counter while recording
+- The preset check (live writes stop on another preset, a replugged Pacer is repainted), errors contained and
+  reported, a console log for bug reports, fewer LED flushes when nothing moves
 
 ## Bitwig extension
 
-### Guard live writes when another preset is loaded
+### The preset check (built, not yet tried on hardware)
 
-A known limitation. The extension paints preset index 0 (the loaded preset's RAM copy) whatever preset is loaded:
-it only learns that its own preset is up from CC 119, and nothing tells it when the Pacer leaves it. After switching
-the Pacer to another preset, state changes can recolour that preset's switches in RAM (and flash `LOAD SYS`) until a
-preset is selected again, which throws the edits away. Ideas: read the name back before a burst (a GET of preset
-index 0 mirrors RAM) and skip it unless it is the name the extension last wrote, or go quiet when messages arrive
-that the Bitwig Pacer preset never sends.
+`live/PresetGuard` reads the loaded preset's name back with a GET of preset index 0, object 0x01, and stops live
+writes when it is not a name the extension wrote (or the stored `PACER`). Open questions for the hardware: does the
+Pacer answer a GET of the name object alone (the tools only ever asked for whole presets)? Does a GET flash
+`LOAD SYS` like a SET does - if so the 5 s heartbeat should default to off? If the Pacer never answers, the guard
+stands aside and everything behaves as before. A cheaper signal to add later: go quiet as soon as messages arrive
+that the Bitwig preset never sends (notes, CCs on other channels) - it needs a MIDI callback that sees what the note
+input consumes.
+
+### Shift layer follow-ups
+
+- Shift layers for the Mixer and Song modes (they have none; their switches keep their jobs when shifted).
+- A shift layer for the footswitch jacks, and jacks that follow the mode like the pedals do.
+- A colour setting for shifted switches in the custom layout (now automatic from the action).
+- Shift on SW 6 as a hold-and-tap chord is impossible with one foot; a "shift while held" on SW 6 itself would clash
+  with the menu - the double-tap is the way in.
+
+### Logged ideas (not built yet)
+
+From the ideas list of wave 3, deferred until the shift layer has settled:
+
+- **Loop multiply:** a loop length option "multiples of the first loop" - later loops close at the next 2x/3x/4x of
+  the first loop's length.
+- **Chain recording:** closing a loop starts recording on the next empty track at once.
+- **Quantize MIDI loops on close** (`Clip.quantize` with a strength setting).
+- **Last-bar warning:** the recording loop blinks faster in its final bar when the length is fixed or matched (a
+  pattern, so no SysEx).
+- **Song chains:** in the Song mode each row plays N bars and then the next launches; counts could ride on the row
+  names (`Verse:8, Chorus:4`).
+- **Performance capture:** one action records the launcher performance into the arranger.
+- **Colour and name recorded clips** per loop track and row, where the API allows naming.
+- **Share layouts as text:** one text setting that exports and imports the whole custom layout.
+- **Snapshot morph:** a pedal crossfades every remote control between snapshots 1 and 2.
+- **Pedal as a switch:** a toe threshold fires an action.
+- **Replay real sessions as tests:** capture MIDI with `pacer-monitor`, replay it through `PacerController` in JUnit.
+- Not possible as asked: a pedal crossfade *between two rows* - a track plays one clip at a time, so two rows of the
+  same loop tracks cannot sound together. A crossfade between two groups of loop tracks would work.
 
 ### FX mode ideas
 
@@ -43,7 +80,7 @@ that the Bitwig Pacer preset never sends.
 ### Looper ideas
 
 - **Free tempo from the first loop:** record the first loop with the transport stopped, then derive the tempo so it
-  is a whole number of bars.
+  is a whole number of bars (also on the wave 3 list).
 - **Record into the next free slot** (Bitwig's post-recording action) as an alternative to scene rows for takes.
 - **Double-tap stop:** a second tap within ~300 ms stops the loop immediately instead of quantized.
 - **Undo last layer only** for launcher overdub on note clips.

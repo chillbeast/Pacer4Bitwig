@@ -134,6 +134,13 @@ changes one switch, and the mode keeps its slot, name and pedals. 45 settings ra
 changed mode at a time. A switch whose tap is *Loop track n* is a loop switch wherever it sits, so a custom layout can
 put loops on the top row or on a jack.
 
+The **shift layer** doubles every board without a second menu (`mode/ShiftLayer`, `mode/ShiftedBoard`): SW 6's
+double-tap (a setting; the tap then waits out the double-tap window) or a shift action on a jack or switch raises it,
+and every switch with something on its shift layer does that - the Looper's holds loop tracks 5-8. Raising or
+dropping it is a board change like a mode change: one burst of at most ten colour messages, plus the `SHIFT` event
+word. SW 6 turns gold as the reminder; its colour follows the shift state, never the clock (the "for one press" blink
+is a pattern).
+
 Open questions:
 
 - ~~What are modes 4 and 5?~~ Song, and a custom board laid out in the settings.
@@ -157,7 +164,10 @@ extension paints it.
   live-writable with no EEPROM cost; see the rules for a live writer in docs/PACER-MAP.md.
 - **Not yet run through the hardware checklists** (docs/LOOPER.md section 10, docs/FX-PRESET.md): only the pedals,
   the preset announcement and the LED findings above are verified.
-- The extension paints preset index 0 whatever preset is loaded; see "Guard live writes" in docs/ROADMAP.md.
+- The extension used to paint preset index 0 whatever preset was loaded. The preset check now reads the loaded
+  preset's name back before painting and leaves another preset alone (`live/PresetGuard`); it is not verified on
+  hardware yet - see "The preset check" in docs/ROADMAP.md.
+- Event words (`REC 2`, `UNDO`) cost two name writes each: only for things the player did, never per beat.
 - At the live tests (2026-09-16): extension 0.3.0 installed, **PACER Looper switched off in Bitwig's controller
   settings** afterwards; Pacer D1 = the old looper preset, D2 = the old FX preset (now retired: it still announces
   itself, and selecting it switches to the FX mode), D3 = its factory contents (restored). Backups in `backups/`; the

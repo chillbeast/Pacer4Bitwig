@@ -7,7 +7,7 @@ Nektar Pacer as a live-looper controller for Bitwig Studio, plus a new Pacer pre
 - `docs/PACER-MAP.md` — **the contract** between the Pacer presets and the Bitwig extension (CCs, channel, LED
   strategy, preset-loaded values). Change it first, then both sides.
 - `docs/LOOPER.md` — user guide: Bitwig project setup, switch functions, settings, hardware test checklist.
-- `docs/FX-PRESET.md` — FX preset guide (instrument focus, FX switches, snapshots) with its own hardware checklist.
+- `docs/FX-PRESET.md` — FX mode guide (instrument focus, FX switches, snapshots) with its own hardware checklist.
 - `docs/LIVE-COLOURS-AND-MODES.md` — what the Pacer's LEDs really do (verified), live edits through preset index 0,
   and the mode system built on top. Read it before touching LED or mode code.
 - `docs/manual.html` — the styled manual built from the Markdown docs; keep it in step with them. Written in Artifact
@@ -84,17 +84,30 @@ extension when the file changes (so `install` restarts it under a user who is te
   on release. The footswitch jacks keep their own settings; the stomp switches belong to the modes.
 - `LooperController`: loop switches (`loopSwitchTap/DoubleTap/Hold/Release`), looper actions (`perform` +
   `actionLed`), parameter pedal targets, LED test, beat counter, exclusive arm (`enforceExclusiveArm`, 40 ms tick).
-- `FxController` (FX preset, docs/FX-PRESET.md): instruments are tracks found by *name* (document settings
+- `FxController` (FX mode, docs/FX-PRESET.md): instruments are tracks found by *name* (document settings
   *Instrument A-D*, the focused instrument, snapshots as hidden strings encoded by `fx/SnapshotBank`). All Bitwig
   access goes through `fx/FxTracks`, implemented by `bitwig/BitwigFxTracks`: a flat 64-track bank plus a cursor track
   created with `followSelection = false` and pointed with `selectChannel`, with a 6-device bank and the track's remote
   controls. `tick` re-points the cursor, selects the "Pacer" remote page by name and re-resolves the instruments'
   track positions every 500 ms (`resolve`) - LED flushes must never scan 64 track names, they read the cache. `fx/FxTarget.resolve`: a track
   with a "Pacer" page uses only that page, others their devices.
-- Pure, unit-tested: `looper/` (LoopState, LoopAction, LoopLeds, TapTiming, enums for settings), `led/` (LedClock,
-  LedPattern, LedState, LedColour, SwitchLedWriter), `live/` (PacerSysex, PacerColour, LedRow, LiveBoard), `mode/`
-  (Mode, ModeState, ModeMenu, ModePainter, SwitchRole), `fx/` (FxTarget, FxLookup, SnapshotBank), `preset/`,
-  `controller/PacerMap` + `MidiFilters`.
+- Pure, unit-tested: `looper/` (LoopState, LoopAction, LoopLeds, TapTiming, RecordHistory, ElapsedBeats, enums for
+  settings), `led/` (LedClock, LedPattern, LedState, LedColour, SwitchLedWriter), `live/` (PacerSysex, PacerColour,
+  LedRow, LiveBoard), `mode/` (Mode, ModeState, ModeMenu, ModePainter, SwitchRole), `fx/` (FxTarget, FxLookup,
+  SnapshotBank), `preset/`, `controller/PacerMap` + `MidiFilters`. `PacerControllerTest` drives the real
+  `PacerController` through real `TapHoldCommand`s with recording looper/FX doubles - the pattern for controller tests.
+- **A press belongs to the switch that was pressed.** `TapHoldCommand.withPress` calls `PacerController.press` first
+  on DOWN, which latches the switch's role and board; tap-on-press is decided once, at DOWN. Hold, release and
+  double-tap use the latch, so a press that changes the mode (a menu slot does, on press) never runs the new mode's
+  hold or release. LEDs (`getLedCode`) always read the board on show, never the latch.
+- DrivenByMoss calls **every setting observer once at the end of `init`** (`notifyAllObservers`): an observer that
+  *does* something (starts the LED test, touches the transport) must check `running`.
+- Count-ins, waiting mutes and fades compare against `looper/ElapsedBeats` (beats played), never the raw play
+  position: the arranger loop wrapping makes an absolute target unreachable. Work the target out on the real position
+  (next bar), then convert with `toElapsed`.
+- Never `trackBank.stop`: the bank is `MAX_LOOP_TRACKS` wide, so it would stop tracks beyond the loop tracks. Use
+  `LooperController.stopLoopTracks`; "selected loop" actions only accept a loop track.
+- CC 119 = 127 repaints the board and keeps the mode; only the retired FX preset's values (17, 18) switch to FX.
 - Adding an assignable action: constant in `looper/Action` (mark it `destructive` if it deletes or overwrites, pass
   `fx = true` for FX actions, `mode = true` for ones the controller runs itself), case in `LooperController.perform`
   and `.actionLed`, or in `FxController`, or in `PacerController.performMode`. Then put it on a switch in a `Mode`
@@ -143,7 +156,9 @@ extension when the file changes (so `install` restarts it under a user who is te
   elsewhere, and the beat counter's dark beats were cached as a colour. `ModePainterTest` guards it.
 - **Colours are cached by the flush, not recomputed.** `PacerController.getLedCode` stores each switch's colour in
   `switchColours` as it runs, and `paint ()` reads that cache - it must not query Bitwig itself. Doing the work
-  twice, 25 times a second, is what crashed the audio engine the first time modes were tried on hardware.
+  twice, 25 times a second, is what crashed the audio engine the first time modes were tried on hardware. The one
+  exception is a board change (mode change, menu closing, startup): `repaintSwitches` works the colours out once for
+  the new board before painting, so the Pacer gets one right burst instead of a stale one and a correction.
 - `daw/DawModeController` (port 2, opt-in setting): raw `setMidiCallback` / `setSysexCallback` on
   `midiAccess.createInput (1, null)`, LED feedback as CC 127/0 on channel 16 via `createOutput (1)`. `DawModeSysex`
   reproduces Nektar's messages byte for byte, including the odd 0x1F "checksum" of the slot-colour message. The

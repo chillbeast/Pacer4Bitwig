@@ -73,7 +73,8 @@ class ModeTest
     @Test
     void loopModeKeepsTheLooperPresetLayoutOfBeforeModes ()
     {
-        // SW 5 and SW A-D do what they did on the looper preset; only SW 6's play/stop all had to move (to SW C)
+        // SW 5, SW A and SW B do what they did on the looper preset; SW 6's play/stop all moved to SW C, and SW D
+        // is overdub (hold: metronome), the pair that used to be on SW C
         assertEquals (Action.UNDO, Mode.LOOP.getLayout (4).tap ());
         assertEquals (Action.REDO, Mode.LOOP.getLayout (4).hold ());
         assertEquals (Action.ROW_PREVIOUS, Mode.LOOP.getLayout (6).tap (), "SW A: previous row");
@@ -82,8 +83,8 @@ class ModeTest
         assertEquals (Action.TRACKS_RIGHT, Mode.LOOP.getLayout (7).hold ());
         assertEquals (Action.PLAY_STOP_ALL, Mode.LOOP.getLayout (8).tap (), "SW C: play row / stop all");
         assertEquals (Action.CLEAR_ROW, Mode.LOOP.getLayout (8).hold ());
-        assertEquals (Action.TAP_TEMPO, Mode.LOOP.getLayout (9).tap (), "SW D: tap tempo");
-        assertEquals (Action.TRANSPORT_PLAY_STOP, Mode.LOOP.getLayout (9).hold ());
+        assertEquals (Action.LAUNCHER_OVERDUB, Mode.LOOP.getLayout (9).tap (), "SW D: launcher overdub");
+        assertEquals (Action.METRONOME, Mode.LOOP.getLayout (9).hold ());
     }
 
 

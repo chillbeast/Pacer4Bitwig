@@ -98,8 +98,8 @@ switches. Any footswitch jack can also be set to *Next mode*, *Previous mode (to
 
 ### Looper mode (`LOOP`)
 
-Laid out like the looper preset before modes: the same switches loop, undo and move through rows. Only SW 6's old
-job, play/stop all, had to move — to SW C.
+Laid out like the looper preset before modes: the same switches loop, undo and move through rows. SW 6's old job,
+play/stop all, moved to SW C, and launcher overdub (hold: metronome) sits on SW D.
 
 | Control | Tap | Hold |
 |---------|-----|------|
@@ -108,7 +108,7 @@ job, play/stop all, had to move — to SW C.
 | **SW A** | Previous scene row | Move the loop track window left |
 | **SW B** | Next scene row (adds a scene after the last one) | Move the loop track window right |
 | **SW C** | Stop all loops, or play the whole row if nothing plays | Clear every loop in the row |
-| **SW D** | Tap tempo | Transport play/stop |
+| **SW D** | Launcher overdub on/off | Metronome on/off |
 | **FS 1** (jack) | **One-button looper**: record the next layer | Clear the last recorded loop |
 | **FS 2** (jack) | Stop all loops / play the row | Clear every loop in the row |
 | **FS 3, FS 4** | – | – |
@@ -116,9 +116,8 @@ job, play/stop all, had to move — to SW C.
 | **EXP 2** | Master volume | – |
 
 A switch is a loop switch only while the project has that many loop tracks (*Loop tracks*), so with three tracks
-SW 4 does nothing. Launcher overdub and the metronome are not on this board: the metronome is `Click` in the Mixer
-mode, and *Tap on a playing loop = Toggle launcher overdub* puts overdub on the loop switches themselves. For more
-than four loop switches, lay out the Custom mode.
+SW 4 does nothing. Tap tempo and transport play/stop are in the Song mode (SW 5, hold: tap tempo). For more than
+four loop switches, lay out the Custom mode.
 
 ### Mixer mode (`MIX`)
 

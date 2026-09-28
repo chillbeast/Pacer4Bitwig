@@ -13,7 +13,8 @@ touched and nothing wears the EEPROM. See [docs/LIVE-COLOURS-AND-MODES.md](docs/
   tap of SW 6 closes the menu without changing mode; with the menu shut, a tap toggles between the last two modes.
   The whole gesture works with one foot.
 - **Four modes to start with:** *LOOP* (the looper preset's layout: loop tracks on SW 1–4, undo on SW 5, scene rows
-  on SW A / SW B with the loop track window on their holds, play/stop all on SW C and tap tempo on SW D), *FX*
+  on SW A / SW B with the loop track window on their holds, play/stop all on SW C and launcher overdub / metronome on
+  SW D), *FX*
   (instruments on SW 1–5, their FX switches on SW A–D), *MIX* (solo, mute, input monitoring and the metronome) and
   *SONG* (playing, stopping and navigating scene rows). Modes are fixed for now; settings will come where they turn
   out to matter.

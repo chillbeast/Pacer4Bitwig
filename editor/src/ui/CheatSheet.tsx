@@ -40,7 +40,7 @@ export interface CheatLabel {
 
 export type BitwigRoles = Readonly<Record<ControlKey, TapHold>>;
 
-/** PACER Looper default roles of a looper-layout preset (FX roles when it announces the FX preset), otherwise null. */
+/** PACER Looper's Looper-mode roles for a preset laid out like the Bitwig Pacer template, otherwise null. */
 export function bitwigRolesOf(preset: Preset): BitwigRoles | null {
   if (!isLooperLayout(preset)) return null;
   return LOOPER_TAP_HOLD;

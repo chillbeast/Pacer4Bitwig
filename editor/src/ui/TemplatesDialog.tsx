@@ -102,7 +102,7 @@ export function TemplatesDialog() {
               onClick={() => selectTemplate(t.id)}
             >
               <strong>{t.name}</strong>
-              <span className="hint">{t.choices ? `${t.choices.options.length} variants` : 'Channel-based pedalboard'}</span>
+              <span className="hint">{t.choices ? `${t.choices.options.length} variants` : t.tagline}</span>
             </button>
           ))}
         </div>
@@ -212,7 +212,15 @@ function SlotOption({
       aria-checked={checked}
       disabled={disabled}
       className={`slot-option${checked ? ' is-checked' : ''}${index === 0 ? ' slot-option--wide' : ''}`}
-      title={disabled ? 'D6 cannot be read back by the Pacer' : name ? displayName(name) : 'empty'}
+      title={
+        disabled
+          ? 'D6 cannot be read back by the Pacer'
+          : index === 0
+            ? 'The loaded preset, in RAM only: selecting a preset on the Pacer discards it'
+            : name
+              ? displayName(name)
+              : 'empty'
+      }
       onClick={() => onPick(index)}
     >
       {index === 0 ? 'Current' : slotLabel(index)}

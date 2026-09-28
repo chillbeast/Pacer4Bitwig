@@ -209,7 +209,13 @@ async function fetchFullBackup(controller: AbortController) {
   const parsed = parseMessages(result.messages);
   if (parsed.presets.size === 0) throw new Error('The Pacer replied without preset data.');
   const bytes = concatMessages(result.messages);
-  useDevice.getState().setBackup({ bytes, messages: result.messages.length, time: Date.now(), downloaded: false });
+  useDevice.getState().setBackup({
+    bytes,
+    messages: result.messages.length,
+    time: Date.now(),
+    downloaded: false,
+    complete: result.complete,
+  });
   const globals = parseGlobalMessages(parsed.globals);
   if (globals.messages.length > 0) useEditor.getState().setDeviceGlobals(globals, false);
   return { parsed, globals, complete: result.complete };
@@ -247,6 +253,7 @@ export async function readAllFromDevice(): Promise<boolean> {
       messages: backupMessages.length,
       time: Date.now(),
       downloaded: false,
+      complete: result.failed.length === 0 && result.globalsComplete,
     });
     if (result.globals.messages.length > 0) useEditor.getState().setDeviceGlobals(result.globals, false);
 
@@ -329,7 +336,9 @@ export async function readAndDownloadBackup(): Promise<boolean> {
 export function downloadSessionBackup(): void {
   const backup = useDevice.getState().backup;
   if (!backup) return;
-  downloadBytes(backup.bytes, `pacer-full-backup-${timestamp(new Date(backup.time))}.syx`);
+  // Like tools/pacer-backup.mjs: a backup that is not a full undo says so in its name
+  const suffix = backup.complete ? '' : '-INCOMPLETE';
+  downloadBytes(backup.bytes, `pacer-full-backup-${timestamp(new Date(backup.time))}${suffix}.syx`);
   useDevice.getState().markBackupDownloaded();
   toast('success', 'Backup downloaded', `${backup.messages} messages · ${(backup.bytes.length / 1024).toFixed(0)} KB`, 3000);
 }
@@ -403,7 +412,13 @@ export async function executeWrite(plan: WritePlan, options: WriteOptions): Prom
       );
       done += plan.globals.length;
       const g = useEditor.getState().globals;
-      if (g.working) useEditor.getState().setDeviceGlobals(mergeGlobals(g.device, { messages: plan.globals.map((p) => p.message) }), true);
+      // Never read from the device: what was written is all we know, and it came from the working copy - so the
+      // working copy is the base. Merging into nothing would leave a base without the state messages, which the
+      // working copy has, and the globals would read as edited for good.
+      if (g.working) {
+        const written = { messages: plan.globals.map((p) => p.message) };
+        useEditor.getState().setDeviceGlobals(mergeGlobals(g.device ?? g.working, written), true);
+      }
       globalsWritten = true;
     }
     useDevice.getState().countWrite();
@@ -429,6 +444,7 @@ export async function executeWrite(plan: WritePlan, options: WriteOptions): Prom
   const mismatches: string[] = [];
   const toVerify = written.filter((w) => w.index !== D6_INDEX);
   try {
+    if (toVerify.length > 0 || globalsWritten) await settle(VERIFY_SETTLE_MS, controller.signal);
     for (let i = 0; i < toVerify.length; i++) {
       const item = toVerify[i];
       relabel('verify', `Verifying ${slotLabel(item.index)} (${i + 1}/${toVerify.length})`, SINGLE_PRESET_MESSAGES, controller);
@@ -476,6 +492,32 @@ export async function executeWrite(plan: WritePlan, options: WriteOptions): Prom
     );
   }
   return mismatches.length === 0;
+}
+
+/**
+ * A GET sent straight after a SET still returns the old value (docs/PACER-MAP.md, "allow ~250 ms"), which would report
+ * differences that are not there and mark the slot edited again.
+ */
+const VERIFY_SETTLE_MS = 300;
+
+/** Wait, but give up at once when the operation is cancelled. */
+function settle(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const cancelled = () => new MidiError('aborted', 'Cancelled');
+    if (signal.aborted) {
+      reject(cancelled());
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(cancelled());
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 /** Plain CC for LED tests (channel 1..16). */

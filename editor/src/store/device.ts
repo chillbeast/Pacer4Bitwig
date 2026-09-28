@@ -17,6 +17,11 @@ export interface SessionBackup {
   messages: number;
   time: number;
   downloaded: boolean;
+  /**
+   * False when some presets or the global settings could not be read: the file then holds only what was verified,
+   * so it is not an undo for everything, and saving it does not count as "backed up" before a write.
+   */
+  complete: boolean;
 }
 
 export type IdentityState =
@@ -64,6 +69,11 @@ export const useDevice = create<DeviceState>()((set) => ({
   countWrite: () => set((s) => ({ writesThisSession: s.writesThisSession + 1 })),
   setIdentity: (identity) => set({ identity }),
 }));
+
+/** A backup counts as the undo for the first write only once it is saved and holds everything. */
+export function isBackupSaved(backup: SessionBackup | null): boolean {
+  return backup !== null && backup.downloaded && backup.complete;
+}
 
 export function isConnected(midi: MidiSnapshot): boolean {
   return midi.inputStatus === 'open' && midi.outputStatus === 'open';

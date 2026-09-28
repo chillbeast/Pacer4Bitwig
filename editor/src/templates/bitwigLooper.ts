@@ -35,8 +35,6 @@ export const LOOPER_PRESET_LOADED_CC = 119;
 export const LOOPER_PRESET_LOADED_VALUE = 127;
 /** SW 6 is the mode switch in every mode: tap toggles, hold opens the mode menu. */
 export const LOOPER_MODE_SWITCH_INDEX = 5;
-/** SW1..SW4 are loop tracks in the Looper mode. */
-export const LOOPER_LOOP_SWITCH_COUNT = 4;
 
 export const LOOPER_COLOURS = {
   off: 0x00,
@@ -49,21 +47,6 @@ export const LOOPER_COLOURS = {
   whiteDim: 0x18,
 } as const;
 
-/**
- * LED Lab only: colours and CCs the lab uses to probe a switch's LEDs by hand. They are not part of the contract —
- * steps 2–6 do not act as colour slots on the Pacer (tested on hardware, docs/PACER-MAP.md).
- */
-export const LOOPER_SLOT_COLOURS: readonly number[] = [
-  LOOPER_COLOURS.white,
-  LOOPER_COLOURS.red,
-  LOOPER_COLOURS.green,
-  LOOPER_COLOURS.amber,
-  LOOPER_COLOURS.blue,
-  LOOPER_COLOURS.purple,
-];
-export const LOOPER_SLOT_NAMES: readonly string[] = ['white', 'red', 'green', 'amber', 'blue', 'purple'];
-const LOOPER_COLOUR_SLOT_CC_BASE = 20;
-
 /** Action CC (step 1) of every control. */
 export const LOOPER_ACTION_CC: Readonly<Record<ControlKey, number>> = {
   SW1: 102, SW2: 103, SW3: 104, SW4: 105, SW5: 106, SW6: 107,
@@ -71,14 +54,6 @@ export const LOOPER_ACTION_CC: Readonly<Record<ControlKey, number>> = {
   FS1: 112, FS2: 113, FS3: 114, FS4: 115,
   EXP1: 116, EXP2: 117,
 };
-
-/** LED Lab only: `20 + switchIndex * 5 + (step - 2)`, step 2..6. */
-export function colourSlotCc(switchIndex: number, step: number): number {
-  if (switchIndex < 0 || switchIndex > 9 || step < 2 || step > 6) {
-    throw new RangeError(`No colour slot for switch ${switchIndex} step ${step}`);
-  }
-  return LOOPER_COLOUR_SLOT_CC_BASE + switchIndex * 5 + (step - 2);
-}
 
 export interface TapHold {
   tap: string;
@@ -102,8 +77,8 @@ export const LOOPER_TAP_HOLD: Readonly<Record<ControlKey, TapHold>> = {
   SWD: { tap: 'Overdub', hold: 'Metronome' },
   FS1: { tap: 'One-button looper', hold: 'Clear last' },
   FS2: { tap: 'Play/stop all', hold: 'Clear row' },
-  FS3: { tap: '–' },
-  FS4: { tap: '–' },
+  FS3: { tap: 'Next instrument' },
+  FS4: { tap: 'Next snapshot' },
   EXP1: { tap: 'Selected track volume' },
   EXP2: { tap: 'Master volume' },
 };
@@ -188,8 +163,8 @@ export const LOOPER_LABELS: ControlLabels = {
   SWD: 'OVERDUB',
   FS1: '1-BTN LOOP',
   FS2: 'PLAY ALL',
-  FS3: '—',
-  FS4: '—',
+  FS3: 'NEXT INST',
+  FS4: 'NEXT SNAP',
   EXP1: 'TRK VOL',
   EXP2: 'MASTER',
 };

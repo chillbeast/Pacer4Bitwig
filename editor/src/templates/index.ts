@@ -23,6 +23,8 @@ export interface TemplateHint {
 export interface TemplateDef {
   id: string;
   name: string;
+  /** A few words shown under the name in the template picker. */
+  tagline: string;
   summary: string;
   /** Preferred target slot; undefined = the selected slot. */
   defaultSlot?: number;
@@ -38,6 +40,7 @@ export const TEMPLATES: readonly TemplateDef[] = [
   {
     id: 'bitwig-looper',
     name: 'Bitwig Pacer',
+    tagline: 'For the PACER Looper extension',
     summary:
       'The one preset the PACER Looper extension needs: CC Trigger 127/0 on the looper channel — switches CC 102–111, footswitch jacks CC 112–115, expression pedals CC 116/117, preset-loaded CC 119. The extension paints the colours, the display name and every switch live, and they change with the active mode (hold SW 6).',
     defaultSlot: LOOPER_DEFAULT_SLOT,
@@ -63,6 +66,7 @@ export const TEMPLATES: readonly TemplateDef[] = [
   {
     id: 'cc-toggle',
     name: 'CC toggle pedalboard',
+    tagline: 'Channel 1 pedalboard',
     summary:
       'Channel 1. Switches toggle CC 20–29 (127/0) with a different colour each (bright = on, dim = off); footswitch jacks toggle CC 30–33; EXP 1 = CC 11 (expression), EXP 2 = CC 7 (volume).',
     build: () => ({ ...buildCcTogglePedalboard(), title: 'CC toggle pedalboard' }),
@@ -70,6 +74,7 @@ export const TEMPLATES: readonly TemplateDef[] = [
   {
     id: 'program',
     name: 'Program change pedalboard',
+    tagline: 'Channel 1 pedalboard',
     summary:
       'Channel 1. Switches 1–6 and A–D send program 0–9 (no bank change); FS 1 / FS 2 step through programs up / down like the factory PRGM presets; EXP 1 = CC 11, EXP 2 = CC 7.',
     build: () => ({ ...buildProgramPedalboard(), title: 'Program change pedalboard' }),
@@ -77,6 +82,7 @@ export const TEMPLATES: readonly TemplateDef[] = [
   {
     id: 'mmc',
     name: 'MMC transport',
+    tagline: 'Transport for hardware recorders',
     summary:
       'MIDI Machine Control to all devices (ID 127): 1 rewind (5), 2 fast forward (4), 3 stop (1), 4 play (2), 5 record strobe (6), 6 pause (9); C/D preset down/up; FS 1 play, FS 2 stop.',
     build: () => ({ ...buildMmcTransport(), title: 'MMC transport' }),

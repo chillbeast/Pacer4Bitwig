@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { downloadSessionBackup, executeWrite, planSize, planWrite, readAndDownloadBackup } from '../app/operations';
 import { D6_INDEX, describePart, displayName, slotLabel, slotLongLabel } from '../pacer';
-import { isConnected, useDevice } from '../store/device';
+import { isBackupSaved, isConnected, useDevice } from '../store/device';
 import { useEditor } from '../store/editor';
 import { useUi } from '../store/ui';
 import { Button, ProgressBar, Segmented, Toggle } from './controls';
@@ -57,7 +57,10 @@ export function WriteDialog() {
     globalsFull: plan.globalsFull,
   };
   const total = planSize(chosen);
-  const needsBackup = writes === 0 && !backupSkipped && !backup?.downloaded;
+  // Only a complete backup is an undo: one with presets missing does not unlock the first write
+  const backupSaved = isBackupSaved(backup);
+  const needsBackup = writes === 0 && !backupSkipped && !backupSaved;
+  const usableBackup = backup !== null && backup.complete ? backup : null;
   const seconds = Math.max(1, Math.round((total * (delayMs + 2)) / 1000));
   const items = plan.presets.length + (plan.globals.length > 0 ? 1 : 0);
   const targets = [...chosen.presets.map((p) => slotLabel(p.index)), ...(chosen.globals.length > 0 ? ['globals'] : [])].join(', ');
@@ -133,7 +136,12 @@ export function WriteDialog() {
                     {slot.device === null && slot.source === 'file' ? ' Loaded from a file.' : ''}
                   </span>
                   {item.index === D6_INDEX && verify && <span className="hint hint--warning">D6 cannot be read back, so it cannot be verified.</span>}
-                  {item.index === 0 && <span className="hint hint--warning">“Current” is the working preset of the Pacer.</span>}
+                  {item.index === 0 && (
+                    <span className="hint hint--warning">
+                      “Current” is the loaded preset’s RAM copy: the change shows at once, but selecting any preset on the
+                      Pacer discards it — nothing is stored. PACER Looper also repaints it while it runs.
+                    </span>
+                  )}
                 </div>
                 {!item.full && (
                   <button type="button" className="link-button" onClick={() => setExpanded(expanded === item.index ? null : item.index)}>
@@ -198,19 +206,21 @@ export function WriteDialog() {
           <div>
             <strong>Save a full backup before the first write</strong>
             <p className="hint">
-              {backup
-                ? `A full backup was read at ${new Date(backup.time).toLocaleTimeString()} but not saved yet.`
-                : 'Reads every preset and the global settings from the Pacer into a .syx file (about 5 seconds). Your edits stay untouched.'}
+              {usableBackup
+                ? `A full backup was read at ${new Date(usableBackup.time).toLocaleTimeString()} but not saved yet.`
+                : backup
+                  ? 'The backup read this session is incomplete — some presets did not come back — so it is not an undo. Read a full one (about 5 seconds).'
+                  : 'Reads every preset and the global settings from the Pacer into a .syx file (about 5 seconds). Your edits stay untouched.'}
             </p>
           </div>
           <div className="callout__actions">
             <Button
               variant="primary"
               icon={<IconDownload />}
-              disabled={busy || (!backup && !connected)}
-              onClick={() => (backup ? downloadSessionBackup() : void readAndDownloadBackup())}
+              disabled={busy || (!usableBackup && !connected)}
+              onClick={() => (usableBackup ? downloadSessionBackup() : void readAndDownloadBackup())}
             >
-              {backup ? 'Download backup' : 'Read & download backup'}
+              {usableBackup ? 'Download backup' : 'Read & download backup'}
             </Button>
             <button type="button" className="link-button" onClick={() => useDevice.getState().skipBackup()} disabled={busy}>
               Skip backup
@@ -218,9 +228,9 @@ export function WriteDialog() {
           </div>
         </div>
       ) : (
-        (backup?.downloaded || backupSkipped) && (
+        (backupSaved || backupSkipped) && (
           <p className="hint backup-ok">
-            {backup?.downloaded ? (
+            {backupSaved ? (
               <>
                 <IconCheck size={14} /> Backup saved this session.
               </>

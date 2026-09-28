@@ -469,15 +469,16 @@ export interface LedColorInfo {
   readonly hex: string;
 }
 
+/** The twelve colours in the Pacer user guide's order and names (page 12), as docs/PACER-MAP.md and the extension use them. */
 const FAMILIES: readonly (readonly [string, string])[] = [
-  ['Pink', '#ff5ca8'],
+  ['Magenta', '#ff4fd2'],
   ['Red', '#ff2d2d'],
   ['Orange', '#ff7417'],
-  ['Amber', '#ffb31a'],
+  ['Gold', '#ffb31a'],
   ['Yellow', '#ffe923'],
-  ['Lime', '#a8ff2e'],
-  ['Green', '#22e05a'],
-  ['Teal', '#19dcc8'],
+  ['Green', '#5cff2e'],
+  ['Dark green', '#139a3e'],
+  ['Cyan', '#19dcc8'],
   ['Blue', '#2f6bff'],
   ['Lavender', '#b8a2ff'],
   ['Purple', '#b536ff'],

@@ -123,7 +123,7 @@ public final class LiveBoard
     public boolean setName (final String name)
     {
         final String padded = PacerSysex.pad (name);
-        if (padded.equals (this.lastName) || !this.mayWrite ())
+        if (padded.equals (this.lastName) || !this.mayWriteName ())
             return false;
         this.lastName = padded;
         this.send (PacerSysex.name (padded));
@@ -139,7 +139,7 @@ public final class LiveBoard
      */
     public boolean repeatName ()
     {
-        if (this.lastName == null || !this.mayWrite ())
+        if (this.lastName == null || !this.mayWriteName ())
             return false;
         this.send (PacerSysex.name (this.lastName));
         this.gate.nameWritten (this.lastName);
@@ -194,6 +194,15 @@ public final class LiveBoard
     private boolean mayWrite ()
     {
         if (this.gate.mayWrite ())
+            return true;
+        this.gate.blocked ();
+        return false;
+    }
+
+
+    private boolean mayWriteName ()
+    {
+        if (this.gate.mayWriteName ())
             return true;
         this.gate.blocked ();
         return false;

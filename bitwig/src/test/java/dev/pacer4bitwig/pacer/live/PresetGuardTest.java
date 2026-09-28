@@ -43,11 +43,66 @@ class PresetGuardTest
 
 
     @Test
-    void beforeTheFirstAnswerEverythingIsWrittenAsBefore ()
+    void nothingIsWrittenBeforeTheFirstAnswer ()
     {
+        // Painting first would write the extension's name into whatever preset is loaded - and then find it there
         assertEquals (PresetGuard.State.UNKNOWN, this.guard.getState ());
-        assertTrue (this.guard.mayWrite (this.now));
+        assertFalse (this.guard.mayWrite (this.now));
         assertTrue (this.guard.shouldProbe (this.now, false, false), "it asks at once, to learn where it is");
+    }
+
+
+    @Test
+    void atStartupAnotherPresetIsLeftAlone ()
+    {
+        assertEquals (PresetGuard.Verdict.FOREIGN, this.ask ("G-MST"));
+        assertFalse (this.guard.mayWrite (this.now));
+    }
+
+
+    @Test
+    void atStartupANameAnEarlierSessionLeftIsOurs ()
+    {
+        final PresetGuard withOwnNames = new PresetGuard (PacerMap.PRESET_NAME, key -> key.equals (PresetGuard.key ("OFF")) || key.equals (PresetGuard.key ("ROW 3")));
+        withOwnNames.probeSent (this.now);
+        assertEquals (PresetGuard.Verdict.NONE, withOwnNames.answered ("OFF", this.now + 20), "the last session's blackout");
+        assertEquals (PresetGuard.State.OURS, withOwnNames.getState ());
+        assertTrue (withOwnNames.mayWrite (this.now + 20), "and the whole board goes out: nothing was written yet");
+    }
+
+
+    @Test
+    void usingAControlOfTheBitwigPresetProvesItIsLoaded ()
+    {
+        this.ask ("G-MST");
+        assertTrue (this.guard.controlUsed (this.now), "taken for another preset: paint it all");
+        assertEquals (PresetGuard.State.OURS, this.guard.getState ());
+        assertTrue (this.guard.mayWrite (this.now));
+        assertFalse (this.guard.controlUsed (this.now + 10), "already known");
+    }
+
+
+    @Test
+    void aNameNeedsAFresherAnswerThanAColour ()
+    {
+        this.wrote ("ROW 1", 2000);
+        this.ask ("ROW 1");
+        final long later = this.now + PresetGuard.NAME_CONFIRM_MILLIS + 1;
+        assertTrue (this.guard.mayWrite (later));
+        assertFalse (this.guard.mayWriteName (later), "a name written into another preset would make it look like ours");
+    }
+
+
+    @Test
+    void namesAreComparedTheWayThePacerStoresThem ()
+    {
+        // Accents are dropped before the name goes out, and the case is not trusted
+        this.wrote ("Übergang", 2000);
+        assertEquals (PresetGuard.Verdict.NONE, this.ask ("UBERG"));
+        assertEquals (PresetGuard.State.OURS, this.guard.getState ());
+        assertEquals ("Uberg", PacerSysex.pad ("Übergang"));
+        assertEquals ("? 1  ", PacerSysex.pad ("\u266A 1"), "what cannot be shown becomes a question mark");
+        assertEquals ("?? 1 ", PacerSysex.pad ("\uD83C\uDFB8 1"), "an emoji is two of them");
     }
 
 
@@ -130,7 +185,8 @@ class PresetGuardTest
         assertFalse (this.guard.checkTimeout (this.now + PresetGuard.TIMEOUT_MILLIS), "not yet");
         assertTrue (this.guard.checkTimeout (this.now + PresetGuard.TIMEOUT_MILLIS + 1));
         assertEquals (PresetGuard.State.UNANSWERED, this.guard.getState ());
-        assertTrue (this.guard.mayWrite (this.now), "a firmware that ignores the question costs nothing");
+        assertTrue (this.guard.mayWrite (this.now), "a firmware that ignores the question costs a second at startup");
+        assertTrue (this.guard.mayWriteName (this.now));
     }
 
 

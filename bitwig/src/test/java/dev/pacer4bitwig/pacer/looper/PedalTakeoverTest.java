@@ -38,10 +38,13 @@ class PedalTakeoverTest
 
 
     @Test
-    void anUnknownTargetIsPickedUpAtOnce ()
+    void aTargetThatCannotBeReadWaits ()
     {
-        // A MIDI target nothing was sent to yet has no value to reach
-        assertTrue (new PedalPickup ().accept (0.8, Double.NaN));
+        // An FX page that is not selected yet: following now would jump it
+        final PedalPickup pickup = new PedalPickup ();
+        assertFalse (pickup.accept (0.8, Double.NaN));
+        assertFalse (pickup.accept (0.2, Double.NaN));
+        assertTrue (pickup.accept (0.21, 0.2), "picked up once it can be read and is reached");
     }
 
 
@@ -66,34 +69,73 @@ class PedalTakeoverTest
             0.4,
             Double.NaN
         };
-        final double [] half = level.apply (volumes, 0.5);
+        final double [] half = level.apply (volumes, 0.5, 1000);
         assertEquals (0.4, half[0], EPSILON);
         assertEquals (0.2, half[1], EPSILON);
         assertTrue (Double.isNaN (half[2]), "a missing track is left alone");
         assertEquals (0.5, level.getGain (), EPSILON);
 
         // The tracks now sit at the halved levels; the fader still knows their own levels
-        final double [] full = level.apply (half, 1);
+        final double [] full = level.apply (half, 1, 1010);
         assertEquals (0.8, full[0], EPSILON);
         assertEquals (0.4, full[1], EPSILON);
-        assertEquals (0, level.apply (full, 0)[1], EPSILON, "the heel silences them");
+        assertEquals (0, level.apply (full, 0, 1020)[1], EPSILON, "the heel silences them");
+        assertEquals (0.4, level.getLevel (1), EPSILON, "and it knows what to hand back");
     }
 
 
     @Test
-    void aBalanceSetAtTheToeIsTheOneTheFaderKeeps ()
+    void aLevelChangedInBitwigWhileTheFaderRestsIsAdopted ()
     {
         final LoopsLevel level = new LoopsLevel (8);
         level.apply (new double []
         {
             0.8
-        }, 1);
+        }, 1, 1000);
         // Resting at the toe, the track was turned down in Bitwig
         final double [] moved = level.apply (new double []
         {
             0.6
-        }, 0.5);
+        }, 0.5, 1000 + LoopsLevel.SETTLED_MILLIS + 100);
         assertEquals (0.3, moved[0], EPSILON);
+    }
+
+
+    @Test
+    void aMovingPedalDoesNotMistakeLateReportsForSomeoneElse ()
+    {
+        final LoopsLevel level = new LoopsLevel (8);
+        level.apply (new double []
+        {
+            0.8
+        }, 1, 1000);
+        level.apply (new double []
+        {
+            0.8
+        }, 0.5, 1010);
+        // Bitwig still reports 0.8 - its answer to the write before last
+        assertEquals (0.32, level.apply (new double []
+        {
+            0.8
+        }, 0.4, 1020)[0], EPSILON);
+    }
+
+
+    @Test
+    void rockingAtTheToeDoesNotWearTheLevelDown ()
+    {
+        final LoopsLevel level = new LoopsLevel (8);
+        double [] volumes =
+        {
+            0.8
+        };
+        long now = 1000;
+        for (int i = 0; i < 100; i++)
+        {
+            volumes = level.apply (volumes, i % 2 == 0 ? 126 / 127.0 : 1, now);
+            now += 20;
+        }
+        assertEquals (0.8, level.apply (volumes, 1, now)[0], EPSILON);
     }
 
 
@@ -102,12 +144,15 @@ class PedalTakeoverTest
     {
         final LoopsLevel level = new LoopsLevel (8);
         assertEquals (1, level.getGain (), EPSILON, "which is where a picked-up pedal has to reach");
+        assertTrue (Double.isNaN (level.getLevel (0)), "nothing moved, nothing to hand back");
+        final int generation = level.getGeneration ();
         level.apply (new double []
         {
             0.5
-        }, 0.2);
+        }, 0.2, 1000);
         level.reset ();
         assertEquals (1, level.getGain (), EPSILON);
+        assertTrue (level.getGeneration () != generation, "a picked-up pedal starts over");
     }
 
 

@@ -323,7 +323,8 @@ Response curve, heel and toe are the pedal's physical calibration, so they stay 
 The display normally shows the mode's name. When a mode has something more useful to say it shows that instead:
 the **FX** mode names the focused instrument, the **Looper** and **Song** modes name the row you are on — the scene's
 name in Bitwig, its name from *Names for new rows*, or `ROW 3`. Turn it off with *Show what the mode is doing on the
-display*.
+display*. Names are cut to five characters and shown in plain ASCII: accents are dropped (`Übergang` → `Uberg`),
+anything else becomes `?`.
 
 **Events** take the display for a moment and then give it back (*Show events on the display*, on by default):
 
@@ -349,7 +350,9 @@ driving does not look live. Selecting any preset on it brings its own colours ba
 **Another preset loaded.** The extension paints *whatever preset is loaded*, so it checks first that it is still
 its own: it reads the loaded preset's name back (a read-only request) before painting when its last answer is more
 than 1.5 s old, and every 5 s. On another preset it leaves the Pacer alone — Bitwig says so once — until you select
-the Bitwig preset again. The same check notices a Pacer that was unplugged and plugged back in and paints it again.
+the Bitwig preset again, or press one of its switches (a press on the Bitwig preset is proof enough). At startup it
+paints once the first answer is in (after a second, if the Pacer does not answer at all). The same check notices a
+Pacer that was unplugged and plugged back in and paints it again.
 *Check the Pacer is on its preset* sets how: every 5 s and before painting (default), only before painting, or off.
 If the display flashes `LOAD SYS` every five seconds, choose *Only before painting* — whether the Pacer shows the
 request on its display has not been tested yet.
@@ -533,7 +536,7 @@ How you hear your instrument while looping audio:
 | I cannot find the project settings | Bitwig 6 does not show a controller's project settings in its panels. They are still saved with the project; set them from the Pacer (in the FX mode, hold SW 1–4 to assign an instrument). |
 | I hear my input twice | Several armed tracks with auto monitoring — keep *Exclusive arm* on, or use a dedicated input track. |
 | Nothing changes after editing settings | Most settings apply immediately; *Looper MIDI channel* restarts the extension. Check Bitwig's controller console for errors. |
-| "The Pacer is on another preset" and the board stays as it is | The extension leaves other presets alone. Select the Bitwig preset (D1) again. If D1 *is* loaded, its name may not be `PACER` (renamed?) — select it again so it announces itself, or set *Check the Pacer is on its preset* to *Off*. |
+| "The Pacer is on another preset" and the board stays as it is | The extension leaves other presets alone. Select the Bitwig preset (D1) again, or press any of its switches. If that keeps happening on D1, set *Check the Pacer is on its preset* to *Off* and report it. |
 | The display flashes `LOAD SYS` every five seconds | The preset check's regular question shows on the Pacer: set *Check the Pacer is on its preset* to *Only before painting*. |
 | SW 6 takes a moment to change the mode | It waits to see whether a double-tap follows. Set *SW 6 double-tap* to *Nothing* for an instant tap (the shift layer can go on a jack instead). |
 | "PACER Looper caught an error … and carried on" | Something went wrong and was contained. Set *Log to the controller console* to *Presses, actions and modes*, do it again, and send the lines from Bitwig's controller console with the report. |

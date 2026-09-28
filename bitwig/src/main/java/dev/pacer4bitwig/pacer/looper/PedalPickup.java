@@ -39,7 +39,8 @@ public final class PedalPickup
      * The pedal moved.
      *
      * @param output What the pedal asks the target to be, 0-1 (after its response curve)
-     * @param current What the target is now, 0-1; NaN if that is not known, which picks it up at once
+     * @param current What the target is now, 0-1; NaN while it cannot be read (an FX page not selected yet), which
+     *            waits
      * @return True if the target should follow
      */
     public boolean accept (final double output, final double current)
@@ -51,7 +52,7 @@ public final class PedalPickup
         final boolean reached = Math.abs (output - current) <= TOLERANCE;
         // A fast pedal skips values: passing the target between two moves counts as reaching it
         final boolean passed = !Double.isNaN (previous) && (previous - current) * (output - current) < 0;
-        this.engaged = Double.isNaN (current) || reached || passed;
+        this.engaged = !Double.isNaN (current) && (reached || passed);
         return this.engaged;
     }
 }

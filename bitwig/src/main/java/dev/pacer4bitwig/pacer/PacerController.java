@@ -92,8 +92,8 @@ public class PacerController
     private final PedalPickup []     pickups               = new PedalPickup [PacerConfiguration.NUM_EXPRESSION];
     /** The last value sent to each MIDI target, which is where a picked-up pedal has to reach. */
     private final Map<ExpressionTarget, Integer> midiSent  = new EnumMap<> (ExpressionTarget.class);
-    /** Which loop each pedal's "loop being recorded" target last moved; a new one has to be picked up again. */
-    private final int []             activeLoops           = new int [PacerConfiguration.NUM_EXPRESSION];
+    /** What each pedal's target was at its last move (see {@link #getTargetKey}); a new one is picked up again. */
+    private final long []            targetKeys            = new long [PacerConfiguration.NUM_EXPRESSION];
     /** Which switches showed a pattern that moves (a blink, the beat counter) in the last flush. */
     private final boolean []         animated              = new boolean [PacerMap.NUM_SWITCHES];
     private Diagnostics              diagnostics           = Diagnostics.NONE;
@@ -120,7 +120,7 @@ public class PacerController
         this.board = board;
         for (int i = 0; i < this.pickups.length; i++)
             this.pickups[i] = new PedalPickup ();
-        Arrays.fill (this.activeLoops, -1);
+        Arrays.fill (this.targetKeys, Long.MIN_VALUE);
         // While the custom layout changes a built-in mode, the custom mode's own menu slot has nothing to show
         this.modes.setOffered (mode -> mode != Mode.CUSTOM || this.configuration.getCustomBoard ().getTarget () == CustomTarget.OWN);
     }
@@ -701,7 +701,7 @@ public class PacerController
     public void pedalRetargeted (final int index)
     {
         this.pickups[index].reset ();
-        this.activeLoops[index] = -1;
+        this.targetKeys[index] = Long.MIN_VALUE;
     }
 
 
@@ -716,13 +716,25 @@ public class PacerController
         final ExpressionTarget target = this.getExpressionTarget (index);
         final PedalResponse response = this.configuration.getPedalResponse (index);
         final double output = response.map (value / 127.0);
+        if (this.isPickup ())
+        {
+            // The same setting can mean another target now: another instrument focused, another track selected, the
+            // loop track window moved. That one has to be picked up again.
+            final long key = this.getTargetKey (target);
+            if (key != this.targetKeys[index])
+            {
+                this.pickups[index].reset ();
+                this.targetKeys[index] = key;
+            }
+        }
 
         switch (target.getKind ())
         {
             case CC, CHANNEL_PRESSURE, PITCH_BEND_UP -> {
                 final int mapped = response.map (value);
+                // Nothing sent yet: there is no value to reach, so the pedal follows at once
                 final Integer last = this.midiSent.get (target);
-                if (!this.pickUp (index, mapped / 127.0, last == null ? Double.NaN : last.intValue () / 127.0))
+                if (!this.pickUp (index, mapped / 127.0, last == null ? mapped / 127.0 : last.intValue () / 127.0))
                     return;
                 final int [] message = target.toMidi (mapped, this.configuration.getPedalMidiChannel ());
                 if (message != null)
@@ -734,16 +746,8 @@ public class PacerController
                     this.fx.setRemoteValue (target.getRemoteIndex (), output);
             }
             case PARAMETER -> this.moveParameter (index, this.looper.getExpressionParameter (target), output);
-            case ACTIVE_LOOP -> {
-                // A new recording is a new target: pick it up again
-                final int loop = this.looper.getActiveLoop ();
-                if (loop != this.activeLoops[index])
-                {
-                    this.pickups[index].reset ();
-                    this.activeLoops[index] = loop;
-                }
-                this.moveParameter (index, this.looper.getLoopVolume (loop), output);
-            }
+            // A new recording is a new target, which the target key picks up again
+            case ACTIVE_LOOP -> this.moveParameter (index, this.looper.getLoopVolume (this.looper.getActiveLoop ()), output);
             case ALL_LOOPS -> {
                 if (this.pickUp (index, output, this.looper.getLoopsLevel ()))
                     this.looper.setLoopsLevel (output);
@@ -766,6 +770,17 @@ public class PacerController
     private boolean pickUp (final int index, final double output, final double current)
     {
         return !this.isPickup () || this.pickups[index].accept (output, current);
+    }
+
+
+    private long getTargetKey (final ExpressionTarget target)
+    {
+        return switch (target.getKind ())
+        {
+            case FX_REMOTE -> this.configuration.getFocusedInstrument ();
+            case PARAMETER, ACTIVE_LOOP, ALL_LOOPS -> this.looper.getTargetKey (target);
+            case CC, CHANNEL_PRESSURE, PITCH_BEND_UP, NONE -> 0;
+        };
     }
 
 
@@ -890,10 +905,28 @@ public class PacerController
      */
     public void tick ()
     {
-        this.looper.tick ();
-        this.fx.tick ();
+        this.tickLooper ();
+        this.tickFx ();
         // Colours follow state; the board drops everything that would not change, so this is almost always silent
         this.paint ();
+    }
+
+
+    /**
+     * The looper's part of the tick. The setup runs each part on its own, so one failing does not stop the others.
+     */
+    public void tickLooper ()
+    {
+        this.looper.tick ();
+    }
+
+
+    /**
+     * The FX mode's part of the tick.
+     */
+    public void tickFx ()
+    {
+        this.fx.tick ();
     }
 
 

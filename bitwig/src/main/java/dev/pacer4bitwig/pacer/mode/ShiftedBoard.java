@@ -4,8 +4,9 @@ package dev.pacer4bitwig.pacer.mode;
 
 /**
  * A board seen through its shift layer: a switch with anything on its shift layer does that, every other switch
- * keeps its normal job, and SW 6 stays the mode switch. Everything that reads a layout - roles, loop switches,
- * colours, the beat counter - works on this view unchanged, which is what makes the shift layer cheap.
+ * keeps its normal job, and SW 6 - like any switch whose tap is a shift action - stays what it is. Everything that
+ * reads a layout - roles, loop switches, colours, the beat counter - works on this view unchanged, which is what makes
+ * the shift layer cheap.
  */
 public final class ShiftedBoard implements ModeBoard
 {
@@ -44,10 +45,12 @@ public final class ShiftedBoard implements ModeBoard
     @Override
     public SwitchLayout getLayout (final int switchIndex)
     {
-        if (Mode.isModeSwitch (switchIndex))
-            return this.base.getLayout (switchIndex);
+        final SwitchLayout normal = this.base.getLayout (switchIndex);
+        // A shift key stays a shift key on its own layer, so the same switch takes the layer down again
+        if (Mode.isModeSwitch (switchIndex) || normal.tap ().isShift ())
+            return normal;
         final SwitchLayout shifted = this.base.getShiftLayout (switchIndex);
-        return shifted.isUnassigned () ? this.base.getLayout (switchIndex) : shifted;
+        return shifted.isUnassigned () ? normal : shifted;
     }
 
 

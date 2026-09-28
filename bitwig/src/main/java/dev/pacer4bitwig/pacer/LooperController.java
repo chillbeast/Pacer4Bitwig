@@ -1381,6 +1381,21 @@ public class LooperController
         this.lastArmedIndex = -1;
         this.recordHistory.clear ();
         this.lengthTracker.reset ();
+        this.restoreLoopsLevel ();
+    }
+
+
+    /** The loop fader lets go of the tracks it moved: they get their own levels back, like after a fade. */
+    private void restoreLoopsLevel ()
+    {
+        final ITrackBank trackBank = this.getTrackBank ();
+        for (int i = 0; i < this.getLoopCount (); i++)
+        {
+            final double level = this.loopsLevel.getLevel (i);
+            final ITrack track = trackBank.getItem (i);
+            if (!Double.isNaN (level) && track.doesExist ())
+                track.getVolumeParameter ().setNormalizedValue (level);
+        }
         this.loopsLevel.reset ();
     }
 
@@ -1524,9 +1539,10 @@ public class LooperController
      */
     public IParameter getExpressionParameter (final ExpressionTarget target)
     {
-        // A bank position, so the pedal follows the loop track window like the loop switches do
+        // A bank position, so the pedal follows the loop track window like the loop switches do - and only the loop
+        // tracks: the bank reaches past them
         if (target.getLoopTrack () >= 0)
-            return this.getTrackBank ().getItem (target.getLoopTrack ()).getVolumeParameter ();
+            return target.getLoopTrack () < this.getLoopCount () ? this.getTrackBank ().getItem (target.getLoopTrack ()).getVolumeParameter () : null;
         final ICursorTrack cursorTrack = this.model.getCursorTrack ();
         return switch (target)
         {
@@ -1587,6 +1603,28 @@ public class LooperController
 
 
     /**
+     * What a pedal's target is right now, as a number that changes when the target does: a selected-track target
+     * when another track is selected, a loop track volume when the loop track window moves, the loop fader when it
+     * starts over. A picked-up pedal has to be picked up again then.
+     *
+     * @param target A pedal target
+     * @return The key
+     */
+    public long getTargetKey (final ExpressionTarget target)
+    {
+        final ICursorTrack cursorTrack = this.model.getCursorTrack ();
+        return switch (target)
+        {
+            case SELECTED_VOLUME, SELECTED_PAN, SELECTED_SEND_1, SELECTED_SEND_2 -> cursorTrack.getPosition ();
+            case DEVICE_REMOTE_1, DEVICE_REMOTE_2 -> cursorTrack.getPosition () * 1000L + this.model.getCursorDevice ().getPosition ();
+            case ACTIVE_LOOP_VOLUME -> this.getActiveLoop () + 1000L * this.getTrackBank ().getScrollPosition ();
+            case ALL_LOOPS_VOLUME -> this.loopsLevel.getGeneration ();
+            default -> target.getLoopTrack () >= 0 ? this.getTrackBank ().getScrollPosition () : 0;
+        };
+    }
+
+
+    /**
      * @return Where the "all loop tracks" fader is, 0-1
      */
     public double getLoopsLevel ()
@@ -1609,7 +1647,7 @@ public class LooperController
             final ITrack track = trackBank.getItem (i);
             volumes[i] = track.doesExist () ? this.getNormalizedValue (track.getVolumeParameter ()) : Double.NaN;
         }
-        final double [] result = this.loopsLevel.apply (volumes, gain);
+        final double [] result = this.loopsLevel.apply (volumes, gain, System.currentTimeMillis ());
         for (int i = 0; i < result.length; i++)
             if (!Double.isNaN (result[i]))
                 trackBank.getItem (i).getVolumeParameter ().setNormalizedValue (result[i]);

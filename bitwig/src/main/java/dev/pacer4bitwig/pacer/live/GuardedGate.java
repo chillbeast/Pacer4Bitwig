@@ -43,6 +43,14 @@ public final class GuardedGate implements WriteGate
 
     /** {@inheritDoc} */
     @Override
+    public boolean mayWriteName ()
+    {
+        return !this.enabled.getAsBoolean () || this.guard.mayWriteName (this.clock.getAsLong ());
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
     public void blocked ()
     {
         this.waiting = true;

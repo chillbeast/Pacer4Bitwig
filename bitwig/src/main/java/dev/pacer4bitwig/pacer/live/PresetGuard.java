@@ -4,25 +4,31 @@ package dev.pacer4bitwig.pacer.live;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.function.Predicate;
 
 
 /**
  * Is the Pacer still on the extension's preset? Live writes go to preset index 0 - whatever preset is loaded - so
  * after the Pacer was switched to another preset they would recolour that one. The guard reads the loaded preset's
  * name back (a GET, read-only) and compares it with the names the extension wrote: the same means ours, the stored
- * name of the Bitwig preset means ours but freshly loaded (every live edit gone), anything else means another preset.
+ * name of the Bitwig preset means ours but freshly loaded (every live edit gone), a name only the extension leaves
+ * behind (`OFF`, a mode's name, `ROW 3` - an earlier session's) means ours, anything else means another preset. A
+ * press on the Bitwig preset's switches, jacks or pedals is proof too: other presets keep off its channel.
  * <p>
  * It asks before writing when its last answer is getting old, and - with the heartbeat - every few seconds, which also
- * notices a Pacer that was unplugged and came back. A Pacer that has never answered is treated as if there were no
- * guard, so a firmware that ignores the question costs nothing but the question. Pure: times are passed in.
+ * notices a Pacer that was unplugged and came back. A name write needs a fresher answer than a colour: written into
+ * another preset, the name would make that preset look like ours. Nothing is written before the first answer; a Pacer
+ * that never answers is then treated as if there were no guard, so a firmware that ignores the question costs a
+ * second at startup and the question now and then. Pure: times are passed in.
  */
 public final class PresetGuard
 {
     /** Where the guard stands. */
     public enum State
     {
-        /** No answer yet: writes go out, as without the guard. */
+        /** No answer yet: writes wait for the first one (or for giving up on it). */
         UNKNOWN,
         /** The extension's preset is loaded. */
         OURS,
@@ -49,6 +55,8 @@ public final class PresetGuard
 
     /** An answer older than this is asked again before a write. */
     public static final long    CONFIRM_MILLIS    = 1500;
+    /** A name write needs an answer this fresh. */
+    public static final long    NAME_CONFIRM_MILLIS = 600;
     /** No answer by then counts as none. */
     public static final long    TIMEOUT_MILLIS    = 1000;
     /** A Pacer that answered before counts as gone after this many questions in a row went unanswered. */
@@ -68,6 +76,8 @@ public final class PresetGuard
     private static final int    NAMES_KEPT        = 8;
 
     private final String        storedName;
+    /** Names only the extension leaves on the display, as keys ({@link #key(String)}). */
+    private final Predicate<String> ownNames;
     private State               state             = State.UNKNOWN;
     private boolean             everAnswered;
     private int                 misses;
@@ -87,7 +97,33 @@ public final class PresetGuard
      */
     public PresetGuard (final String storedName)
     {
-        this.storedName = PacerSysex.pad (storedName);
+        this (storedName, name -> false);
+    }
+
+
+    /**
+     * Constructor.
+     *
+     * @param storedName The name the extension's preset has in the Pacer's memory
+     * @param ownNames Names only the extension leaves on the display (an earlier session's), given as keys: five
+     *            characters, space padded, upper case
+     */
+    public PresetGuard (final String storedName, final Predicate<String> ownNames)
+    {
+        this.storedName = key (storedName);
+        this.ownNames = ownNames;
+    }
+
+
+    /**
+     * How names are compared: as the Pacer stores them (five characters, 7-bit), ignoring case.
+     *
+     * @param name A name
+     * @return The key
+     */
+    public static String key (final String name)
+    {
+        return PacerSysex.pad (name).toUpperCase (Locale.ROOT);
     }
 
 
@@ -106,11 +142,27 @@ public final class PresetGuard
      */
     public boolean mayWrite (final long now)
     {
+        return this.mayWrite (now, CONFIRM_MILLIS);
+    }
+
+
+    /**
+     * @param now Milliseconds
+     * @return True if the display name may be written now
+     */
+    public boolean mayWriteName (final long now)
+    {
+        return this.mayWrite (now, NAME_CONFIRM_MILLIS);
+    }
+
+
+    private boolean mayWrite (final long now, final long fresh)
+    {
         return switch (this.state)
         {
-            case UNKNOWN, UNANSWERED -> true;
-            case OURS -> now - this.confirmedAt <= CONFIRM_MILLIS;
-            case FOREIGN, ABSENT -> false;
+            case UNANSWERED -> true;
+            case OURS -> now - this.confirmedAt <= fresh;
+            case UNKNOWN, FOREIGN, ABSENT -> false;
         };
     }
 
@@ -194,7 +246,7 @@ public final class PresetGuard
      */
     public void nameWritten (final String name, final long now)
     {
-        final String padded = PacerSysex.pad (name);
+        final String padded = key (name);
         this.currentName = padded;
         this.lastNameWriteAt = now;
         this.writtenNames.remove (padded);
@@ -220,6 +272,22 @@ public final class PresetGuard
 
 
     /**
+     * A switch, jack or pedal of the Bitwig preset just sent something - other presets keep off its channel, so the
+     * Bitwig preset is loaded.
+     *
+     * @param now Milliseconds
+     * @return True if the board has to be painted again: the Pacer was taken for another preset, or for gone
+     */
+    public boolean controlUsed (final long now)
+    {
+        final boolean wasElsewhere = this.isElsewhere ();
+        this.misses = 0;
+        this.confirm (now);
+        return wasElsewhere;
+    }
+
+
+    /**
      * The Pacer answered with the loaded preset's name.
      *
      * @param name The name
@@ -236,9 +304,9 @@ public final class PresetGuard
         this.everAnswered = true;
         this.misses = 0;
 
-        final String padded = PacerSysex.pad (name);
+        final String padded = key (name);
         final State before = this.state;
-        if (padded.equals (this.currentName) || this.writtenSince (padded, sentAt - STALE_READ_MILLIS))
+        if (padded.equals (this.currentName) || this.writtenSince (padded, sentAt - STALE_READ_MILLIS) || this.ownNames.test (padded))
         {
             this.confirm (now);
             // Back from another preset or from being unplugged, the Pacer shows whatever it had: paint it all

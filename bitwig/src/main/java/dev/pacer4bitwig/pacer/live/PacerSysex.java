@@ -2,6 +2,7 @@
 
 package dev.pacer4bitwig.pacer.live;
 
+import java.text.Normalizer;
 import java.util.Locale;
 
 
@@ -152,6 +153,30 @@ public final class PacerSysex
 
 
     /**
+     * What the Pacer can show: printable 7-bit ASCII. Accents lose their marks ("Übergang" becomes "Ubergang"),
+     * anything else becomes '?'. Scene and track names reach the display, and the name read back has to be exactly
+     * what was written.
+     *
+     * @param text Any text, may be null
+     * @return The text the Pacer gets
+     */
+    public static String displayText (final String text)
+    {
+        if (text == null)
+            return "";
+        final String decomposed = Normalizer.normalize (text, Normalizer.Form.NFD);
+        final StringBuilder result = new StringBuilder (decomposed.length ());
+        for (int i = 0; i < decomposed.length (); i++)
+        {
+            final char c = decomposed.charAt (i);
+            if (Character.getType (c) != Character.NON_SPACING_MARK)
+                result.append (c >= 0x20 && c < 0x7F ? c : '?');
+        }
+        return result.toString ();
+    }
+
+
+    /**
      * Pad or cut a name to what the Pacer stores.
      *
      * @param text The name
@@ -159,7 +184,7 @@ public final class PacerSysex
      */
     public static String pad (final String text)
     {
-        final String value = text == null ? "" : text;
+        final String value = displayText (text);
         if (value.length () >= NAME_LENGTH)
             return value.substring (0, NAME_LENGTH);
         return value + " ".repeat (NAME_LENGTH - value.length ());

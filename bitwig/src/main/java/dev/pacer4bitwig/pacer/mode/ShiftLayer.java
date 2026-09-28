@@ -27,7 +27,9 @@ public final class ShiftLayer
 
     private State state  = State.OFF;
     /** The control holding the layer up in {@link State#HELD}, -1 otherwise. */
-    private int   heldBy = -1;
+    private int     heldBy = -1;
+    /** Whether the layer was latched when a hold raised it; letting go returns to that. */
+    private boolean latchedUnderHold;
 
 
     /**
@@ -55,6 +57,7 @@ public final class ShiftLayer
     {
         this.state = this.state == State.OFF ? State.ON : State.OFF;
         this.heldBy = -1;
+        this.latchedUnderHold = false;
     }
 
 
@@ -66,6 +69,7 @@ public final class ShiftLayer
     {
         this.state = this.state == State.OFF ? State.ONCE : State.OFF;
         this.heldBy = -1;
+        this.latchedUnderHold = false;
     }
 
 
@@ -76,23 +80,27 @@ public final class ShiftLayer
      */
     public void hold (final int control)
     {
+        if (this.state != State.HELD)
+            this.latchedUnderHold = this.state == State.ON;
         this.state = State.HELD;
         this.heldBy = control;
     }
 
 
     /**
-     * A control was released. If it was the one holding the layer up, the layer goes down.
+     * A control was released. If it was the one holding the layer up, the layer goes down - or stays latched, if it
+     * was latched before the hold.
      *
      * @param control The control
-     * @return True if the layer went down
+     * @return True if the layer changed
      */
     public boolean release (final int control)
     {
         if (this.state != State.HELD || this.heldBy != control)
             return false;
-        this.state = State.OFF;
+        this.state = this.latchedUnderHold ? State.ON : State.OFF;
         this.heldBy = -1;
+        this.latchedUnderHold = false;
         return true;
     }
 
@@ -121,6 +129,7 @@ public final class ShiftLayer
         final boolean wasOn = this.isOn ();
         this.state = State.OFF;
         this.heldBy = -1;
+        this.latchedUnderHold = false;
         return wasOn;
     }
 }

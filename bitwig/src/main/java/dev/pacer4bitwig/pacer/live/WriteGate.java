@@ -27,6 +27,17 @@ public interface WriteGate
 
 
     /**
+     * The display name is what tells presets apart, so it may ask for more than a colour does.
+     *
+     * @return True if the display name may be written now
+     */
+    default boolean mayWriteName ()
+    {
+        return this.mayWrite ();
+    }
+
+
+    /**
      * A write was held back.
      */
     default void blocked ()

@@ -194,8 +194,13 @@ extension when the file changes (so `install` restarts it under a user who is te
 - **The preset check** (`live/PresetGuard`, pure): `LiveBoard` writes through a `WriteGate` (`GuardedGate`); a
   held-back write is not remembered as done, so it goes out on the first paint after the gate opens. The setup's
   `checkPreset` (every tick) sends `PacerSysex.requestName ()` via `LiveBoard.request` when the guard asks, and
-  `sysexReceived` feeds the answers back; CC 119 confirms directly. A Pacer that never answers is treated as
-  before. Not verified on hardware yet (does it answer a GET of the name alone, does a GET flash `LOAD SYS`).
+  `sysexReceived` feeds the answers back; CC 119 and any control of the Bitwig preset (`controlUsed`, in the setup's
+  command wrappers) confirm directly. Nothing is written before the first answer - painting first would write our
+  name into whatever preset is loaded and then find it there. Names only the extension leaves (`OFF`, mode names,
+  `ROW n`) count as ours; a name write needs a fresher answer than a colour (`NAME_CONFIRM_MILLIS`). Names are
+  compared as `PresetGuard.key` (padded, upper case), and `PacerSysex.pad` reduces every display text to printable
+  ASCII so what is read back is what was written. A Pacer that never answers is treated as before. Not verified on
+  hardware yet (does it answer a GET of the name alone, does a GET flash `LOAD SYS`).
 - **Errors are contained** (`util/FailSoft`): every entry point the setup registers - switch and jack commands and
   their scheduled holds, lights, pedals, SysEx, CC 119, settings observers, the tick - runs through `failSoft`, and
   the tick reschedules itself in `finally`. New entry points go through it too. `util/Diagnostics` logs presses,

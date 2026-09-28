@@ -73,7 +73,8 @@ The Pacer's built-in **Track** and **Transport** DAW presets work when *Nektar D
 ## 5. Modes: what the switches do
 
 The Pacer holds **one preset** and the extension paints a **mode** onto it — a whole board of assignments, colours
-and a name on the display. Four modes are built in and fixed; the fifth is yours to lay out.
+and a name on the display. Four modes are built in; the fifth is yours to lay out — or use the same settings to
+change one of the four, switch by switch (*Your own layout*, below).
 
 ### SW 6 is the mode switch
 
@@ -117,8 +118,8 @@ play/stop all, moved to SW C, and launcher overdub (hold: metronome) sits on SW 
 | **EXP 2** | Master volume | – |
 
 A switch is a loop switch only while the project has that many loop tracks (*Loop tracks*), so with three tracks
-SW 4 does nothing. Tap tempo and transport play/stop are in the Song mode (SW 5, hold: tap tempo). For more than
-four loop switches, lay out the Custom mode.
+SW 4 does nothing. Tap tempo and transport play/stop are in the Song mode (SW 5, hold: tap tempo). To change any
+of it — tap tempo back on SW D, a fifth loop switch on SW 5, loops on the top row — see *Your own layout* below.
 
 ### Mixer mode (`MIX`)
 
@@ -139,19 +140,34 @@ the track selected in Bitwig, SW C is undo/redo, SW D shows the status.
 The pedalboard of [docs/FX-PRESET.md](FX-PRESET.md): SW 1–4 focus instruments A–D (double-tap mutes, hold assigns
 the track selected in Bitwig), SW 5 steps through snapshots, SW A–D are the focused instrument's FX switches 1–4.
 
-### Custom mode (`CUST`)
+### Your own layout: change a mode, or build a fifth (`CUST`)
 
-The fifth slot is empty until you fill it, in *Settings > Custom mode*. Every switch except SW 6 (the mode switch)
-gets five settings:
+*Settings > Custom layout* lays out one board, switch by switch. **The custom layout changes** decides whose board it
+is:
+
+- **Its own mode** (the default): the fifth menu slot, `CUST`, starting from an empty board.
+- **The Looper / FX / Mixer / Song mode**: that mode, changed in place. It starts from the mode's own board and keeps
+  its menu slot, its name, its pedals and (the Looper) its beat counter; the `CUST` slot goes dark meanwhile.
+
+Every switch except SW 6 (the mode switch) has five settings, and every one starts at **As in the mode** — so you only
+set what differs:
 
 | Setting | |
 |---------|--|
-| **tap / double-tap / hold** | any of the actions, exactly like a footswitch jack |
-| **colour** | one of the Pacer's twelve, or *Automatic* — which picks one from the action, so a board looks deliberate without choosing twelve colours by hand |
-| **LED** | which of the switch's LEDs lights: the colour strip, the icon row, or the word row. SW A–D have no word row, so they fall back to the strip |
+| **SW n · tap / double-tap / hold** | *As in the mode*, or any of the actions, exactly like a footswitch jack. *Nothing* empties the gesture |
+| **SW n · colour** | *Automatic* — the mode's own colour for a switch you did not change, otherwise one picked from its action — or *Off*, or one of the Pacer's twelve |
+| **SW n · LED** | *As in the mode*, or which of the switch's LEDs lights: the colour strip, the icon row, or the word row. SW A–D have no word row, so they fall back to the strip |
 
-Plus **Name on the Pacer display** (five characters, `CUST` by default) and **Loop switches** — how many of SW 1–5
-are loop tracks rather than actions, so a custom board can be a looper too.
+Plus **Name on the display** (five characters; blank keeps the mode's own name, `CUST` for a mode of its own).
+
+**Example — tap tempo back on the Looper's SW D:** *The custom layout changes* = *The Looper mode (changes it)*,
+*SW D · tap* = *Tap tempo*, *SW D · hold* = *Transport play/stop*. Everything else stays the Looper.
+
+**Loops anywhere.** Give a switch the tap *Loop track 1* … *Loop track 6* and it is a full loop switch for that
+track: the smart loop, *Hold a loop switch*, *Double-tap a loop switch*, hold to record and the loop LED all apply
+(its own hold and double-tap settings are ignored). So loops can sit on the top row, and a footswitch jack set to
+*Loop track n* is a loop switch too. Next to them, *Mute/unmute loop track 1–6* gives each loop a mute switch of its
+own, looper-pedal style (they honour *Mute timing*).
 
 Changing any of it repaints the Pacer at once while you are standing in the mode.
 
@@ -206,7 +222,10 @@ way; on slots that already hold a loop the switch works as usual (tap and hold).
   material, ready for variations); *halve* shortens the loop region to its first half.
 - **Scene rows as song sections:** each row (scene) is a set of loops. Record a verse in row 1, tap **SW B** to move
   to row 2 and record the chorus, then launch rows with **SW C** (or Bitwig's scene launchers). **Duplicate row**
-  copies the current row with all its loops into a new row right below and moves there.
+  copies the current row with all its loops into a new row right below and moves there. With *Previous / next row
+  while loops play = Move to it and play it*, moving to a row that has loops while the song plays launches it (on
+  the launch quantization), so a section change is one press; an empty row is left alone, so the old loops play on
+  while you record the new section.
 - **Names for new rows:** fill *Names for new rows* with e.g. `Intro, Verse, Chorus, Bridge, Outro`; rows created from
   the Pacer are named by position (row 1 = Intro …), and row notifications show the name ("Row 3: Chorus").
 - **Fade out and stop all loops:** ramps every loop track down over the *Fade length* (following the tempo), stops
@@ -227,12 +246,12 @@ way; on slots that already hold a loop the switch works as usual (tap and hold).
 
 ### Actions
 
-The built-in modes are fixed. These actions are available for the Custom mode's switches and the footswitch jacks
-FS 1–4, as tap, double-tap and hold:
+These actions are available for the custom layout's switches and the footswitch jacks FS 1–4, as tap, double-tap
+and hold:
 
 | Group | Actions |
 |-------|---------|
-| Loops | one-button looper · clear the last recorded loop · smart loop / stop / mute / solo / clear the selected track · input monitoring on/off · double / halve the selected loop · select previous / next loop track |
+| Loops | loop track 1–6 (as a tap: makes the switch or jack a loop switch) · mute/unmute loop track 1–6 · one-button looper · clear the last recorded loop · smart loop / stop / mute / solo / clear the selected track · input monitoring on/off · double / halve the selected loop · select previous / next loop track |
 | Row | play row / stop all · stop all · play row · clear row · mute/unmute all loops · fade out and stop · fade in the row · reset the looper |
 | Navigation | previous / next row · duplicate row · move loop tracks left / right · loop tracks start at the selected track |
 | Transport & misc | undo · redo · launcher overdub · metronome · tap tempo · transport play/stop · show looper status · LED test |
@@ -258,8 +277,9 @@ Response curve, heel and toe are the pedal's physical calibration, so they stay 
 ### The display
 
 The display normally shows the mode's name. When a mode has something more useful to say it shows that instead:
-the **FX** mode names the focused instrument, the **Song** mode names the row (from *Names for new rows*). Turn it
-off with *Show what the mode is doing on the display*.
+the **FX** mode names the focused instrument, the **Looper** and **Song** modes name the row you are on — the scene's
+name in Bitwig, its name from *Names for new rows*, or `ROW 3`. Turn it off with *Show what the mode is doing on the
+display*.
 
 Switching off the extension, or closing Bitwig, darkens the whole board and writes `OFF`, so a Pacer nobody is
 driving does not look live. Selecting any preset on it brings its own colours back.
@@ -329,7 +349,7 @@ all: green playing, amber loaded), previous/next row available (next row shows b
 overdub on (red), metronome on, transport running (green), any loop muted (blue), selected loop soloed (amber),
 input monitoring on (green), reset available (purple). The one-button looper shows the loop it is busy with; fade
 actions blink while a fade runs. A switch's LED follows its *tap* action, so a switch whose tap is **Tap tempo** (in the
-Custom mode) flashes green on every beat; the Song mode's SW 5 (tap: transport, hold: tap tempo) shows whether the
+custom layout) flashes green on every beat; the Song mode's SW 5 (tap: transport, hold: tap tempo) shows whether the
 transport runs. The beat counter temporarily takes over SW A–D in the Looper mode (section 5).
 
 **LED test:** *Settings > Pacer LEDs > Test the LEDs* (or the *Test the LEDs* action) lights every switch white,
@@ -342,11 +362,11 @@ red, green, amber, blue, purple for a second each.
 | Modes | Mode at startup | Whatever this project used last (default) · Looper · FX pedalboard · Mixer · Song · Custom |
 | | Put the mode name back on the display after a press | On · Off (each restore is one SysEx, which flashes `LOAD SYS`) |
 | | Show what the mode is doing on the display | On · Off |
-| Custom mode | Name on the Pacer display | 5 characters (default `CUST`) |
-| | Loop switches | None · SW 1 · SW 1-2 … SW 1-5 (SW 6 is always the mode switch) |
-| | SW 1–5, SW A–D tap / double-tap / hold | any action |
-| | SW 1–5, SW A–D colour | Automatic (from the action) · Off · the Pacer's twelve colours |
-| | SW 1–5, SW A–D LED | Colour strip · Icon row · Word row (SW 1–5 only: SW A–D have no word row) |
+| Custom layout | The custom layout changes | Its own mode (CUST, starts empty — default) · The Looper / FX / Mixer / Song mode (changes it) |
+| | Name on the display | 5 characters (blank: the mode's own name) |
+| | SW n · tap / double-tap / hold (SW 1–5, SW A–D) | As in the mode (default) · any action, including *Loop track 1–6* |
+| | SW n · colour | Automatic (as in the mode, or from the action) · Off · the Pacer's twelve colours |
+| | SW n · LED | As in the mode (default) · Colour strip · Icon row · Word row (SW 1–5 only: SW A–D have no word row) |
 | Looper | Looper MIDI channel (must match the Pacer preset) | 1–16 (default 16; changing it restarts the extension) |
 | | Loop tracks | 1–6 |
 | | Loop switch mode | Tap to record, tap again to close · Hold to record, release to close |
@@ -362,12 +382,13 @@ red, green, amber, blue, purple for a second each.
 | | Count-in from a stopped transport | Off · 1 bar · 2 bars |
 | | Mute timing | Immediately · On the next beat · On the next bar |
 | | Fade length | 1 · 2 · 4 · 8 bars |
+| | Previous / next row while loops play | Only move to it (default) · Move to it and play it, when loops play and it has loops |
 | | Names for new rows | comma separated text |
 | | Loop tracks start at track | 1–128, used by every project |
 | FX mode | Snapshots per instrument | 2 · 3 · 4 |
 | | Focusing an instrument selects its track in Bitwig | Off · On |
 | | Remote controls page name | text (default "Pacer") |
-| Footswitch jacks | FS 1–4 tap / double-tap / hold | any action, including *Next mode* and *Go to the … mode* |
+| Footswitch jacks | FS 1–4 tap / double-tap / hold | any action, including *Next mode* and *Go to the … mode*; a tap of *Loop track n* makes the jack a loop switch |
 | Expression pedals | EXP 1 · Looper … EXP 2 · Custom | any pedal target, one per mode (ten settings) |
 | | EXP 1, EXP 2 response | Linear · Inverted · Slow start · Fast start |
 | | EXP 1, EXP 2 heel (minimum) / toe (maximum) | 0–100 % |
@@ -449,7 +470,8 @@ Run these once with the Pacer on preset D1 and the controller added in Bitwig.
 18. [ ] *Loop switch mode = Hold to record*: hold SW 2 for two bars and release — a 2-bar loop plays.
 19. [ ] *Mute timing = On the next bar*: tapping mute mid-bar blinks, then mutes exactly on the downbeat.
 20. [ ] *Reset the looper* stops, unmutes and disarms everything.
-21. [ ] Custom mode, *Loop switches = SW 1-2* and *SW 3 tap = Undo*: in the Custom mode SW 1–2 loop and SW 3 undoes.
+21. [ ] Custom layout as its own mode, *SW 1 · tap = Loop track 1*, *SW 2 · tap = Loop track 2*, *SW 3 · tap = Undo*:
+        in `CUST`, SW 1–2 loop and SW 3 undoes.
 22. [ ] *Double-tap a loop switch = Clear*: tap an empty loop (recording queues), tap again quickly — nothing is left.
 23. [ ] *Loop tracks start at track* = 5: the loop switches control tracks 5–8, in this project and every other.
 24. [ ] *Names for new rows* = `Intro, Verse`: SW B past the last row creates a row named "Verse" (if it is row 2).
@@ -460,8 +482,8 @@ Run these once with the Pacer on preset D1 and the controller added in Bitwig.
 
 ### Modes
 
-28. [ ] On startup the board repaints itself and the display reads the mode (`LOOP` in a new project); the LED test
-        does not run by itself.
+28. [ ] On startup the board repaints itself (the Looper in a new project, its display reading the row: `ROW 1`); the
+        LED test does not run by itself.
 29. [ ] Hold SW 6 and take your foot off: the display reads `MODE`, SW 1–5 light green / magenta / blue / gold / cyan
         and SW A–D lavender, and the menu stays open. Tap SW 6 again — it closes, mode unchanged.
 30. [ ] Hold SW 6 and tap SW 3: the display reads `MIX`, and SW 1–4 light their printed **words**
@@ -469,7 +491,22 @@ Run these once with the Pacer on preset D1 and the controller added in Bitwig.
 31. [ ] Tap SW 6: back to `LOOP`. Tap again: back to `MIX`.
 32. [ ] Hold SW 6 and tap SW 4: `SONG`, with SW 1–5 lighting the **transport icons** instead of the strip.
 33. [ ] In any mode, hold SW 6 and tap SW C / SW D: the scene row moves; SW A / SW B move the loop track window.
-34. [ ] Press a switch: the display briefly shows its CC, then goes back to the mode name.
+34. [ ] Press a switch: the display briefly shows its CC, then goes back to the mode's name (or the row, the
+        instrument).
 35. [ ] Select a different preset on the Pacer and come back to D1: the whole board is painted again, in the same mode.
 36. [ ] Set *FS 3 tap* to *Next mode*: the jack cycles LOOP → FX → MIX → SONG → CUST → LOOP.
 37. [ ] Hold SW 6, tap SW 4 (Song) and leave your foot on it for a second: only the mode changes — no fade-out.
+
+### Custom layout
+
+38. [ ] *The custom layout changes = The Looper mode*, *SW D · tap = Tap tempo*: in the Looper, SW D taps the tempo;
+        everything else is unchanged, the display still names the row, and the `CUST` slot in the menu is dark.
+39. [ ] *SW A · tap = Loop track 1* (Looper changed): SW A records, closes and plays loop 1 like SW 1, and its LED
+        follows the loop; the beat counter leaves SW A alone.
+40. [ ] *FS 1 tap = Loop track 2* with *Loop switch mode = Hold to record*: holding FS 1 records loop 2, releasing
+        closes it.
+41. [ ] *SW B · tap = Mute/unmute loop track 1* with *Mute timing = On the next bar*: the mute waits for the downbeat
+        (SW B blinks), then SW B lights blue.
+42. [ ] *Previous / next row while loops play = Move to it and play it*: with row 1 playing, SW B moves to row 2 and
+        plays it at the next launch point; moving to an empty row keeps row 1 playing.
+43. [ ] In the Looper, the display reads the row (`ROW 1`, or the scene's name) and changes with SW A / SW B.

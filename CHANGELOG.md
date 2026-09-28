@@ -20,15 +20,21 @@ touched and nothing wears the EEPROM. See [docs/LIVE-COLOURS-AND-MODES.md](docs/
   out to matter.
 - **Modes on a footswitch jack:** new actions *Next mode*, *Previous mode (toggle)* and *Go to the … mode*, so a
   spare jack or switch can jump straight to one.
-- **A custom mode** in the fifth menu slot, laid out entirely in *Settings > Custom mode*: tap, double-tap, hold,
-  colour and which of the switch's three LEDs lights, for each of the nine switches, plus a five-character display
-  name and how many switches are loop tracks. Colour *Automatic* picks one from the action. Editing it repaints the
-  Pacer straight away.
+- **Your own layout** (*Settings > Custom layout*): tap, double-tap, hold, colour and which of the switch's three
+  LEDs lights, for each of the nine switches, plus a five-character display name. It is either a fifth mode of its
+  own (`CUST`, starting empty) or **changes a built-in mode in place** — *The custom layout changes = The Looper
+  mode* starts from the Looper's board, every switch setting defaults to *As in the mode*, and the Looper keeps its
+  slot, name, pedals and beat counter. Tap tempo back on SW D is one setting. Editing it repaints the Pacer straight
+  away.
+- **Loops anywhere:** *Loop track 1–6* as a tap makes any switch or footswitch jack a full loop switch for that track
+  (hold, double-tap and hold to record included), so loops can sit on the top row or a jack. *Mute/unmute loop
+  track 1–6* gives each loop a mute switch of its own.
 - **The expression pedals follow the mode:** ten settings, *EXP 1 · Looper* through *EXP 2 · Custom*. On a Pacer
   with no spare footswitches this is what turns two controls into ten. Defaults: selected volume and master in the
   looper, the instrument's remotes 7 and 8 in FX, volume and send 1 in the mixer, master and a project remote in
   song, nothing in custom. Response curve and heel/toe stay shared - they are the pedal's calibration.
-- **The display shows what the mode is doing:** the focused instrument in FX, the row name in Song, the mode's name
+- **The display shows what the mode is doing:** the focused instrument in FX, the row in the Looper and Song (the
+  scene's name, or `ROW 3`), the mode's name
   otherwise. *Show what the mode is doing on the display* turns it off.
 - **Mode at startup**, including *whatever this project used last* (the default) - a looping project opens in the
   looper, a guitar project in the pedalboard.
@@ -47,6 +53,11 @@ touched and nothing wears the EEPROM. See [docs/LIVE-COLOURS-AND-MODES.md](docs/
 
 ### Changed
 
+- **Previous / next row while loops play** (new Looper setting): *Move to it and play it* launches the row you move
+  to when the song is playing and the row has loops, so a section change is one press; an empty row is left alone so
+  the old loops play on while you record the next section.
+- The custom mode's settings moved to *Custom layout* with new names (*SW 1 · tap* …), and its *Loop switches*
+  setting gave way to the *Loop track* actions. Anything laid out in the custom mode before needs setting again.
 - **Hold time for clearing actions now defaults to *Long* (1.5 s).** At the old default of *Normal* the deleting
   holds had no margin over the plain half-second hold, so a foot resting on a loop switch deleted the take it had
   just started. Bitwig keeps the value you already have, so set it by hand if you never changed it.

@@ -124,9 +124,15 @@ and are assignable. The mode system is plumbing, not new behaviour.
 #### Fixed modes first
 
 Built in, not user-editable, until the ergonomics are proven. Designing a settings system for modes nobody has
-specified means guessing twice, and 5 modes x 27 bindings would be 135 entries in Bitwig's panel. Settings come
-later, where they turn out to matter. The set: **LOOP**, **FX**, **MIX**, **SONG** and **CUST**, the one mode laid
-out in the settings (*Settings > Custom mode*).
+specified means guessing twice, and 5 modes x 27 bindings would be 135 entries in Bitwig's panel. The set: **LOOP**,
+**FX**, **MIX**, **SONG** and **CUST**.
+
+What did turn out to matter was changing one switch of a built-in mode (tap tempo where overdub is). So there is one
+**custom layout** (*Settings > Custom layout*, `mode/CustomBoard`): either the fifth mode, `CUST`, or laid over a
+built-in mode, which it then changes in place - every switch setting starts at *As in the mode*, so one setting
+changes one switch, and the mode keeps its slot, name and pedals. 45 settings rather than 135, at the price of one
+changed mode at a time. A switch whose tap is *Loop track n* is a loop switch wherever it sits, so a custom layout can
+put loops on the top row or on a jack.
 
 Open questions:
 

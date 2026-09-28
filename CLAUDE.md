@@ -126,9 +126,12 @@ extension when the file changes (so `install` restarts it under a user who is te
   restoring them.
 - Double/halve use the launcher cursor clip: `model.ensureClip ()` in `createModel` creates it (init phase); select
   the slot, then act on `model.getCursorClip ()` ~150 ms later once the cursor has followed.
-- A switch is a loop switch when the active mode says so *and* the project has that many loop tracks
-  (`getLoopTrackCount`); the Looper mode claims SW 1-4, like the default *Loop tracks* = 4. Every other switch uses
-  its layout's tap / double-tap / hold `Action`s.
+- **A switch is a loop switch when its tap is a loop-track action** (`Action.LOOP_1..6`, `SwitchLayout.loop (n)`,
+  `ModeBoard.getLoopTrack`) *and* the project has that many loop tracks (`getLoopTrackCount`); the Looper mode is
+  `loop (0)..loop (3)` on SW 1-4, like the default *Loop tracks* = 4. A loop switch's own hold/double-tap are
+  ignored: `LooperController.loopSwitch*` take the *track* index and apply the Looper settings. A footswitch jack
+  whose tap is a loop track is a loop switch too (`PacerController.jackLoopTrack`). Run as a plain action (a
+  double-tap slot) `LOOP_n` is the smart loop tap. Every other switch uses its layout's tap / double-tap / hold.
 - Double-tap never delays the tap (`TapHoldCommand.withDoubleTap`): a second tap inside the window runs the double-tap
   action instead of a second tap. Holds reset the double-tap window.
 - The loop track position is a *global* setting (*Loop tracks start at track*, used by every project - Bitwig 6
@@ -141,9 +144,13 @@ extension when the file changes (so `install` restarts it under a user who is te
   `createSurface`, and changing the setting later calls `host.restart ()`.
 - **Modes** (`mode/`, docs/LIVE-COLOURS-AND-MODES.md): `Mode` holds the fixed boards (LOOP, FX, MIX, SONG) as a
   `SwitchLayout` per switch - tap / double-tap / hold action, colour and which of the switch's three LEDs lights.
-  `Mode.CUSTOM` is laid out in the settings instead: everything that reads a layout goes through `ModeBoard`, and
-  `PacerController.getBoard ()` swaps in `PacerConfiguration.getCustomBoard ()` for it. `Mode.CUSTOM`'s own layouts
-  are placeholders and must never be read directly.
+  The **custom layout** (`mode/CustomBoard`, pure) overlays the *Custom layout* settings on a base board: its own
+  mode (`CustomTarget.OWN`, based on `Mode.CUSTOM`'s empty board) or a built-in mode it changes in place (every
+  switch setting defaults to "As in the mode" = null). Everything that reads a layout goes through `ModeBoard`, and
+  `PacerController.getBoard ()` returns the custom board for `Mode.CUSTOM` *and* for the mode it changes; while it
+  changes a built-in mode, `ModeState.isOffered (CUSTOM)` is false (dark slot, skipped by next/toggle/activate).
+  `ModeBoard.countsBeats` says where the beat counter runs (the Looper, changed or not; a custom mode of its own with
+  loop switches) - never over a top-row loop switch.
   `ModeState` is the SW 6 gesture (tap toggles, hold opens `ModeMenu`), `ModePainter` turns a mode into colour and
   name writes, and `live/LiveBoard` sends them while dropping anything that would not change. Colours are repainted
   every tick and are almost always silent; that silence is what keeps the Pacer's display off `LOAD SYS`.

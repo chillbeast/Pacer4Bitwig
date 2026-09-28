@@ -50,19 +50,20 @@ SW 2; the display reads `FX`.
 | EXP 1   | Focused instrument: remote control 7 | | |
 | EXP 2   | Focused instrument: remote control 8 | | |
 
-- The built-in modes are fixed, so this layout is not a setting. The FX, instrument and snapshot actions *can* be
-  put on the Custom mode's switches or on the footswitch jacks, which are the same in every mode — so FS 1–2 keep
-  looping from here.
+- The built-in modes are fixed, but the custom layout can change this one in place (*The custom layout changes =
+  The FX mode*, then only the switches you set differ). The FX, instrument and snapshot actions also fit on the
+  footswitch jacks, which are the same in every mode — so FS 1–2 keep looping from here.
 - Four instruments fit because SW 6 is the mode switch and snapshots moved to SW 5; the old layout had three
   instruments and six FX switches.
-- *Momentary: tap again on release* works as the hold of any Custom mode switch or jack whose tap toggles something.
+- *Momentary: tap again on release* works as the hold of any custom layout switch or jack whose tap toggles
+  something.
 
 ## Behaviour
 
 ### Instruments
 
-- Four slots (A–D) on SW 1–4; snapshots are on SW 5. To put an instrument somewhere else, use the Custom mode or a
-  footswitch jack.
+- Four slots (A–D) on SW 1–4; snapshots are on SW 5. To put an instrument somewhere else, change the FX mode with the
+  custom layout, or use a footswitch jack.
 - A slot remembers the track **name**, saved per project, and so does the focused slot. Assignments are made from
   the Pacer: Bitwig 6 shows a controller's project settings nowhere in its own panels. After renaming a track,
   assign it again. Instruments are found among the first 64 tracks of the project (tracks inside groups count).

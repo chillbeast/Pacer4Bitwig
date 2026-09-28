@@ -8,14 +8,14 @@ The Pacer stays on **one preset** and the extension paints it live: colours, the
 does. Writing to preset index 0 changes only the loaded preset's RAM copy, so the device's stored presets are never
 touched and nothing wears the EEPROM. See [docs/LIVE-COLOURS-AND-MODES.md](docs/LIVE-COLOURS-AND-MODES.md).
 
-- **SW 6 is the mode switch.** Hold it for the mode menu, which **stays open when your foot comes off** — SW 1–4
+- **SW 6 is the mode switch.** Hold it for the mode menu, which **stays open when your foot comes off** — SW 1–5
   then pick a mode (and close the menu), SW A–D move the loop track window and the scene row and leave it open. A
   tap of SW 6 closes the menu without changing mode; with the menu shut, a tap toggles between the last two modes.
   The whole gesture works with one foot.
 - **Four modes to start with:** *LOOP* (the looper preset's layout: loop tracks on SW 1–4, undo on SW 5, scene rows
   on SW A / SW B with the loop track window on their holds, play/stop all on SW C and launcher overdub / metronome on
   SW D), *FX*
-  (instruments on SW 1–5, their FX switches on SW A–D), *MIX* (solo, mute, input monitoring and the metronome) and
+  (instruments on SW 1–4, snapshots on SW 5, their FX switches on SW A–D), *MIX* (solo, mute, input monitoring and the metronome) and
   *SONG* (playing, stopping and navigating scene rows). Modes are fixed for now; settings will come where they turn
   out to matter.
 - **Modes on a footswitch jack:** new actions *Next mode*, *Previous mode (toggle)* and *Go to the … mode*, so a
@@ -57,7 +57,7 @@ touched and nothing wears the EEPROM. See [docs/LIVE-COLOURS-AND-MODES.md](docs/
   The custom mode has its own version of it.
 - Four settings categories that no longer had settings, and two that still called modes "presets" — *FX preset* is
   now *FX* and *Footswitch jacks FS 1-4 (both presets)* is now *Footswitch jacks FS 1-4*. Bitwig keys settings by
-  category, so the handful inside them go back to their defaults once.
+  category, so the handful inside them go back to their defaults once. (*FX* is now called *FX mode*.)
 
 ### One preset, and the multi-colour strategy retired
 
@@ -70,8 +70,9 @@ touched and nothing wears the EEPROM. See [docs/LIVE-COLOURS-AND-MODES.md](docs/
   *Loop colour: …* (renaming a setting resets it to its default).
 - **The per-switch settings are gone**, because the modes own the stomp switches. The footswitch jacks and the
   expression pedals keep theirs, and the pedals still have their own targets in the FX mode.
-- *Active preset* is gone with the second preset; selecting a preset on the Pacer now just makes the extension write
-  the whole board again.
+- *Active preset* is gone with the second preset. Selecting the preset on the Pacer (CC 119 = 127) makes the extension
+  write the whole board again and keeps the mode you were in; the retired FX preset (17 / 18) still selects the FX
+  mode.
 
 ### FX mode (new)
 
@@ -101,11 +102,38 @@ Bitwig, while the looper keeps running. See [docs/FX-PRESET.md](docs/FX-PRESET.m
   Pacer (hold SW A / SW B) writes the setting, and the position is stored as asked for rather than read back after a
   delay, which could scroll the window straight back.
 
+### Fixed
+
+- **A press that changes the mode finishes as the switch that was pressed.** Holding a menu slot a moment too long
+  ran the new mode's hold on that switch — picking Song and resting on SW 4 faded out every loop, SW 1 deleted
+  loop 1, SW 2 reassigned instrument B — and a loop switch set to fire on release started recording when the
+  Looper was picked. A held momentary FX switch now also switches off when the mode changes under it.
+- **The LED test no longer runs every time the extension starts**, and starting in a mode other than the Looper
+  points the pedals at that mode's targets straight away.
+- **Hold to record with a count-in** closes the loop when you let go during the count-in; it used to record for
+  ever.
+- **Stop all, fades and Reset stop only the loop tracks**, not the tracks to the right of them (a backing track).
+- **Count-ins, waiting mutes and fades survive the arranger loop wrapping**: they used to wait for a beat the play
+  position never reached (the metronome stayed on, a mute blinked for ever, a fade restarted at every wrap).
+- **Clear the last recorded loop** no longer forgets other rows' recordings.
+- Mode changes paint the new board's real colours in one burst instead of a wrong one and a correction; the Custom
+  mode's *Automatic* colour lights loop switches and switches that only have a hold.
+- The Custom mode's *Loop switches* stops at SW 1-5 (SW 6 is always the mode switch).
+
 ### Pacer Studio and tools
 
-- "Bitwig FX" template (shared with the looper template) and FX roles in the cheat sheet.
-- `tools/looper-preset.mjs --preset looper|fx|all` also writes `presets/bitwig-fx-{two,multi}-colour-D2.syx`.
+- One template, **Bitwig Pacer**; `tools/pacer-preset.mjs` (was `looper-preset.mjs`) writes
+  `presets/bitwig-pacer-D1.syx`, and CI fails when the committed preset or the editor's fixture differ from it.
 - `tools/pacer-monitor.mjs`: read-only monitor of everything the Pacer sends, for hardware testing.
+- **Backups you can trust:** `pacer-send.mjs` refuses to write when its pre-write backup of the slot comes back short
+  (it is saved as `-INCOMPLETE`), like `pacer-backup.mjs` already did; Pacer Studio no longer lets an incomplete
+  session backup unlock the first write.
+- `led-live-colour.mjs` only writes the loaded preset's RAM copy (its `--slot` wrote EEPROM without a backup) and
+  validates its input; `led-colour-lab.mjs` needs `--confirm` for its SysEx writes.
+- Pacer Studio: verify waits for the Pacer before reading back (it reported false differences), written global
+  settings no longer stay "edited", LED colours use the Pacer manual's names (Magenta, Gold, Green, Dark green,
+  Cyan), writes to *Current* warn that they are RAM only, and the LED Lab drives the switch's own CC (on, off, blink)
+  instead of the disproved colour slots.
 
 ## 0.2.0 — unreleased
 

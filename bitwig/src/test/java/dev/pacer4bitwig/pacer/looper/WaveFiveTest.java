@@ -96,8 +96,9 @@ class WaveFiveTest
     void loopSwitchCounts ()
     {
         assertEquals (0, LoopSwitchCount.NONE.getCount ());
-        assertEquals (6, LoopSwitchCount.SIX.getCount ());
-        assertEquals (LoopSwitchCount.values ().length, 7);
+        // SW 6 is the mode switch in every mode, so no option may promise a sixth loop switch
+        assertEquals (5, LoopSwitchCount.FIVE.getCount ());
+        assertEquals (LoopSwitchCount.values ().length, 6);
     }
 
 

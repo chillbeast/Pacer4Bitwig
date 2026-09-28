@@ -6,7 +6,8 @@ import dev.pacer4bitwig.util.Labelled;
 
 
 /**
- * How many of the bottom switches are loop switches (SW 1 upwards). The others take their assigned actions.
+ * How many of the bottom switches are loop switches in the custom mode (SW 1 upwards). The others take their assigned
+ * actions. SW 6 is the mode switch in every mode, so five is the most there can be.
  */
 public enum LoopSwitchCount implements Labelled
 {
@@ -21,9 +22,7 @@ public enum LoopSwitchCount implements Labelled
     /** SW 1-4. */
     FOUR ("SW 1-4", 4),
     /** SW 1-5. */
-    FIVE ("SW 1-5", 5),
-    /** SW 1-6. */
-    SIX ("SW 1-6", 6);
+    FIVE ("SW 1-5", 5);
 
 
     private final String label;
@@ -46,7 +45,7 @@ public enum LoopSwitchCount implements Labelled
 
 
     /**
-     * @return The number of loop switches, 0-6
+     * @return The number of loop switches, 0-5
      */
     public int getCount ()
     {

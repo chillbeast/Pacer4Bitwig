@@ -83,4 +83,40 @@ class HistoryAndBeatsTest
         assertEquals (3, beats.update (1), 1e-9);
         assertEquals (3, beats.update (1), 1e-9, "asking twice for the same position is harmless");
     }
+
+
+    @Test
+    void eventWordsFitTheDisplay ()
+    {
+        assertEquals ("REC 3", LooperText.loopWord ("REC ", 2));
+        assertEquals ("MUTE8", LooperText.loopWord ("MUTE", 7));
+        assertEquals ("4 BAR", LooperText.barsWord (4));
+        assertEquals ("12BAR", LooperText.barsWord (12));
+        assertEquals ("128B", LooperText.barsWord (128));
+    }
+
+
+    @Test
+    void theRecordHistoryCanBeReadWithoutForgetting ()
+    {
+        final RecordHistory history = new RecordHistory (8);
+        history.recorded (0, 1);
+        history.recorded (0, 3);
+        assertEquals (3, history.peekLatest (0, index -> true));
+        assertEquals (3, history.peekLatest (0, index -> true), "still there");
+        assertEquals (1, history.peekLatest (0, index -> index != 3), "a loop that is gone is skipped");
+        assertEquals (-1, history.peekLatest (1, index -> true));
+    }
+
+
+    @Test
+    void theLengthTrackerTellsWhenARecordingStarted ()
+    {
+        final LoopLengthTracker tracker = new LoopLengthTracker (8);
+        assertTrue (Double.isNaN (tracker.getRecordingSince (0)));
+        tracker.update (0, LoopState.RECORDING, true, 16, 4);
+        assertEquals (16, tracker.getRecordingSince (0), 1e-9);
+        assertEquals (2, tracker.update (0, LoopState.PLAYING, true, 24, 4), "two bars");
+        assertTrue (Double.isNaN (tracker.getRecordingSince (0)));
+    }
 }

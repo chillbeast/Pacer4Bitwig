@@ -41,6 +41,7 @@ class PacerControllerTest
 
     private final List<String>       ran    = new ArrayList<> ();
     private final List<Runnable>     later  = new ArrayList<> ();
+    private final List<String>       sysex  = new ArrayList<> ();
     private boolean                  loopTapOnPress;
     private PacerConfiguration       configuration;
     private PacerController          controller;
@@ -180,9 +181,7 @@ class PacerControllerTest
             }
         };
 
-        this.controller = new PacerController (host, configuration, looper, fx, new LiveBoard (hex -> {
-            // The Pacer is not here
-        }));
+        this.controller = new PacerController (host, configuration, looper, fx, new LiveBoard (this.sysex::add));
     }
 
 
@@ -491,6 +490,40 @@ class PacerControllerTest
         this.controller.perform (Action.MODE_LOOP);
         this.controller.perform (Action.MODE_CUSTOM);
         assertEquals (Mode.SONG, this.controller.getMode ());
+    }
+
+
+    @Test
+    void anEventWordTakesTheDisplayForAMoment ()
+    {
+        this.controller.paint ();
+        this.sysex.clear ();
+        this.controller.showEvent ("REC 2");
+        this.controller.paint ();
+        assertEquals (List.of (dev.pacer4bitwig.pacer.live.PacerSysex.name ("REC 2")), this.sysex);
+    }
+
+
+    @Test
+    void eventWordsCanBeSwitchedOff ()
+    {
+        this.setField ("showEvents", Boolean.FALSE);
+        this.controller.paint ();
+        this.sysex.clear ();
+        this.controller.showEvent ("UNDO");
+        this.controller.paint ();
+        assertTrue (this.sysex.isEmpty (), "the display keeps the name: " + this.sysex);
+    }
+
+
+    @Test
+    void raisingTheShiftLayerSaysSo ()
+    {
+        this.controller.paint ();
+        this.sysex.clear ();
+        this.controller.perform (Action.SHIFT_TOGGLE);
+        this.controller.paint ();
+        assertTrue (this.sysex.contains (dev.pacer4bitwig.pacer.live.PacerSysex.name ("SHIFT")), "SHIFT on the display");
     }
 
 

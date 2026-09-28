@@ -137,6 +137,8 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         this.board = new LiveBoard (this::sendSysex);
         this.controller = new PacerController (this.host, this.configuration, this.looper, fx, this.board);
         this.controller.setModeListener (this::modeChanged);
+        this.looper.setEventSink (this.controller::showEvent);
+        fx.setEventSink (this.controller::showEvent);
     }
 
 

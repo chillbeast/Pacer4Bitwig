@@ -24,6 +24,7 @@ import dev.pacer4bitwig.pacer.led.LedPattern;
 import dev.pacer4bitwig.pacer.led.LedState;
 import dev.pacer4bitwig.pacer.looper.Action;
 import dev.pacer4bitwig.pacer.looper.CountIn;
+import dev.pacer4bitwig.pacer.looper.CounterUnit;
 import dev.pacer4bitwig.pacer.looper.ElapsedBeats;
 import dev.pacer4bitwig.pacer.looper.ExpressionTarget;
 import dev.pacer4bitwig.pacer.looper.HoldAction;
@@ -105,6 +106,10 @@ public class LooperController
     private final long []                 closeWhenRecording    = new long [PacerMap.MAX_LOOP_TRACKS];
     /** Quantized mute changes: track bank position to {target (1 = mute), apply at beats}. */
     private final Map<Integer, double []> pendingMutes          = new HashMap<> ();
+    /** Short words for the Pacer's display, e.g. "REC 2" - see {@link #setEventSink(Consumer)}. */
+    private Consumer<String>              events                = word -> {
+        // Nobody listening
+    };
     /** The pedal target "all loop tracks": one fader that keeps their balance. */
     private final LoopsLevel              loopsLevel            = new LoopsLevel (PacerMap.MAX_LOOP_TRACKS);
 
@@ -144,6 +149,15 @@ public class LooperController
         this.configuration = configuration;
         this.clock = clock;
         Arrays.fill (this.closeWhenRecording, -1);
+    }
+
+
+    /**
+     * @param events Receives what just happened as a word for the Pacer's display ("REC 2", "4 BAR", "UNDO")
+     */
+    public void setEventSink (final Consumer<String> events)
+    {
+        this.events = events;
     }
 
 
@@ -308,10 +322,33 @@ public class LooperController
         if (!recording && !waiting)
             return -1;
 
+        final boolean countingIn = !recording || this.pendingCountIn != null;
         final LedClock beatClock = new LedClock (now, true, this.clock.getPositionInBeats (), this.clock.getBeatsPerBar ());
-        if (Math.floorMod (beatClock.beatInBar (), TOP_ROW_SIZE) != topRowIndex)
+        int step = beatClock.beatInBar ();
+        if (!countingIn && this.configuration.getCounterUnit () == CounterUnit.BARS)
+        {
+            final int bar = this.getRecordingBar ();
+            if (bar >= 0)
+                step = bar;
+        }
+        if (Math.floorMod (step, TOP_ROW_SIZE) != topRowIndex)
             return 0;
-        return (recording && this.pendingCountIn == null ? LedColour.RED : LedColour.AMBER).ordinal ();
+        return (countingIn ? LedColour.AMBER : LedColour.RED).ordinal ();
+    }
+
+
+    /** Bars since the recording started, 0-based; -1 if not known (the arranger loop jumped back, say). */
+    private int getRecordingBar ()
+    {
+        final double position = this.clock.getPositionInBeats ();
+        final double beatsPerBar = this.clock.getBeatsPerBar () > 0 ? this.clock.getBeatsPerBar () : BEATS_PER_BAR_4_4;
+        for (int i = 0; i < this.getLoopCount (); i++)
+        {
+            final double since = this.lengthTracker.getRecordingSince (i);
+            if (!Double.isNaN (since) && position >= since)
+                return (int) Math.floor ((position - since) / beatsPerBar);
+        }
+        return -1;
     }
 
 
@@ -463,10 +500,12 @@ public class LooperController
             case UNDO -> {
                 this.model.getApplication ().undo ();
                 this.notify ("Undo");
+                this.events.accept ("UNDO");
             }
             case REDO -> {
                 this.model.getApplication ().redo ();
                 this.notify ("Redo");
+                this.events.accept ("REDO");
             }
             case LAUNCHER_OVERDUB -> {
                 // The observed value still has the old state
@@ -683,6 +722,7 @@ public class LooperController
         this.pendingCountIn = new PendingCountIn (track.getIndex (), countIn, turnMetronomeOn);
         transport.play ();
         this.notifyImportant ("Count-in: " + countIn.getLabel ());
+        this.events.accept ("COUNT");
     }
 
 
@@ -690,6 +730,7 @@ public class LooperController
     {
         this.getLoopSlot (track).startRecording ();
         this.recordHistory.recorded (this.getRow (), track.getIndex ());
+        this.events.accept (LooperText.loopWord ("REC ", track.getIndex ()));
     }
 
 
@@ -797,6 +838,8 @@ public class LooperController
                 rowEmpty = false;
 
             final int bars = this.lengthTracker.update (i, state, running, position, beatsPerBar);
+            if (bars > 0)
+                this.events.accept (LooperText.barsWord (bars));
             if (bars > 0 && matching && this.matchedBars == 0)
             {
                 this.matchedBars = bars;
@@ -912,6 +955,8 @@ public class LooperController
     private void requestMute (final ITrack track, final boolean mute)
     {
         final Integer index = Integer.valueOf (track.getIndex ());
+        if (index.intValue () < this.getLoopCount ())
+            this.events.accept (LooperText.loopWord (mute ? "MUTE" : "UNMT", index.intValue ()));
         final MuteTiming timing = this.configuration.getMuteTiming ();
         if (timing == MuteTiming.IMMEDIATE || !this.clock.isPlaying ())
         {
@@ -987,6 +1032,7 @@ public class LooperController
                 this.requestMute (track, anyAudible);
         }
         this.notify (anyAudible ? "All loops muted" : "All loops unmuted");
+        this.events.accept (anyAudible ? "MUTED" : "UNMUT");
     }
 
 
@@ -1029,6 +1075,7 @@ public class LooperController
                 this.playRow ();
         }
         this.notify ("Fade " + (direction == VolumeFade.Direction.OUT ? "out" : "in") + " over " + this.configuration.getFadeLength ().getLabel ());
+        this.events.accept (direction == VolumeFade.Direction.OUT ? "FDOUT" : "FD IN");
     }
 
 
@@ -1150,6 +1197,7 @@ public class LooperController
         track.stop (false);
         this.getLoopSlot (track).remove ();
         this.notify (track.getName () + ": loop cleared");
+        this.events.accept (LooperText.loopWord ("CLR ", track.getIndex ()));
     }
 
 
@@ -1159,6 +1207,7 @@ public class LooperController
             this.cancelCountIn ();
         this.stopLoopTracks ();
         this.notify ("Stop all loops");
+        this.events.accept ("STOP");
     }
 
 
@@ -1185,6 +1234,7 @@ public class LooperController
         scene.launch (true, false);
         scene.launch (false, false);
         this.notify ("Play " + LooperText.rowLabel (sceneBank.getScrollPosition (), scene.getName ()));
+        this.events.accept ("PLAY");
     }
 
 
@@ -1204,6 +1254,7 @@ public class LooperController
             this.getLoopSlot (track).remove ();
         }
         this.notify ("All loops in this row cleared");
+        this.events.accept ("CLEAR");
     }
 
 
@@ -1233,6 +1284,7 @@ public class LooperController
         this.lastArmedIndex = -1;
         this.model.getTransport ().setLauncherOverdub (false);
         this.notifyImportant ("Looper reset: stopped, unmuted, unsoloed, disarmed");
+        this.events.accept ("RESET");
     }
 
 

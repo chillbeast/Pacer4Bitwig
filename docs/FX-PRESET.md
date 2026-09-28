@@ -41,7 +41,7 @@ SW 2; the display reads `FX`.
 |---------|-----|------------|------|
 | SW 1–4  | Focus instrument A–D | Mute/unmute that instrument | Assign the track selected in Bitwig |
 | SW 5    | Next snapshot of the focused instrument | Back to snapshot 1 | Store the current sound in this snapshot |
-| SW 6    | **The mode switch** — previous mode | – | Mode menu |
+| SW 6    | **The mode switch** — previous mode | Shift layer on/off (a setting) | Mode menu |
 | SW A–D  | FX 1–4 on/off | – | FX 1–4 while held, back on release |
 | FS 1    | One-button looper | – | Clear the last loop |
 | FS 2    | Play/stop all loops | – | Clear the row |
@@ -49,6 +49,9 @@ SW 2; the display reads `FX`.
 | FS 4    | Next snapshot | – | – |
 | EXP 1   | Focused instrument: remote control 7 | | |
 | EXP 2   | Focused instrument: remote control 8 | | |
+
+**Shift layer** (double-tap SW 6; SW 6 turns gold): SW A / SW B are **FX 5 / FX 6** (hold: momentary), SW C / SW D
+focus the previous / next instrument. SW 1–5 keep their jobs.
 
 - The built-in modes are fixed, but the custom layout can change this one in place (*The custom layout changes =
   The FX mode*, then only the switches you set differ). The FX, instrument and snapshot actions also fit on the
@@ -134,6 +137,8 @@ Run with the one Pacer preset on D1 and at least two instrument tracks.
 10. [ ] EXP 1 moves remote control 7 of the focused instrument's "Pacer" page.
 11. [ ] FS 1 records loops while in the FX mode; FS 3 cycles through the instruments.
 12. [ ] The extension selecting the "Pacer" page does not change the page shown in Bitwig or on the Push.
+13. [ ] Double-tap SW 6: shifted, SW A toggles FX 5 (the fifth remote control or device), SW D focuses the next
+        instrument; recalling a snapshot shows `SNAP2` on the display for a moment.
 
 ## Later
 

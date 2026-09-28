@@ -384,8 +384,9 @@ calculated by the extension, none is bound directly.
 
 **All loop tracks** is one fader over the loops that keeps their balance: at the toe every loop track is at its own
 level, at the heel all are silent, in between each is its level times the pedal. The levels are taken from the
-tracks the first time the pedal moves, and again whenever the pedal leaves the toe — so set the balance in Bitwig
-with the pedal at the toe. **The loop being recorded** follows the recording from track to track (with pick-up, a
+tracks the first time the pedal moves. Change a level in Bitwig while the pedal rests (half a second is enough) and
+the fader keeps it, at the pedal's position; moving the loop track window gives the tracks their own levels back.
+**The loop being recorded** follows the recording from track to track (with pick-up, a
 new recording is picked up again).
 
 ### Nektar DAW mode (Track and Transport presets)

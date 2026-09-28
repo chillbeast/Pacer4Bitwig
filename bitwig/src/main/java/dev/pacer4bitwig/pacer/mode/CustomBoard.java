@@ -13,7 +13,8 @@ import java.util.Arrays;
 /**
  * The board laid out in the settings: a mode of its own, or a built-in mode with some switches changed. Every switch
  * setting can say "as in the mode", so only what differs has to be set - a Looper with overdub where tap tempo was
- * is one setting, not ten switches.
+ * is one setting, not ten switches. The shift layer works the same way: "as in the mode" keeps the mode's own shift
+ * layer, which for most switches means "the normal job".
  * <p>
  * Pure: the configuration feeds it the settings and calls {@link #rebuild()}; painting reads the prebuilt layouts.
  */
@@ -31,6 +32,11 @@ public final class CustomBoard implements ModeBoard
     private final LedRow []       row         = new LedRow [PacerMap.NUM_SWITCHES];
     private final SwitchColour [] colour      = new SwitchColour [PacerMap.NUM_SWITCHES];
     private final SwitchLayout [] layouts     = new SwitchLayout [PacerMap.NUM_SWITCHES];
+    /** The shift layer, null meaning "as in the mode's shift layer". */
+    private final Action []       shiftTap       = new Action [PacerMap.NUM_SWITCHES];
+    private final Action []       shiftDoubleTap = new Action [PacerMap.NUM_SWITCHES];
+    private final Action []       shiftHold      = new Action [PacerMap.NUM_SWITCHES];
+    private final SwitchLayout [] shiftLayouts   = new SwitchLayout [PacerMap.NUM_SWITCHES];
     /** Worked out in {@link #rebuild()}: the LED flush asks for it on every switch, many times a second. */
     private boolean               countsBeats;
 
@@ -104,6 +110,36 @@ public final class CustomBoard implements ModeBoard
 
     /**
      * @param switchIndex 0-9
+     * @param action The tap action on the shift layer, null for "as in the mode"
+     */
+    public void setShiftTap (final int switchIndex, final Action action)
+    {
+        this.shiftTap[switchIndex] = action;
+    }
+
+
+    /**
+     * @param switchIndex 0-9
+     * @param action The double-tap action on the shift layer, null for "as in the mode"
+     */
+    public void setShiftDoubleTap (final int switchIndex, final Action action)
+    {
+        this.shiftDoubleTap[switchIndex] = action;
+    }
+
+
+    /**
+     * @param switchIndex 0-9
+     * @param action The hold action on the shift layer, null for "as in the mode"
+     */
+    public void setShiftHold (final int switchIndex, final Action action)
+    {
+        this.shiftHold[switchIndex] = action;
+    }
+
+
+    /**
+     * @param switchIndex 0-9
      * @param ledRow Which LED lights, null for "as in the mode"
      */
     public void setRow (final int switchIndex, final LedRow ledRow)
@@ -133,6 +169,7 @@ public final class CustomBoard implements ModeBoard
             if (Mode.isModeSwitch (i))
             {
                 this.layouts[i] = SwitchLayout.MODE_SWITCH;
+                this.shiftLayouts[i] = SwitchLayout.MODE_SWITCH;
                 continue;
             }
             // The built-in CUSTOM board is all empty switches, so a mode of its own starts empty
@@ -143,6 +180,7 @@ public final class CustomBoard implements ModeBoard
             final LedRow ledRow = (this.row[i] == null ? from.row () : this.row[i]).orStripOn (i);
             final boolean unchanged = this.tap[i] == null && this.doubleTap[i] == null && this.hold[i] == null;
             this.layouts[i] = new SwitchLayout (tapAction, doubleTapAction, holdAction, this.colourOf (i, from, unchanged, tapAction, doubleTapAction, holdAction), ledRow);
+            this.shiftLayouts[i] = this.shiftLayoutOf (i, base.getShiftLayout (i), ledRow);
         }
 
         // The Looper keeps its beat counter when it is changed; a mode of its own counts once it has loop switches
@@ -150,6 +188,19 @@ public final class CustomBoard implements ModeBoard
         for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
             hasLoops |= this.isLoopSwitch (i);
         this.countsBeats = this.target == CustomTarget.LOOP || this.target == CustomTarget.OWN && hasLoops;
+    }
+
+
+    /** The shift layer lights like the switch does normally; its colour comes from its actions unless unchanged. */
+    private SwitchLayout shiftLayoutOf (final int switchIndex, final SwitchLayout from, final LedRow ledRow)
+    {
+        if (this.shiftTap[switchIndex] == null && this.shiftDoubleTap[switchIndex] == null && this.shiftHold[switchIndex] == null)
+            return from;
+        final Action tapAction = this.shiftTap[switchIndex] == null ? from.tap () : this.shiftTap[switchIndex];
+        final Action doubleTapAction = this.shiftDoubleTap[switchIndex] == null ? from.doubleTap () : this.shiftDoubleTap[switchIndex];
+        final Action holdAction = this.shiftHold[switchIndex] == null ? from.hold () : this.shiftHold[switchIndex];
+        final PacerColour colour = SwitchColour.AUTO.resolve (tapAction.getLoopTrack () >= 0, tapAction, doubleTapAction, holdAction);
+        return new SwitchLayout (tapAction, doubleTapAction, holdAction, colour, ledRow);
     }
 
 
@@ -178,6 +229,14 @@ public final class CustomBoard implements ModeBoard
     public SwitchLayout getLayout (final int switchIndex)
     {
         return this.layouts[switchIndex];
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
+    public SwitchLayout getShiftLayout (final int switchIndex)
+    {
+        return this.shiftLayouts[switchIndex];
     }
 
 

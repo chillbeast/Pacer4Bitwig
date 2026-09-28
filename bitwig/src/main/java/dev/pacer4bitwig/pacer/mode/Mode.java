@@ -19,7 +19,7 @@ import static dev.pacer4bitwig.pacer.mode.SwitchLayout.on;
  * stays on one preset and its stored memory is never touched: switching modes only repaints the switches and writes
  * the mode's name to the display.
  * <p>
- * Modes are fixed for now. Settings come later, where they turn out to matter.
+ * The built-in boards are fixed; the custom layout ({@link CustomBoard}) changes one of them or builds a fifth.
  */
 public enum Mode implements Labelled, ModeBoard
 {
@@ -27,6 +27,9 @@ public enum Mode implements Labelled, ModeBoard
      * The looper, laid out like the looper preset before modes: four loop tracks (the default number of loop tracks)
      * and undo on the bottom row, scene rows on SW A / SW B (hold: move the loop tracks), play/stop all - which used
      * to be SW 6 - on SW C, and launcher overdub (hold: metronome) on SW D.
+     * <p>
+     * The shift layer adds loop tracks 5-8 on SW 1-4 - resting in cyan, so the two banks of loops look different -
+     * and the looper's other controls on the rest.
      */
     LOOP ("LOOP", "Looper", new SwitchLayout []
     {
@@ -40,9 +43,24 @@ public enum Mode implements Labelled, ModeBoard
         of (Action.ROW_NEXT, Action.TRACKS_RIGHT, PacerColour.LAVENDER),
         of (Action.PLAY_STOP_ALL, Action.CLEAR_ROW, PacerColour.GOLD),
         of (Action.LAUNCHER_OVERDUB, Action.METRONOME, PacerColour.RED)
+    }, new SwitchLayout []
+    {
+        loop (4, PacerColour.CYAN),
+        loop (5, PacerColour.CYAN),
+        loop (6, PacerColour.CYAN),
+        loop (7, PacerColour.CYAN),
+        of (Action.MUTE_ALL_TOGGLE, Action.RESET, PacerColour.BLUE),
+        MODE_SWITCH,
+        of (Action.DUPLICATE_ROW, Action.NONE, PacerColour.CYAN),
+        of (Action.SHOW_STATUS, Action.NONE, PacerColour.WHITE),
+        of (Action.FADE_OUT, Action.FADE_IN, PacerColour.ORANGE),
+        of (Action.TRANSPORT_PLAY_STOP, Action.TAP_TEMPO, PacerColour.GOLD)
     }),
 
-    /** The pedalboard: instruments on the bottom row, their FX switches on the top row. */
+    /**
+     * The pedalboard: instruments on the bottom row, their FX switches on the top row. The shift layer puts FX 5 and
+     * FX 6 and stepping through the instruments on the top row.
+     */
     FX ("FX", "FX pedalboard", new SwitchLayout []
     {
         of (Action.FOCUS_A, Action.MUTE_A, Action.ASSIGN_A, PacerColour.WHITE),
@@ -55,6 +73,18 @@ public enum Mode implements Labelled, ModeBoard
         of (Action.FX_2, Action.MOMENTARY, PacerColour.GREEN),
         of (Action.FX_3, Action.MOMENTARY, PacerColour.GREEN),
         of (Action.FX_4, Action.MOMENTARY, PacerColour.GREEN)
+    }, new SwitchLayout []
+    {
+        SwitchLayout.EMPTY,
+        SwitchLayout.EMPTY,
+        SwitchLayout.EMPTY,
+        SwitchLayout.EMPTY,
+        SwitchLayout.EMPTY,
+        MODE_SWITCH,
+        of (Action.FX_5, Action.MOMENTARY, PacerColour.CYAN),
+        of (Action.FX_6, Action.MOMENTARY, PacerColour.CYAN),
+        of (Action.FOCUS_PREVIOUS, Action.NONE, PacerColour.WHITE),
+        of (Action.FOCUS_NEXT, Action.NONE, PacerColour.WHITE)
     }),
 
     /**
@@ -73,7 +103,7 @@ public enum Mode implements Labelled, ModeBoard
         of (Action.FADE_OUT, Action.FADE_IN, PacerColour.ORANGE),
         of (Action.STOP_ALL, Action.PLAY_ROW, PacerColour.GOLD),
         of (Action.SHOW_STATUS, Action.LED_TEST, PacerColour.WHITE)
-    }),
+    }, null),
 
     /**
      * Building a song out of rows. SW 1-5 sit under the printed transport icons - loop, rewind, fast forward, stop
@@ -91,7 +121,7 @@ public enum Mode implements Labelled, ModeBoard
         of (Action.TRACKS_HERE, Action.NONE, PacerColour.LAVENDER),
         of (Action.UNDO, Action.REDO, PacerColour.WHITE),
         of (Action.SHOW_STATUS, Action.RESET, PacerColour.WHITE)
-    }),
+    }, null),
 
     /**
      * Laid out entirely in the settings. Its own layouts here are the empty board a custom mode of its own starts
@@ -109,7 +139,7 @@ public enum Mode implements Labelled, ModeBoard
         SwitchLayout.EMPTY,
         SwitchLayout.EMPTY,
         SwitchLayout.EMPTY
-    });
+    }, null);
 
 
     /** SW 6 is the mode switch in every mode: tap toggles, hold opens the menu. */
@@ -118,15 +148,23 @@ public enum Mode implements Labelled, ModeBoard
     private final String         displayName;
     private final String         label;
     private final SwitchLayout [] layouts;
+    private final SwitchLayout [] shiftLayouts;
 
 
-    Mode (final String displayName, final String label, final SwitchLayout [] layouts)
+    /**
+     * @param displayName The name on the Pacer's display
+     * @param label The name in the settings and notifications
+     * @param layouts All ten switches
+     * @param shiftLayouts All ten switches on the shift layer, null for a mode without one
+     */
+    Mode (final String displayName, final String label, final SwitchLayout [] layouts, final SwitchLayout [] shiftLayouts)
     {
-        if (layouts.length != PacerMap.NUM_SWITCHES)
+        if (layouts.length != PacerMap.NUM_SWITCHES || shiftLayouts != null && shiftLayouts.length != PacerMap.NUM_SWITCHES)
             throw new IllegalArgumentException (label + " must lay out all " + PacerMap.NUM_SWITCHES + " switches");
         this.displayName = displayName;
         this.label = label;
         this.layouts = layouts;
+        this.shiftLayouts = shiftLayouts;
     }
 
 
@@ -151,6 +189,14 @@ public enum Mode implements Labelled, ModeBoard
     public SwitchLayout getLayout (final int switchIndex)
     {
         return this.layouts[switchIndex];
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
+    public SwitchLayout getShiftLayout (final int switchIndex)
+    {
+        return this.shiftLayouts == null ? SwitchLayout.EMPTY : this.shiftLayouts[switchIndex];
     }
 
 

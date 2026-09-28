@@ -31,12 +31,34 @@ public record SwitchLayout (Action tap, Action doubleTap, Action hold, PacerColo
     /**
      * A loop switch.
      *
-     * @param track The loop track it stands for, 0-5
+     * @param track The loop track it stands for, 0-7
      * @return The layout
      */
     public static SwitchLayout loop (final int track)
     {
-        return new SwitchLayout (Action.loopTrack (track), Action.NONE, Action.NONE, LOOP_COLOUR, LedRow.STRIP);
+        return loop (track, LOOP_COLOUR);
+    }
+
+
+    /**
+     * A loop switch resting in a colour of its own, e.g. the loops a shift layer adds.
+     *
+     * @param track The loop track it stands for, 0-7
+     * @param colour The colour it rests at, dimmed, while its slot is empty
+     * @return The layout
+     */
+    public static SwitchLayout loop (final int track, final PacerColour colour)
+    {
+        return new SwitchLayout (Action.loopTrack (track), Action.NONE, Action.NONE, colour, LedRow.STRIP);
+    }
+
+
+    /**
+     * @return True if no gesture does anything - on a shift layer, the switch keeps its normal job
+     */
+    public boolean isUnassigned ()
+    {
+        return this.tap == Action.NONE && this.doubleTap == Action.NONE && this.hold == Action.NONE;
     }
 
 

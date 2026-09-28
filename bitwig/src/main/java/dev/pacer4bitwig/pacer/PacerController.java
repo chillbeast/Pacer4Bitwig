@@ -8,6 +8,7 @@ import de.mossgrabers.framework.parameter.IParameter;
 import dev.pacer4bitwig.pacer.controller.PacerMap;
 import dev.pacer4bitwig.pacer.led.LedClock;
 import dev.pacer4bitwig.pacer.led.LedColour;
+import dev.pacer4bitwig.pacer.led.LedPattern;
 import dev.pacer4bitwig.pacer.led.LedState;
 import dev.pacer4bitwig.pacer.live.LiveBoard;
 import dev.pacer4bitwig.pacer.live.PacerColour;
@@ -23,6 +24,8 @@ import dev.pacer4bitwig.pacer.mode.ModeBoard;
 import dev.pacer4bitwig.pacer.mode.ModeMenu;
 import dev.pacer4bitwig.pacer.mode.ModePainter;
 import dev.pacer4bitwig.pacer.mode.ModeState;
+import dev.pacer4bitwig.pacer.mode.ShiftLayer;
+import dev.pacer4bitwig.pacer.mode.ShiftedBoard;
 import dev.pacer4bitwig.pacer.mode.SwitchLayout;
 import dev.pacer4bitwig.pacer.mode.SwitchRole;
 import dev.pacer4bitwig.pacer.preset.PresetAnnouncement;
@@ -34,8 +37,10 @@ import dev.pacer4bitwig.pacer.preset.PresetKind;
  * one preset; a mode decides what each switch does and is painted onto the device live (docs/LIVE-COLOURS-AND-MODES.md).
  * <p>
  * SW 6 is the mode switch everywhere: a tap toggles between the last two modes, a hold opens the {@link ModeMenu}
- * where SW 1-5 pick a mode and SW A-D navigate. {@link Action#MOMENTARY} is handled here. The setup only wires
- * hardware to these methods.
+ * where SW 1-5 pick a mode and SW A-D navigate; its double-tap is a setting. {@link Action#MOMENTARY}, the mode
+ * actions and the shift layer ({@link ShiftLayer}) are handled here. The setup only wires hardware to these methods.
+ * <p>
+ * Controls are numbered for the shift layer's "while held": the switches 0-9, then the jacks.
  */
 public class PacerController
 {
@@ -65,6 +70,13 @@ public class PacerController
     private final SwitchRole []      pressRoles            = new SwitchRole [PacerMap.NUM_SWITCHES];
     private final ModeBoard []       pressBoards           = new ModeBoard [PacerMap.NUM_SWITCHES];
     private final Action []          momentaryFootswitches = new Action [PacerMap.NUM_FOOTSWITCHES];
+    private final ShiftLayer         shift                 = new ShiftLayer ();
+    /** The active board's shift layer, kept while the board stays the same. */
+    private ShiftedBoard             shiftedBoard;
+    /** Which switches and jacks are down right now, by control number. */
+    private final boolean []         controlDown           = new boolean [PacerMap.NUM_SWITCHES + PacerMap.NUM_FOOTSWITCHES];
+    /** The control whose gesture is running an action, -1 outside of one: "shift while held" needs to know. */
+    private int                      performingControl     = -1;
 
 
     /**
@@ -118,12 +130,29 @@ public class PacerController
 
 
     /**
-     * The board of the active mode. The custom layout is the board of {@link Mode#CUSTOM}, or of the built-in mode it
-     * changes, so every read of a layout goes through here.
+     * The board of the active mode as the switches see it right now: through its shift layer while that is up.
+     * Every read of a layout goes through here.
      *
      * @return The board
      */
     private ModeBoard getBoard ()
+    {
+        final ModeBoard base = this.getBaseBoard ();
+        if (!this.shift.isOn () || this.modes.isMenuOpen ())
+            return base;
+        if (this.shiftedBoard == null || this.shiftedBoard.getBase () != base)
+            this.shiftedBoard = new ShiftedBoard (base);
+        return this.shiftedBoard;
+    }
+
+
+    /**
+     * The board of the active mode. The custom layout is the board of {@link Mode#CUSTOM}, or of the built-in mode it
+     * changes.
+     *
+     * @return The board, without its shift layer
+     */
+    private ModeBoard getBaseBoard ()
     {
         final Mode mode = this.modes.getActive ();
         final CustomBoard custom = this.configuration.getCustomBoard ();
@@ -144,7 +173,7 @@ public class PacerController
             this.modeChanged ();
             return;
         }
-        if (this.getBoard () == this.configuration.getCustomBoard () || this.modes.isMenuOpen ())
+        if (this.getBaseBoard () == this.configuration.getCustomBoard () || this.modes.isMenuOpen ())
         {
             this.board.invalidate ();
             this.repaintSwitches ();
@@ -173,6 +202,15 @@ public class PacerController
     public void blackout ()
     {
         this.board.blackout ("OFF");
+    }
+
+
+    /**
+     * @return How the shift layer is up, if it is
+     */
+    public ShiftLayer.State getShiftState ()
+    {
+        return this.shift.getState ();
     }
 
 
@@ -251,8 +289,13 @@ public class PacerController
      */
     public void press (final int switchIndex)
     {
+        this.controlDown[switchIndex] = true;
         this.pressRoles[switchIndex] = this.role (switchIndex);
         this.pressBoards[switchIndex] = this.getBoard ();
+        // A layer raised for one press is used up by it - the press keeps the shifted board it latched. A switch
+        // that raises the layer itself does not use it up: pressing it again takes the layer down instead.
+        if (!Mode.isModeSwitch (switchIndex) && !this.modes.isMenuOpen () && !this.getSwitchTap (switchIndex).isShift () && this.shift.usedByPress ())
+            this.shiftChanged ();
     }
 
 
@@ -298,7 +341,9 @@ public class PacerController
     {
         return switch (this.pressRole (switchIndex))
         {
-            case MODE_SWITCH, MODE_SLOT, NAVIGATION, NONE -> false;
+            // A tap that closes the menu should close it at once, so the double-tap only exists with the menu shut
+            case MODE_SWITCH -> !this.modes.isMenuOpen () && this.configuration.getModeSwitchDoubleTap () != Action.NONE;
+            case MODE_SLOT, NAVIGATION, NONE -> false;
             case LOOP_TRACK -> this.looper.isLoopSwitchDoubleTapEnabled ();
             case ACTION -> this.getSwitchDoubleTap (switchIndex) != Action.NONE;
         };
@@ -331,7 +376,7 @@ public class PacerController
             // Navigation leaves the menu open so it can be pressed again
             case NAVIGATION -> this.perform (ModeMenu.actionAt (switchIndex));
             case LOOP_TRACK -> this.looper.loopSwitchTap (this.pressLoopTrack (switchIndex));
-            case ACTION -> this.perform (this.getSwitchTap (switchIndex));
+            case ACTION -> this.performFor (switchIndex, this.getSwitchTap (switchIndex));
             case NONE -> {
                 // Nothing assigned
             }
@@ -348,10 +393,12 @@ public class PacerController
     {
         switch (this.pressRole (switchIndex))
         {
+            // SW 6 waited for this, so its tap never ran
+            case MODE_SWITCH -> this.performFor (switchIndex, this.configuration.getModeSwitchDoubleTap ());
             case LOOP_TRACK -> this.looper.loopSwitchDoubleTap (this.pressLoopTrack (switchIndex));
-            case ACTION -> this.perform (this.getSwitchDoubleTap (switchIndex));
+            case ACTION -> this.performFor (switchIndex, this.getSwitchDoubleTap (switchIndex));
             default -> {
-                // The mode switch and the menu have no double-tap
+                // The menu has no double-tap
             }
         }
     }
@@ -380,7 +427,7 @@ public class PacerController
                 if (hold == Action.MOMENTARY)
                     this.momentarySwitches[switchIndex] = this.getSwitchTap (switchIndex);
                 else
-                    this.perform (hold);
+                    this.performFor (switchIndex, hold);
             }
             default -> {
                 // While the menu is open the other switches belong to it, and it has no hold actions
@@ -396,13 +443,16 @@ public class PacerController
      */
     public void release (final int switchIndex)
     {
+        this.controlDown[switchIndex] = false;
+        if (this.shift.release (switchIndex))
+            this.shiftChanged ();
         if (Mode.isModeSwitch (switchIndex))
             // Nothing: the menu latches, and a tap is what closes it again
             return;
         final Action momentary = this.momentarySwitches[switchIndex];
         this.momentarySwitches[switchIndex] = null;
         if (momentary != null)
-            this.perform (momentary);
+            this.performFor (switchIndex, momentary);
         if (this.pressRole (switchIndex) == SwitchRole.LOOP_TRACK)
             this.looper.loopSwitchRelease (this.pressLoopTrack (switchIndex));
     }
@@ -410,6 +460,8 @@ public class PacerController
 
     private void modeChanged ()
     {
+        // A new board starts on its normal layer
+        this.shift.reset ();
         // Momentary holds stay armed: their release belongs to the press that started them (see pressRoles), so a
         // held FX switch still switches off when the mode changed under it
         // Saved with the project, for "Mode at startup = whatever this project used last"
@@ -423,6 +475,17 @@ public class PacerController
 
 
     // ---- Footswitch jacks ---------------------------------------------------------------------------------------
+
+    /**
+     * A footswitch jack went down.
+     *
+     * @param index 0-3
+     */
+    public void footswitchPress (final int index)
+    {
+        this.controlDown[PacerMap.NUM_SWITCHES + index] = true;
+    }
+
 
     /**
      * @param index 0-3
@@ -471,7 +534,7 @@ public class PacerController
         if (loopTrack >= 0)
             this.looper.loopSwitchTap (loopTrack);
         else
-            this.perform (this.configuration.getFootswitchTap (index));
+            this.performFor (PacerMap.NUM_SWITCHES + index, this.configuration.getFootswitchTap (index));
     }
 
 
@@ -486,7 +549,7 @@ public class PacerController
         if (loopTrack >= 0)
             this.looper.loopSwitchDoubleTap (loopTrack);
         else
-            this.perform (this.configuration.getFootswitchDoubleTap (index));
+            this.performFor (PacerMap.NUM_SWITCHES + index, this.configuration.getFootswitchDoubleTap (index));
     }
 
 
@@ -508,7 +571,7 @@ public class PacerController
         if (hold == Action.MOMENTARY)
             this.momentaryFootswitches[index] = this.configuration.getFootswitchTap (index);
         else
-            this.perform (hold);
+            this.performFor (PacerMap.NUM_SWITCHES + index, hold);
     }
 
 
@@ -519,10 +582,14 @@ public class PacerController
      */
     public void footswitchRelease (final int index)
     {
+        final int control = PacerMap.NUM_SWITCHES + index;
+        this.controlDown[control] = false;
+        if (this.shift.release (control))
+            this.shiftChanged ();
         final Action momentary = this.momentaryFootswitches[index];
         this.momentaryFootswitches[index] = null;
         if (momentary != null)
-            this.perform (momentary);
+            this.performFor (control, momentary);
         final int loopTrack = this.jackLoopTrack (index);
         if (loopTrack >= 0)
             this.looper.loopSwitchRelease (loopTrack);
@@ -635,17 +702,31 @@ public class PacerController
         final LedState state = switch (this.role (switchIndex))
         {
             case LOOP_TRACK -> this.looper.loopSwitchLed (shown.getLoopTrack (switchIndex));
-            // The mode switch is always lit: it is the way back to everything else
-            case MODE_SWITCH -> LedState.solid (LedColour.WHITE);
+            // The mode switch is always lit: it is the way back to everything else. It turns gold while the shift
+            // layer is up, and blinks while that is for one press only.
+            case MODE_SWITCH -> this.shiftLed ();
             case ACTION -> {
                 // The board showing now, not the one a held switch was pressed on
                 final Action action = shown.getLayout (switchIndex).tap ();
+                if (action.isShift ())
+                    yield this.shift.isOn () ? this.shiftLed () : LedState.DARK;
                 yield action.isFx () ? this.fx.actionLed (action) : this.looper.actionLed (action, ledClock);
             }
             default -> LedState.DARK;
         };
         this.switchColours[switchIndex] = state.colour ().toPacer ();
         return state.code (ledClock);
+    }
+
+
+    private LedState shiftLed ()
+    {
+        return switch (this.shift.getState ())
+        {
+            case OFF -> LedState.solid (LedColour.WHITE);
+            case ONCE -> new LedState (LedColour.AMBER, LedPattern.BLINK_MEDIUM);
+            case ON, HELD -> LedState.solid (LedColour.AMBER);
+        };
     }
 
 
@@ -690,6 +771,11 @@ public class PacerController
      */
     public void perform (final Action action)
     {
+        if (action.isShift ())
+        {
+            this.performShift (action);
+            return;
+        }
         if (action.isMode ())
         {
             if (this.performMode (action))
@@ -713,8 +799,55 @@ public class PacerController
             case MODE_FX -> this.modes.activate (Mode.FX);
             case MODE_MIX -> this.modes.activate (Mode.MIX);
             case MODE_SONG -> this.modes.activate (Mode.SONG);
+            // While the custom layout changes a built-in mode, that mode is where it lives
+            case MODE_CUSTOM -> this.modes.activate (this.configuration.getCustomBoard ().getTarget ().getMode ());
             default -> false;
         };
+    }
+
+
+    /** Run an action for a switch or jack, which "shift while held" ties the layer to. */
+    private void performFor (final int control, final Action action)
+    {
+        this.performingControl = control;
+        try
+        {
+            this.perform (action);
+        }
+        finally
+        {
+            this.performingControl = -1;
+        }
+    }
+
+
+    private void performShift (final Action action)
+    {
+        switch (action)
+        {
+            case SHIFT_TOGGLE -> this.shift.toggle ();
+            case SHIFT_ONCE -> this.shift.once ();
+            case SHIFT_HOLD -> {
+                // Only a control that is still down can hold the layer up. Anywhere else - a double-tap that fires
+                // on release, a mode's own action slot - there is no release coming, so it latches instead.
+                final int control = this.performingControl;
+                if (control >= 0 && this.controlDown[control])
+                    this.shift.hold (control);
+                else
+                    this.shift.toggle ();
+            }
+            default -> {
+                return;
+            }
+        }
+        this.shiftChanged ();
+    }
+
+
+    /** The shift layer went up or down: the switches show the other layer at once. */
+    private void shiftChanged ()
+    {
+        this.repaintSwitches ();
     }
 
 

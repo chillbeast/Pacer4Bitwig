@@ -32,6 +32,7 @@ import dev.pacer4bitwig.pacer.led.LedColour;
 import dev.pacer4bitwig.pacer.led.SwitchLedWriter;
 import dev.pacer4bitwig.pacer.live.LiveBoard;
 import dev.pacer4bitwig.pacer.midi.NoteInputFactory;
+import dev.pacer4bitwig.pacer.mode.Mode;
 
 import java.util.function.Supplier;
 
@@ -220,7 +221,8 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         {
             final int index = i;
             final IHwButton button = surface.createButton (ButtonID.get (ButtonID.ROW1_1, i), PacerMap.SWITCH_NAMES[i]);
-            button.bind (new TapHoldCommand ( () -> this.controller.isTapOnPress (index), () -> this.controller.tap (index), () -> this.controller.hold (index), () -> this.controller.release (index), () -> this.afterSwitchEvent (index), () -> this.controller.getExtraHoldMillis (index), this.host::scheduleTask).withPress ( () -> this.controller.press (index)).withDoubleTap ( () -> this.controller.doubleTap (index), () -> this.controller.isDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis));
+            // SW 6's tap changes the mode, which a double-tap must not do first: it waits out the double-tap window
+            button.bind (new TapHoldCommand ( () -> this.controller.isTapOnPress (index), () -> this.controller.tap (index), () -> this.controller.hold (index), () -> this.controller.release (index), () -> this.afterSwitchEvent (index), () -> this.controller.getExtraHoldMillis (index), this.host::scheduleTask).withPress ( () -> this.controller.press (index)).withDoubleTap ( () -> this.controller.doubleTap (index), () -> this.controller.isDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis).withDelayedTap ( () -> Mode.isModeSwitch (index)));
             button.bind (input, BindType.CC, this.midiChannel, PacerMap.switchCC (i));
 
             final SwitchLedWriter writer = new SwitchLedWriter (i, (cc, value) -> output.sendCCEx (this.midiChannel, cc, value));
@@ -231,7 +233,7 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         {
             final int index = i;
             final IHwButton button = surface.createButton (ButtonID.get (ButtonID.FOOTSWITCH1, i), "FS " + (i + 1));
-            button.bind (new TapHoldCommand ( () -> this.controller.isFootswitchTapOnPress (index), () -> this.controller.footswitchTap (index), () -> this.controller.footswitchHold (index), () -> this.controller.footswitchRelease (index), null, () -> this.controller.getFootswitchExtraHoldMillis (index), this.host::scheduleTask).withDoubleTap ( () -> this.controller.footswitchDoubleTap (index), () -> this.controller.isFootswitchDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis));
+            button.bind (new TapHoldCommand ( () -> this.controller.isFootswitchTapOnPress (index), () -> this.controller.footswitchTap (index), () -> this.controller.footswitchHold (index), () -> this.controller.footswitchRelease (index), null, () -> this.controller.getFootswitchExtraHoldMillis (index), this.host::scheduleTask).withPress ( () -> this.controller.footswitchPress (index)).withDoubleTap ( () -> this.controller.footswitchDoubleTap (index), () -> this.controller.isFootswitchDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis));
             button.bind (input, BindType.CC, this.midiChannel, PacerMap.FOOTSWITCH_CC_BASE + i);
         }
 

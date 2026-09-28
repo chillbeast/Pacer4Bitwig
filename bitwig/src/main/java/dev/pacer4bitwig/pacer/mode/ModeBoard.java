@@ -25,6 +25,19 @@ public interface ModeBoard
 
 
     /**
+     * What the switch does while the shift layer is up. An unassigned layout ({@link SwitchLayout#isUnassigned()})
+     * means the switch keeps its normal job there; see {@link ShiftedBoard}.
+     *
+     * @param switchIndex 0-9
+     * @return The shift layout
+     */
+    default SwitchLayout getShiftLayout (final int switchIndex)
+    {
+        return SwitchLayout.EMPTY;
+    }
+
+
+    /**
      * @param switchIndex 0-9
      * @return The loop track the switch stands for, -1 if it is not a loop switch. SW 6 never is: it is the mode switch.
      */

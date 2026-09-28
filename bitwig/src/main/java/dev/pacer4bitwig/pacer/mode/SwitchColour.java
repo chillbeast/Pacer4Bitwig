@@ -113,6 +113,9 @@ public enum SwitchColour implements Labelled
     {
         if (action == Action.NONE)
             return PacerColour.OFF;
+        // The colour SW 6 turns while the shift layer is up
+        if (action.isShift ())
+            return PacerColour.GOLD;
         if (action.isMode ())
             return PacerColour.WHITE;
         if (action.isFx ())
@@ -124,7 +127,7 @@ public enum SwitchColour implements Labelled
             case TRACKS_LEFT, TRACKS_RIGHT, ROW_PREVIOUS, ROW_NEXT, TRACKS_HERE, DUPLICATE_ROW -> PacerColour.LAVENDER;
             case PLAY_STOP_ALL, PLAY_ROW, TRANSPORT_PLAY_STOP -> PacerColour.GOLD;
             case STOP_ALL, RESET -> PacerColour.ORANGE;
-            case MUTE_SELECTED, MUTE_ALL_TOGGLE, MUTE_LOOP_1, MUTE_LOOP_2, MUTE_LOOP_3, MUTE_LOOP_4, MUTE_LOOP_5, MUTE_LOOP_6 -> PacerColour.BLUE;
+            case MUTE_SELECTED, MUTE_ALL_TOGGLE, MUTE_LOOP_1, MUTE_LOOP_2, MUTE_LOOP_3, MUTE_LOOP_4, MUTE_LOOP_5, MUTE_LOOP_6, MUTE_LOOP_7, MUTE_LOOP_8 -> PacerColour.BLUE;
             case SOLO_SELECTED -> PacerColour.YELLOW;
             case RECORD_NEXT_LAYER, LOOP_SELECTED, LAUNCHER_OVERDUB, MONITOR_SELECTED -> PacerColour.RED;
             case TAP_TEMPO -> PacerColour.CYAN;

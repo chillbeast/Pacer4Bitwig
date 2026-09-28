@@ -132,6 +132,7 @@ public class PacerConfiguration extends AbstractConfiguration
     private static final String              CATEGORY_LOOPER      = "Looper";
     private static final String              CATEGORY_MODES       = "Modes";
     private static final String              CATEGORY_CUSTOM      = "Custom layout";
+    private static final String              CATEGORY_CUSTOM_SHIFT = "Custom layout: shift layer";
     /** The first option of every custom switch setting: leave the switch as the mode has it. */
     private static final String              AS_IN_THE_MODE       = "As in the mode";
     private static final String              CATEGORY_FX          = "FX mode";
@@ -203,6 +204,8 @@ public class PacerConfiguration extends AbstractConfiguration
     private IEnumSetting                     projectModeSetting;
     private volatile boolean                 showContext          = true;
     private volatile boolean                 keepModeName         = true;
+    /** SW 6's double-tap. Its tap then waits for the double-tap window, so it is the one switch whose tap is delayed. */
+    private volatile Action                  modeSwitchDoubleTap  = Action.SHIFT_TOGGLE;
     /** The custom layout: a mode of its own, or a built-in mode with some switches changed. */
     private final CustomBoard                customBoard          = new CustomBoard ();
     private volatile LoopColours.Choice      colourStopped        = LoopColours.Choice.of (LoopColours.DEFAULT.stopped ());
@@ -335,6 +338,8 @@ public class PacerConfiguration extends AbstractConfiguration
         // Every restore is one SysEx, which flashes LOAD SYS; turn it off to leave the display on the CC readout
         onOffSetting (settings, "Put the mode name back on the display after a press", CATEGORY_MODES, true, value -> this.keepModeName = value);
         onOffSetting (settings, "Show what the mode is doing on the display", CATEGORY_MODES, true, value -> this.showContext = value);
+        // Any action, like a jack. Nothing gives SW 6 back its instant tap.
+        enumSetting (settings, "SW 6 double-tap (its tap then waits for the double-tap speed)", CATEGORY_MODES, Action.values (), Action.SHIFT_TOGGLE, value -> this.modeSwitchDoubleTap = value);
     }
 
 
@@ -360,15 +365,15 @@ public class PacerConfiguration extends AbstractConfiguration
                 continue;
             final int index = i;
             final String name = PacerMap.SWITCH_NAMES[i];
-            inheritableSetting (settings, name + " · tap", Action.values (), value -> {
+            inheritableSetting (settings, name + " · tap", CATEGORY_CUSTOM, Action.values (), value -> {
                 this.customBoard.setTap (index, value);
                 this.customChanged ();
             });
-            inheritableSetting (settings, name + " · double-tap", Action.values (), value -> {
+            inheritableSetting (settings, name + " · double-tap", CATEGORY_CUSTOM, Action.values (), value -> {
                 this.customBoard.setDoubleTap (index, value);
                 this.customChanged ();
             });
-            inheritableSetting (settings, name + " · hold", Action.values (), value -> {
+            inheritableSetting (settings, name + " · hold", CATEGORY_CUSTOM, Action.values (), value -> {
                 this.customBoard.setHold (index, value);
                 this.customChanged ();
             });
@@ -376,8 +381,30 @@ public class PacerConfiguration extends AbstractConfiguration
                 this.customBoard.setColour (index, value);
                 this.customChanged ();
             });
-            inheritableSetting (settings, name + " · LED", LedRow.values (), value -> {
+            inheritableSetting (settings, name + " · LED", CATEGORY_CUSTOM, LedRow.values (), value -> {
                 this.customBoard.setRow (index, value);
+                this.customChanged ();
+            });
+        }
+
+        // The shift layer of the same board. "As in the mode" keeps the mode's own shift layer; a switch whose
+        // shift layer does nothing at all keeps its normal job while shift is up.
+        for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
+        {
+            if (Mode.isModeSwitch (i))
+                continue;
+            final int index = i;
+            final String name = PacerMap.SWITCH_NAMES[i];
+            inheritableSetting (settings, name + " · shift tap", CATEGORY_CUSTOM_SHIFT, Action.values (), value -> {
+                this.customBoard.setShiftTap (index, value);
+                this.customChanged ();
+            });
+            inheritableSetting (settings, name + " · shift double-tap", CATEGORY_CUSTOM_SHIFT, Action.values (), value -> {
+                this.customBoard.setShiftDoubleTap (index, value);
+                this.customChanged ();
+            });
+            inheritableSetting (settings, name + " · shift hold", CATEGORY_CUSTOM_SHIFT, Action.values (), value -> {
+                this.customBoard.setShiftHold (index, value);
                 this.customChanged ();
             });
         }
@@ -392,12 +419,12 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /** A custom layout setting whose first option leaves the switch as the mode has it (the observer gets null). */
-    private static <E extends Labelled> void inheritableSetting (final ISettingsUI settings, final String label, final E [] values, final Consumer<E> observer)
+    private static <E extends Labelled> void inheritableSetting (final ISettingsUI settings, final String label, final String category, final E [] values, final Consumer<E> observer)
     {
         final String [] labels = new String [values.length + 1];
         labels[0] = AS_IN_THE_MODE;
         System.arraycopy (Labelled.labels (values), 0, labels, 1, values.length);
-        final IEnumSetting setting = settings.getEnumSetting (label, CATEGORY_CUSTOM, labels, AS_IN_THE_MODE);
+        final IEnumSetting setting = settings.getEnumSetting (label, category, labels, AS_IN_THE_MODE);
         setting.addValueObserver (value -> observer.accept (AS_IN_THE_MODE.equals (value) ? null : Labelled.fromLabel (values, value, null)));
     }
 
@@ -523,7 +550,7 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
-     * @return How many tracks the looper manages, 1-6
+     * @return How many tracks the looper manages, 1-8
      */
     public int getLoopTrackCount ()
     {
@@ -576,6 +603,15 @@ public class PacerConfiguration extends AbstractConfiguration
     public boolean isShowContext ()
     {
         return this.showContext;
+    }
+
+
+    /**
+     * @return What double-tapping SW 6 does, {@link Action#NONE} to keep its tap instant
+     */
+    public Action getModeSwitchDoubleTap ()
+    {
+        return this.modeSwitchDoubleTap;
     }
 
 

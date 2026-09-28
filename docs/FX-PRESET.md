@@ -28,8 +28,8 @@ SW 2; the display reads `FX`.
    effects: the "dedicated input track" setup of LOOPER.md section 8. Loop tracks record from these tracks.
 2. Optional, per instrument: add a track remote controls page named **Pacer** and map
    - slots 1–4 to what SW A–D switch (an effect's mix, a chain's volume, …). The mapping's range is what the switch
-     toggles between, so "delay mix 0–35 %" is set up in Bitwig, not on the Pacer. Slots 5 and 6 are reachable by
-     putting *FX 5* / *FX 6* on a footswitch jack.
+     toggles between, so "delay mix 0–35 %" is set up in Bitwig, not on the Pacer. Slots 5 and 6 are FX 5 / FX 6,
+     on SW A / SW B of the shift layer (or on a footswitch jack).
    - slots 7–8 to what EXP 1 / EXP 2 control (wah frequency, delay feedback, reverb size, …).
 
    Save the track as a preset (*Guitar rig*, *Bass rig*, *Vocal chain*) to reuse it in other projects.

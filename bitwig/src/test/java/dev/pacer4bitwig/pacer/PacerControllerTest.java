@@ -527,6 +527,30 @@ class PacerControllerTest
     }
 
 
+    @Test
+    void onlyMovingLedsNeedRegularFlushes ()
+    {
+        for (int i = 0; i < 10; i++)
+            this.controller.getLedCode (i);
+        assertFalse (this.controller.isAnimating (), "a steady board");
+
+        // A shift layer for one press blinks SW 6
+        this.controller.perform (Action.SHIFT_ONCE);
+        this.controller.getLedCode (SW_6);
+        assertTrue (this.controller.isAnimating ());
+    }
+
+
+    @Test
+    void pressesAndActionsCanBeLogged ()
+    {
+        final List<String> lines = new ArrayList<> ();
+        this.controller.setDiagnostics (new dev.pacer4bitwig.util.Diagnostics (lines::add, () -> dev.pacer4bitwig.util.Diagnostics.Level.ACTIONS));
+        this.tap (SW_5);
+        assertEquals (List.of ("PACER SW 5 down: ACTION on LOOP", "PACER SW 5 up", "PACER SW 5 tap", "PACER action UNDO (SW 5)"), lines);
+    }
+
+
     private static void tap (final TapHoldCommand command)
     {
         command.execute (ButtonEvent.DOWN, 127);

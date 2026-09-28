@@ -81,6 +81,8 @@ public class LooperController
     private static final int              RECORD_HISTORY        = 64;
     private static final int              BEATS_PER_BAR_4_4     = 4;
     private static final int              TOP_ROW_SIZE          = 4;
+    /** One LED flush asks for the row states four times within a few milliseconds. */
+    private static final long             ROW_STATES_REUSE_MS   = 10;
 
     private final IHost                   host;
     private final IModel                  model;
@@ -110,6 +112,8 @@ public class LooperController
     private Consumer<String>              events                = word -> {
         // Nobody listening
     };
+    private LoopState []                  rowStates;
+    private long                          rowStatesAt;
     /** The pedal target "all loop tracks": one fader that keeps their balance. */
     private final LoopsLevel              loopsLevel            = new LoopsLevel (PacerMap.MAX_LOOP_TRACKS);
 
@@ -316,7 +320,7 @@ public class LooperController
         if (!this.configuration.isCountBeats () || !this.clock.isPlaying ())
             return -1;
 
-        final LoopState [] states = this.getRowStates ();
+        final LoopState [] states = this.getRowStatesAt (now);
         final boolean recording = contains (states, LoopState.RECORDING);
         final boolean waiting = this.pendingCountIn != null || contains (states, LoopState.RECORD_QUEUED);
         if (!recording && !waiting)
@@ -541,10 +545,9 @@ public class LooperController
      */
     public LedState actionLed (final Action action, final LedClock ledClock)
     {
+        // Runs for every lit switch on every flush: only look up what the action needs
         final ITransport transport = this.model.getTransport ();
         final ITrackBank trackBank = this.getTrackBank ();
-        final Optional<ITrack> selected = this.getSelectedTrack ();
-        final boolean selectedHasLoop = selected.isPresent () && this.getLoopSlot (selected.get ()).hasContent ();
 
         return switch (action)
         {
@@ -563,17 +566,17 @@ public class LooperController
                     yield new LedState (LedColour.BLUE, LedPattern.BLINK_FAST);
                 yield LedState.when (trackBank.getItem (track).isMute (), LedColour.BLUE);
             }
-            case LOOP_SELECTED -> selected.map (this::loopLed).orElse (LedState.DARK);
-            case STOP_SELECTED -> LedState.when (selected.isPresent () && selected.get ().isPlaying (), LedColour.WHITE);
+            case LOOP_SELECTED -> this.getSelectedTrack ().map (this::loopLed).orElse (LedState.DARK);
+            case STOP_SELECTED -> LedState.when (this.selectedIs (ITrack::isPlaying), LedColour.WHITE);
             case MUTE_SELECTED -> {
-                if (selected.isPresent () && this.pendingMutes.containsKey (Integer.valueOf (selected.get ().getIndex ())))
+                if (this.selectedIs (track -> this.pendingMutes.containsKey (Integer.valueOf (track.getIndex ()))))
                     yield new LedState (LedColour.BLUE, LedPattern.BLINK_FAST);
-                yield LedState.when (selected.isPresent () && selected.get ().isMute (), LedColour.BLUE);
+                yield LedState.when (this.selectedIs (ITrack::isMute), LedColour.BLUE);
             }
-            case SOLO_SELECTED -> LedState.when (selected.isPresent () && selected.get ().isSolo (), LedColour.AMBER);
-            case MONITOR_SELECTED -> LedState.when (selected.isPresent () && selected.get ().isMonitor (), LedColour.GREEN);
-            case CLEAR_SELECTED -> LedState.when (selectedHasLoop, LedColour.RED);
-            case DOUBLE_SELECTED, HALVE_SELECTED -> LedState.when (selectedHasLoop, LedColour.WHITE);
+            case SOLO_SELECTED -> LedState.when (this.selectedIs (ITrack::isSolo), LedColour.AMBER);
+            case MONITOR_SELECTED -> LedState.when (this.selectedIs (ITrack::isMonitor), LedColour.GREEN);
+            case CLEAR_SELECTED -> LedState.when (this.selectedIs (track -> this.getLoopSlot (track).hasContent ()), LedColour.RED);
+            case DOUBLE_SELECTED, HALVE_SELECTED -> LedState.when (this.selectedIs (track -> this.getLoopSlot (track).hasContent ()), LedColour.WHITE);
             case SELECT_PREVIOUS_LOOP, SELECT_NEXT_LOOP, SHOW_STATUS, LED_TEST -> LedState.solid (LedColour.WHITE);
             case PLAY_STOP_ALL -> {
                 if (this.anyLoop (true))
@@ -1432,6 +1435,13 @@ public class LooperController
     }
 
 
+    /** Is there a selected loop track, and is this true of it? */
+    private boolean selectedIs (final Predicate<ITrack> test)
+    {
+        return this.getSelectedTrack ().filter (test).isPresent ();
+    }
+
+
     private void withSelectedTrack (final Consumer<ITrack> consumer)
     {
         final Optional<ITrack> selected = this.getSelectedTrack ();
@@ -1468,6 +1478,18 @@ public class LooperController
                 return true;
         }
         return false;
+    }
+
+
+    /** The row states, read once for the four top-row switches of one flush. */
+    private LoopState [] getRowStatesAt (final long now)
+    {
+        if (this.rowStates == null || now - this.rowStatesAt > ROW_STATES_REUSE_MS || now < this.rowStatesAt)
+        {
+            this.rowStates = this.getRowStates ();
+            this.rowStatesAt = now;
+        }
+        return this.rowStates;
     }
 
 

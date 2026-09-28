@@ -45,6 +45,9 @@ public final class PacerMap
     /** Sent by the preset's "on load" MIDI setting; the extension re-sends all LEDs. */
     public static final int      PRESET_LOADED_CC         = 119;
 
+    /** The name the Bitwig preset has in the Pacer's memory (tools/pacer-preset.mjs writes it). */
+    public static final String   PRESET_NAME              = "PACER";
+
 
     private PacerMap ()
     {

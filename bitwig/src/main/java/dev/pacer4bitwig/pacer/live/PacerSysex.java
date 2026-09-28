@@ -35,6 +35,7 @@ public final class PacerSysex
     };
 
     private static final int    CMD_SET         = 0x01;
+    private static final int    CMD_GET         = 0x02;
     private static final int    TGT_PRESET      = 0x01;
     /** Preset index 0 is the loaded preset's RAM copy. Never write to a stored slot from here. */
     private static final int    IDX_CURRENT     = 0x00;
@@ -78,6 +79,75 @@ public final class PacerSysex
         for (int i = 0; i < NAME_LENGTH; i++)
             body[6 + i] = padded.charAt (i) & 0x7F;
         return message (body);
+    }
+
+
+    /**
+     * Ask for the loaded preset's name (a GET of preset index 0 reads RAM, so it shows live edits). Read-only.
+     *
+     * @return The message as a hex string
+     */
+    public static String requestName ()
+    {
+        return message (new int []
+        {
+            CMD_GET,
+            TGT_PRESET,
+            IDX_CURRENT,
+            OBJ_NAME
+        });
+    }
+
+
+    /**
+     * Read the loaded preset's name out of a message from the Pacer: the answer to {@link #requestName()}, or the name
+     * message of a dump of preset index 0. Answers come in the SET layout, like a dump.
+     *
+     * @param hex The message, as hex with or without spaces
+     * @return The name, null if the message is anything else
+     */
+    public static String parseName (final String hex)
+    {
+        if (hex == null)
+            return null;
+        final String digits = hex.replace (" ", "");
+        if (digits.length () % 2 != 0)
+            return null;
+        final int [] bytes = new int [digits.length () / 2];
+        try
+        {
+            for (int i = 0; i < bytes.length; i++)
+                bytes[i] = Integer.parseInt (digits.substring (2 * i, 2 * i + 2), 16);
+        }
+        catch (final NumberFormatException ex)
+        {
+            return null;
+        }
+        // F0 00 01 77 7F | 01 01 00 01 | 01 len chars.. | checksum F7
+        final int [] header =
+        {
+            0xF0,
+            0x00,
+            0x01,
+            0x77,
+            0x7F,
+            CMD_SET,
+            TGT_PRESET,
+            IDX_CURRENT,
+            OBJ_NAME
+        };
+        if (bytes.length < header.length + 4 || bytes[bytes.length - 1] != 0xF7)
+            return null;
+        for (int i = 0; i < header.length; i++)
+            if (bytes[i] != header[i])
+                return null;
+        final int length = bytes[10];
+        if (11 + length > bytes.length - 2)
+            return null;
+        final StringBuilder name = new StringBuilder ();
+        for (int i = 0; i < length; i++)
+            name.append ((char) bytes[11 + i]);
+        return name.toString ();
     }
 
 

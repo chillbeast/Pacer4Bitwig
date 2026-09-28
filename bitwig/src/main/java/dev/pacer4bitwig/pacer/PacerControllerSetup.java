@@ -3,6 +3,7 @@
 package dev.pacer4bitwig.pacer;
 
 import de.mossgrabers.framework.command.core.ContinuousCommand;
+import de.mossgrabers.framework.command.core.TriggerCommand;
 import de.mossgrabers.framework.configuration.ISettingsUI;
 import de.mossgrabers.framework.controller.AbstractControllerSetup;
 import de.mossgrabers.framework.controller.ButtonID;
@@ -30,9 +31,15 @@ import dev.pacer4bitwig.pacer.daw.DawModeController;
 import dev.pacer4bitwig.pacer.fx.FxTracks;
 import dev.pacer4bitwig.pacer.led.LedColour;
 import dev.pacer4bitwig.pacer.led.SwitchLedWriter;
+import dev.pacer4bitwig.pacer.live.GuardedGate;
 import dev.pacer4bitwig.pacer.live.LiveBoard;
+import dev.pacer4bitwig.pacer.live.PacerSysex;
+import dev.pacer4bitwig.pacer.live.PresetCheck;
+import dev.pacer4bitwig.pacer.live.PresetGuard;
 import dev.pacer4bitwig.pacer.midi.NoteInputFactory;
 import dev.pacer4bitwig.pacer.mode.Mode;
+import dev.pacer4bitwig.util.Diagnostics;
+import dev.pacer4bitwig.util.FailSoft;
 
 import java.util.function.Supplier;
 
@@ -50,6 +57,8 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     private static final long          TICK_MS                  = 40;
     /** A press puts the switch's CC readout on the Pacer's display; put the mode name back after this. */
     private static final long          NAME_RESTORE_MS          = 400;
+    /** After a press or an announcement, flush the LEDs every tick for this long even if nothing blinks. */
+    private static final long          FLUSH_AFTER_EVENT_MS     = 1000;
     /** Tracks of a freshly opened project can arrive after startup: apply the loop track position again after these. */
     private static final long []       TRACK_START_RETRIES_MS   =
     {
@@ -73,6 +82,14 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     /** The looper channel the bindings were created with; changing the setting restarts the extension. */
     private int                        midiChannel              = PacerMap.DEFAULT_MIDI_CHANNEL;
     private volatile boolean           running;
+    /** Is the Pacer still on the Bitwig preset? Live writes wait while it is not (setting "Check the Pacer..."). */
+    private final PresetGuard          presetGuard              = new PresetGuard (PacerMap.PRESET_NAME);
+    private GuardedGate                writeGate;
+    /** Keeps one failing entry point from taking the rest down. */
+    private final FailSoft             failSoft;
+    private final Diagnostics          diagnostics;
+    /** Flush the LEDs on every tick until then, blinking or not. */
+    private volatile long              flushUntil;
 
 
     /**
@@ -105,6 +122,13 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
             this.colorManager.registerColor (colour.ordinal (), colour.getColorEx ());
 
         this.configuration = new PacerConfiguration (host, this.valueChanger, factory.getArpeggiatorModes ());
+        final PacerConfiguration settings = this.configuration;
+        this.diagnostics = new Diagnostics (host::println, settings::getDiagnosticsLevel);
+        this.failSoft = new FailSoft ( (where, error, first) -> {
+            host.error ("PACER Looper: error in " + where + " - carried on", error);
+            if (first)
+                host.showNotification ("PACER Looper caught an error (" + where + ") and carried on - details in the controller console");
+        }, System::currentTimeMillis);
     }
 
 
@@ -135,8 +159,11 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         final FxController fx = new FxController (this.host, this.configuration, this.fxTracksFactory.get (), this::getSelectedTrackName);
         // The output only exists once the surface is created, so the board sends through this setup
         this.board = new LiveBoard (this::sendSysex);
+        this.writeGate = new GuardedGate (this.presetGuard, () -> this.configuration.getPresetCheck () != PresetCheck.OFF, System::currentTimeMillis);
+        this.board.setGate (this.writeGate);
         this.controller = new PacerController (this.host, this.configuration, this.looper, fx, this.board);
         this.controller.setModeListener (this::modeChanged);
+        this.controller.setDiagnostics (this.diagnostics);
         this.looper.setEventSink (this.controller::showEvent);
         fx.setEventSink (this.controller::showEvent);
     }
@@ -155,6 +182,8 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         final IMidiOutput output = midiAccess.createOutput ();
         this.sysexOutput = output;
         final IMidiInput input = midiAccess.createInput (null);
+        // Answers to the preset check (read-only GETs of the loaded preset's name)
+        input.setSysexCallback (data -> this.failSoft.run ("SysEx in", () -> this.sysexReceived (data)));
         // The looper channel is reserved; everything else the Pacer presets send reaches Bitwig tracks
         this.controller.setMidiSender (this.noteInputFactory.create (NOTE_INPUT_NAME, MidiFilters.allChannelsExcept (this.midiChannel)));
         this.surfaces.add (new PacerControlSurface (this.host, this.colorManager, this.configuration, output, input));
@@ -173,13 +202,18 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         // The framework calls every observer once at the end of init; the test must only run when it is clicked
         this.configuration.addSettingObserver (PacerConfiguration.LED_TEST, () -> {
             if (this.running)
+            {
                 this.looper.startLedTest ();
+                // Nothing changes in Bitwig, so nothing would flush the LEDs for the first step
+                this.eventHappened ();
+            }
         });
         this.configuration.addSettingObserver (PacerConfiguration.CUSTOM_MODE, () -> {
             // Laying out the custom layout while standing in the mode it changes should show up straight away
             if (this.running)
             {
-                this.controller.customLayoutChanged ();
+                this.failSoft.run ("custom layout", this.controller::customLayoutChanged);
+                this.eventHappened ();
                 this.getSurface ().forceFlush ();
             }
         });
@@ -223,19 +257,23 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         {
             final int index = i;
             final IHwButton button = surface.createButton (ButtonID.get (ButtonID.ROW1_1, i), PacerMap.SWITCH_NAMES[i]);
+            final String name = PacerMap.SWITCH_NAMES[i];
             // SW 6's tap changes the mode, which a double-tap must not do first: it waits out the double-tap window
-            button.bind (new TapHoldCommand ( () -> this.controller.isTapOnPress (index), () -> this.controller.tap (index), () -> this.controller.hold (index), () -> this.controller.release (index), () -> this.afterSwitchEvent (index), () -> this.controller.getExtraHoldMillis (index), this.host::scheduleTask).withPress ( () -> this.controller.press (index)).withDoubleTap ( () -> this.controller.doubleTap (index), () -> this.controller.isDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis).withDelayedTap ( () -> Mode.isModeSwitch (index)));
+            final TapHoldCommand command = new TapHoldCommand ( () -> this.controller.isTapOnPress (index), () -> this.controller.tap (index), () -> this.controller.hold (index), () -> this.controller.release (index), () -> this.afterSwitchEvent (index), () -> this.controller.getExtraHoldMillis (index), (task, delay) -> this.host.scheduleTask (this.failSoft.wrap (name, task), delay)).withPress ( () -> this.controller.press (index)).withDoubleTap ( () -> this.controller.doubleTap (index), () -> this.controller.isDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis).withDelayedTap ( () -> Mode.isModeSwitch (index));
+            button.bind (this.failSoft (name, command));
             button.bind (input, BindType.CC, this.midiChannel, PacerMap.switchCC (i));
 
             final SwitchLedWriter writer = new SwitchLedWriter (i, (cc, value) -> output.sendCCEx (this.midiChannel, cc, value));
-            surface.createLight (null, () -> this.controller.getLedCode (index), writer, code -> LedColour.fromCode (code).getColorEx (), button);
+            surface.createLight (null, () -> this.failSoft.getAsInt ("LEDs", () -> this.controller.getLedCode (index), 0), writer, code -> LedColour.fromCode (code).getColorEx (), button);
         }
 
         for (int i = 0; i < PacerMap.NUM_FOOTSWITCHES; i++)
         {
             final int index = i;
-            final IHwButton button = surface.createButton (ButtonID.get (ButtonID.FOOTSWITCH1, i), "FS " + (i + 1));
-            button.bind (new TapHoldCommand ( () -> this.controller.isFootswitchTapOnPress (index), () -> this.controller.footswitchTap (index), () -> this.controller.footswitchHold (index), () -> this.controller.footswitchRelease (index), null, () -> this.controller.getFootswitchExtraHoldMillis (index), this.host::scheduleTask).withPress ( () -> this.controller.footswitchPress (index)).withDoubleTap ( () -> this.controller.footswitchDoubleTap (index), () -> this.controller.isFootswitchDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis));
+            final String name = "FS " + (i + 1);
+            final IHwButton button = surface.createButton (ButtonID.get (ButtonID.FOOTSWITCH1, i), name);
+            final TapHoldCommand command = new TapHoldCommand ( () -> this.controller.isFootswitchTapOnPress (index), () -> this.controller.footswitchTap (index), () -> this.controller.footswitchHold (index), () -> this.controller.footswitchRelease (index), this::eventHappened, () -> this.controller.getFootswitchExtraHoldMillis (index), (task, delay) -> this.host.scheduleTask (this.failSoft.wrap (name, task), delay)).withPress ( () -> this.controller.footswitchPress (index)).withDoubleTap ( () -> this.controller.footswitchDoubleTap (index), () -> this.controller.isFootswitchDoubleTapEnabled (index), () -> this.configuration.getDoubleTapWindow ().getMillis (), System::currentTimeMillis);
+            button.bind (this.failSoft (name, command));
             button.bind (input, BindType.CC, this.midiChannel, PacerMap.FOOTSWITCH_CC_BASE + i);
         }
 
@@ -244,8 +282,13 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         presetLoaded.bind ( (event, velocity) -> {
             if (event != ButtonEvent.DOWN)
                 return;
-            this.controller.presetAnnounced (velocity);
-            surface.forceFlush ();
+            this.failSoft.run ("preset loaded", () -> {
+                // Selected on the Pacer this moment, so it is loaded: the preset check need not ask
+                this.presetGuard.presetAnnounced (System.currentTimeMillis ());
+                this.controller.presetAnnounced (velocity);
+                this.eventHappened ();
+                surface.forceFlush ();
+            });
         });
         presetLoaded.bind (input, BindType.CC, this.midiChannel, PacerMap.PRESET_LOADED_CC);
     }
@@ -261,8 +304,9 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
             final int index = i;
             final IHwFader pedal = surface.createFader (ContinuousID.get (ContinuousID.FADER1, i), "EXP " + (i + 1), true);
             pedal.bind (surface.getMidiInput (), BindType.CC, this.midiChannel, i == 0 ? PacerMap.EXP1_CC : PacerMap.EXP2_CC);
-            // Used whenever no parameter is bound directly: MIDI and FX targets, response curves and ranges
-            pedal.bind ((ContinuousCommand) value -> this.controller.pedalMoved (index, value));
+            // Used whenever no parameter is bound directly: MIDI, FX and loop targets, response curves and ranges, pick-up
+            final String name = "EXP " + (i + 1);
+            pedal.bind ((ContinuousCommand) value -> this.failSoft.run (name, () -> this.controller.pedalMoved (index, value)));
             this.pedals[i] = pedal;
             this.bindPedal (i);
         }
@@ -321,8 +365,9 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     public void exit ()
     {
         this.running = false;
-        // A board nobody is driving should not look live
-        this.controller.blackout ();
+        // A board nobody is driving should not look live - unless the Pacer is on someone else's preset
+        if (this.configuration.getPresetCheck () == PresetCheck.OFF || !this.presetGuard.isElsewhere ())
+            this.failSoft.run ("exit", this.controller::blackout);
         this.dawMode.shutdown ();
         super.exit ();
     }
@@ -332,11 +377,69 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     {
         if (!this.running)
             return;
-        this.controller.tick ();
-        this.restoreName ();
-        this.dawMode.flushLeds ();
-        this.requestFlush.run ();
-        this.host.scheduleTask (this::tick, TICK_MS);
+        try
+        {
+            this.failSoft.run ("tick", () -> {
+                this.controller.tick ();
+                this.checkPreset ();
+                this.restoreName ();
+                this.dawMode.flushLeds ();
+            });
+            // Blinking needs a flush on every tick. A steady board does not: Bitwig flushes whenever its state
+            // changes, and a press - which can change what the LEDs show without Bitwig knowing - buys a second.
+            if (this.controller.isAnimating () || System.currentTimeMillis () < this.flushUntil)
+                this.requestFlush.run ();
+        }
+        finally
+        {
+            // Whatever happened above, the tick goes on: it drives count-ins, fades and every colour
+            this.host.scheduleTask (this::tick, TICK_MS);
+        }
+    }
+
+
+    /** The preset check: give up on a question nobody answered, and ask when the guard wants to know. */
+    private void checkPreset ()
+    {
+        final PresetCheck check = this.configuration.getPresetCheck ();
+        if (check == PresetCheck.OFF)
+            return;
+        final long now = System.currentTimeMillis ();
+        if (this.presetGuard.checkTimeout (now))
+            this.diagnostics.log (Diagnostics.Level.ACTIONS, () -> "preset check: no answer, " + this.presetGuard.getState ());
+        if (this.presetGuard.shouldProbe (now, this.writeGate.takeWaiting (), check == PresetCheck.REGULAR))
+        {
+            this.presetGuard.probeSent (now);
+            this.board.request (PacerSysex.requestName ());
+        }
+    }
+
+
+    private void sysexReceived (final String data)
+    {
+        this.diagnostics.log (Diagnostics.Level.ALL, () -> "SysEx in: " + data);
+        final String name = PacerSysex.parseName (data);
+        if (name == null || this.configuration.getPresetCheck () == PresetCheck.OFF)
+            return;
+        final PresetGuard.State before = this.presetGuard.getState ();
+        final PresetGuard.Verdict verdict = this.presetGuard.answered (name, System.currentTimeMillis ());
+        if (this.presetGuard.getState () != before)
+            this.diagnostics.log (Diagnostics.Level.ACTIONS, () -> "preset check: \"" + name + "\", " + before + " -> " + this.presetGuard.getState ());
+        switch (verdict)
+        {
+            case REPAINT -> {
+                this.controller.repaintAll ();
+                this.eventHappened ();
+                this.getSurface ().forceFlush ();
+            }
+            case FOREIGN -> {
+                if (this.configuration.getNotificationLevel ().shows (true))
+                    this.host.showNotification ("PACER Looper: the Pacer is on another preset (\"" + name.trim () + "\") - it is left alone until you select the Bitwig preset again");
+            }
+            case NONE -> {
+                // Nothing changed
+            }
+        }
     }
 
 
@@ -359,13 +462,29 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
 
     private void sendSysex (final String hex)
     {
+        this.diagnostics.log (Diagnostics.Level.ALL, () -> "SysEx out: " + hex);
         if (this.sysexOutput != null)
             this.sysexOutput.sendSysex (hex);
     }
 
 
+    /** A switch or jack command that reports what it throws instead of passing it on to Bitwig. */
+    private TriggerCommand failSoft (final String name, final TriggerCommand command)
+    {
+        return (event, velocity) -> this.failSoft.run (name, () -> command.execute (event, velocity));
+    }
+
+
+    /** Something happened that may change the LEDs without Bitwig knowing: keep flushing for a moment. */
+    private void eventHappened ()
+    {
+        this.flushUntil = System.currentTimeMillis () + FLUSH_AFTER_EVENT_MS;
+    }
+
+
     private void modeChanged ()
     {
+        this.eventHappened ();
         // Modes have their own pedal targets
         this.bindPedal (0);
         this.bindPedal (1);
@@ -382,6 +501,7 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     private void afterSwitchEvent (final int switchIndex)
     {
         this.displayTakenAt = System.currentTimeMillis ();
+        this.eventHappened ();
     }
 
 

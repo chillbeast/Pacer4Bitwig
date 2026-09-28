@@ -14,6 +14,7 @@ import de.mossgrabers.framework.daw.midi.ArpeggiatorMode;
 import dev.pacer4bitwig.pacer.controller.PacerMap;
 import dev.pacer4bitwig.pacer.looper.Action;
 import dev.pacer4bitwig.pacer.live.LedRow;
+import dev.pacer4bitwig.pacer.live.PresetCheck;
 import dev.pacer4bitwig.pacer.looper.ClearHoldTime;
 import dev.pacer4bitwig.pacer.looper.CountIn;
 import dev.pacer4bitwig.pacer.looper.CounterUnit;
@@ -39,6 +40,7 @@ import dev.pacer4bitwig.pacer.looper.PlayingTapAction;
 import dev.pacer4bitwig.pacer.looper.QuantizationChoice;
 import dev.pacer4bitwig.pacer.looper.RowMove;
 import dev.pacer4bitwig.pacer.preset.PresetKind;
+import dev.pacer4bitwig.util.Diagnostics;
 import dev.pacer4bitwig.util.Labelled;
 
 import java.util.Arrays;
@@ -221,6 +223,8 @@ public class PacerConfiguration extends AbstractConfiguration
     private volatile LoopLength              loopLength           = LoopLength.KEEP;
     private volatile boolean                 dawMode              = false;
     private volatile NotificationLevel       notificationLevel    = NotificationLevel.ALL;
+    private volatile Diagnostics.Level       diagnosticsLevel     = Diagnostics.Level.OFF;
+    private volatile PresetCheck             presetCheck          = PresetCheck.REGULAR;
     private volatile int                     loopTrackStart       = 1;
     private IIntegerSetting                  loopTrackStartSetting;
     private volatile int                     snapshotsPerInstrument = 2;
@@ -293,6 +297,7 @@ public class PacerConfiguration extends AbstractConfiguration
         });
 
         enumSetting (globalSettings, "Pop-up notifications", CATEGORY_FEEDBACK, NotificationLevel.values (), NotificationLevel.ALL, value -> this.notificationLevel = value);
+        enumSetting (globalSettings, "Log to the controller console (for bug reports)", CATEGORY_FEEDBACK, Diagnostics.Level.values (), Diagnostics.Level.OFF, value -> this.diagnosticsLevel = value);
 
         this.initFxProject (documentSettings);
     }
@@ -530,6 +535,8 @@ public class PacerConfiguration extends AbstractConfiguration
     private void initLeds (final ISettingsUI settings)
     {
         onOffSetting (settings, "Blink in time with the transport", CATEGORY_LEDS, true, value -> this.beatSyncedLeds = value);
+        // Reads the loaded preset's name back (a GET), so another preset loaded on the Pacer is left alone
+        enumSetting (settings, "Check the Pacer is on its preset", CATEGORY_LEDS, PresetCheck.values (), PresetCheck.REGULAR, value -> this.presetCheck = value);
         onOffSetting (settings, "Count beats on SW A-D (count-in and recording)", CATEGORY_LEDS, true, value -> this.countBeats = value);
         enumSetting (settings, "While recording, SW A-D count", CATEGORY_LEDS, CounterUnit.values (), CounterUnit.BEATS, value -> this.counterUnit = value);
         enumSetting (settings, "Loop colour: stopped", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourStopped, value -> this.colourStopped = value);
@@ -912,6 +919,24 @@ public class PacerConfiguration extends AbstractConfiguration
     public NotificationLevel getNotificationLevel ()
     {
         return this.notificationLevel;
+    }
+
+
+    /**
+     * @return How much to log to the controller console
+     */
+    public Diagnostics.Level getDiagnosticsLevel ()
+    {
+        return this.diagnosticsLevel;
+    }
+
+
+    /**
+     * @return How the extension makes sure the Pacer is on its preset before painting
+     */
+    public PresetCheck getPresetCheck ()
+    {
+        return this.presetCheck;
     }
 
 

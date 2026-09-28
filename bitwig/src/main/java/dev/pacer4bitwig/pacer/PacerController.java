@@ -32,10 +32,12 @@ import dev.pacer4bitwig.pacer.mode.SwitchLayout;
 import dev.pacer4bitwig.pacer.mode.SwitchRole;
 import dev.pacer4bitwig.pacer.preset.PresetAnnouncement;
 import dev.pacer4bitwig.pacer.preset.PresetKind;
+import dev.pacer4bitwig.util.Diagnostics;
 
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 
 /**
@@ -92,6 +94,9 @@ public class PacerController
     private final Map<ExpressionTarget, Integer> midiSent  = new EnumMap<> (ExpressionTarget.class);
     /** Which loop each pedal's "loop being recorded" target last moved; a new one has to be picked up again. */
     private final int []             activeLoops           = new int [PacerConfiguration.NUM_EXPRESSION];
+    /** Which switches showed a pattern that moves (a blink, the beat counter) in the last flush. */
+    private final boolean []         animated              = new boolean [PacerMap.NUM_SWITCHES];
+    private Diagnostics              diagnostics           = Diagnostics.NONE;
     /** A word for what just happened, shown on the display instead of the name until {@link #eventUntil}. */
     private volatile String          eventWord;
     private volatile long            eventUntil;
@@ -127,6 +132,15 @@ public class PacerController
     public void setMidiSender (final RawMidiSender midiSender)
     {
         this.midiSender = midiSender;
+    }
+
+
+    /**
+     * @param diagnostics Where presses, actions and mode changes are logged
+     */
+    public void setDiagnostics (final Diagnostics diagnostics)
+    {
+        this.diagnostics = diagnostics == null ? Diagnostics.NONE : diagnostics;
     }
 
 
@@ -335,6 +349,7 @@ public class PacerController
         this.controlDown[switchIndex] = true;
         this.pressRoles[switchIndex] = this.role (switchIndex);
         this.pressBoards[switchIndex] = this.getBoard ();
+        this.log ( () -> PacerMap.SWITCH_NAMES[switchIndex] + " down: " + this.pressRoles[switchIndex] + " on " + this.pressBoards[switchIndex].getDisplayName () + (this.shift.isOn () ? " (shift " + this.shift.getState () + ")" : "") + (this.modes.isMenuOpen () ? " (menu)" : ""));
         // A layer raised for one press is used up by it - the press keeps the shifted board it latched. A switch
         // that raises the layer itself does not use it up: pressing it again takes the layer down instead.
         if (!Mode.isModeSwitch (switchIndex) && !this.modes.isMenuOpen () && !this.getSwitchTap (switchIndex).isShift () && this.shift.usedByPress ())
@@ -400,6 +415,7 @@ public class PacerController
      */
     public void tap (final int switchIndex)
     {
+        this.log ( () -> PacerMap.SWITCH_NAMES[switchIndex] + " tap");
         switch (this.pressRole (switchIndex))
         {
             case MODE_SWITCH -> {
@@ -434,6 +450,7 @@ public class PacerController
      */
     public void doubleTap (final int switchIndex)
     {
+        this.log ( () -> PacerMap.SWITCH_NAMES[switchIndex] + " double-tap");
         switch (this.pressRole (switchIndex))
         {
             // SW 6 waited for this, so its tap never ran
@@ -454,6 +471,7 @@ public class PacerController
      */
     public void hold (final int switchIndex)
     {
+        this.log ( () -> PacerMap.SWITCH_NAMES[switchIndex] + " hold");
         if (Mode.isModeSwitch (switchIndex))
         {
             // The menu stays open when the foot comes off - a foot cannot hold one switch and press another
@@ -486,6 +504,7 @@ public class PacerController
      */
     public void release (final int switchIndex)
     {
+        this.log ( () -> PacerMap.SWITCH_NAMES[switchIndex] + " up");
         this.controlDown[switchIndex] = false;
         if (this.shift.release (switchIndex))
             this.shiftChanged ();
@@ -503,6 +522,7 @@ public class PacerController
 
     private void modeChanged ()
     {
+        this.log ( () -> "mode " + this.modes.getPrevious () + " -> " + this.modes.getActive ());
         // A new board starts on its normal layer
         this.shift.reset ();
         // Momentary holds stay armed: their release belongs to the press that started them (see pressRoles), so a
@@ -526,6 +546,7 @@ public class PacerController
      */
     public void footswitchPress (final int index)
     {
+        this.log ( () -> "FS " + (index + 1) + " down");
         this.controlDown[PacerMap.NUM_SWITCHES + index] = true;
     }
 
@@ -767,6 +788,7 @@ public class PacerController
     {
         final long now = System.currentTimeMillis ();
         final int testCode = this.looper.getLedTestCode (now);
+        this.animated[switchIndex] = testCode >= 0;
         if (testCode >= 0)
         {
             this.switchColours[switchIndex] = LedColour.fromCode (testCode).toPacer ();
@@ -785,6 +807,7 @@ public class PacerController
             final int beatCode = this.looper.getBeatCounterCode (switchIndex - PacerMap.FIRST_TOP_ROW_SWITCH, now);
             if (beatCode >= 0)
             {
+                this.animated[switchIndex] = true;
                 // The counter is dark on the beats that are not this switch's. Only a lit code carries a colour;
                 // caching the dark ones would flip every switch's colour on every beat, and each flip is a SysEx.
                 if (beatCode > 0)
@@ -810,7 +833,21 @@ public class PacerController
             default -> LedState.DARK;
         };
         this.switchColours[switchIndex] = state.colour ().toPacer ();
+        this.animated[switchIndex] = state.colour () != LedColour.OFF && state.pattern () != LedPattern.SOLID;
         return state.code (ledClock);
+    }
+
+
+    /**
+     * @return True if any LED showed a moving pattern in the last flush - a blink, the beat counter, the LED test - so
+     *         the LEDs have to be flushed regularly; otherwise Bitwig's own flushes on state changes are enough
+     */
+    public boolean isAnimating ()
+    {
+        for (final boolean moving: this.animated)
+            if (moving)
+                return true;
+        return false;
     }
 
 
@@ -838,6 +875,7 @@ public class PacerController
         // The Bitwig preset (127) arrives whenever it is selected or the Pacer starts up, and coming back to it must
         // not throw away the mode you were in. Only the retired FX preset (17, 18), still on some Pacers, asks for a
         // mode of its own.
+        this.log ( () -> "preset announced (CC 119 = " + value + ")");
         final boolean fxPreset = PresetAnnouncement.fromValue (value).kind () == PresetKind.FX;
         this.board.invalidate ();
         if (fxPreset && this.modes.activate (Mode.FX))
@@ -866,6 +904,8 @@ public class PacerController
      */
     public void perform (final Action action)
     {
+        if (action != Action.NONE)
+            this.log ( () -> "action " + action + (this.performingControl >= 0 ? " (" + this.controlName (this.performingControl) + ")" : ""));
         if (action.isShift ())
         {
             this.performShift (action);
@@ -942,6 +982,7 @@ public class PacerController
     /** The shift layer went up or down: the switches show the other layer at once. */
     private void shiftChanged ()
     {
+        this.log ( () -> "shift " + this.shift.getState ());
         if (this.shift.isOn ())
             this.showEvent ("SHIFT");
         this.repaintSwitches ();
@@ -1015,6 +1056,18 @@ public class PacerController
     private Action getSwitchHold (final int switchIndex)
     {
         return this.getLayout (switchIndex).hold ();
+    }
+
+
+    private void log (final Supplier<String> line)
+    {
+        this.diagnostics.log (Diagnostics.Level.ACTIONS, line);
+    }
+
+
+    private String controlName (final int control)
+    {
+        return control < PacerMap.NUM_SWITCHES ? PacerMap.SWITCH_NAMES[control] : "FS " + (control - PacerMap.NUM_SWITCHES + 1);
     }
 
 

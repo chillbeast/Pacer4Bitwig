@@ -70,9 +70,9 @@ describe('pedalboard templates', () => {
 });
 
 describe('looper roles', () => {
-  it('recognises the looper layout regardless of LED strategy', () => {
+  it('recognises the looper layout on any channel', () => {
     expect(isLooperLayout(buildBitwigLooperPreset())).toBe(true);
-    expect(isLooperLayout(buildBitwigLooperPreset())).toBe(true);
+    expect(isLooperLayout(buildBitwigLooperPreset(3))).toBe(true);
     expect(isLooperLayout(buildCcTogglePedalboard().preset)).toBe(false);
     expect(isLooperLayout(null)).toBe(false);
   });

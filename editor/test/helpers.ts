@@ -9,12 +9,15 @@ export function fixture(name: string): Uint8Array {
   return new Uint8Array(readFileSync(fixturePath(name)));
 }
 
-/** Newest full backup of the user's Pacer in ../../backups, if present (never modified). */
+/**
+ * Newest complete full backup of the user's Pacer in ../../backups, if present (never modified). Short dumps are
+ * saved as `…-INCOMPLETE.syx` by tools/pacer-backup.mjs and are skipped.
+ */
 export function userBackupPath(): string | null {
   const dir = fileURLToPath(new URL('../../backups/', import.meta.url));
   if (!existsSync(dir)) return null;
   const files = readdirSync(dir)
-    .filter((f) => /^pacer-full-.*\.syx$/i.test(f))
+    .filter((f) => /^pacer-full-.*\.syx$/i.test(f) && !/INCOMPLETE/i.test(f))
     .sort();
   return files.length > 0 ? `${dir}${files[files.length - 1]}` : null;
 }

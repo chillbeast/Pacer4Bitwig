@@ -196,7 +196,8 @@ public class PacerController
 
     /**
      * What the Pacer's display should read: the mode's name, or - when the mode has something more useful to say and
-     * the setting allows it - what it is doing. The FX mode names the focused instrument, the song mode names the row.
+     * the setting allows it - what it is doing. The FX mode names the focused instrument, the Looper and Song modes
+     * name the row (the scene's name, or ROW n).
      *
      * @return At most five characters' worth; the writer cuts it
      */
@@ -208,7 +209,7 @@ public class PacerController
         final String context = switch (this.modes.getActive ())
         {
             case FX -> this.fx.getFocusedInstrumentName ();
-            case SONG -> this.looper.getRowDisplayName ();
+            case LOOP, SONG -> this.looper.getRowDisplayName ();
             default -> "";
         };
         return context == null || context.isBlank () ? board.getDisplayName () : context.trim ();

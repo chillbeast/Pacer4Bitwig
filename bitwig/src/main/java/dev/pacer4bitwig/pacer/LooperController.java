@@ -419,6 +419,12 @@ public class LooperController
                 if (track < this.getLoopCount ())
                     this.loopTap (this.getTrackBank ().getItem (track));
             }
+            case MUTE_LOOP_1, MUTE_LOOP_2, MUTE_LOOP_3, MUTE_LOOP_4, MUTE_LOOP_5, MUTE_LOOP_6 -> {
+                final int track = action.getMutedLoopTrack ();
+                final ITrack item = this.getTrackBank ().getItem (track);
+                if (track < this.getLoopCount () && item.doesExist ())
+                    this.requestMute (item, !this.isEffectivelyMuted (item));
+            }
             case LOOP_SELECTED -> this.withSelectedTrack (this::loopTap);
             case STOP_SELECTED -> this.withSelectedTrack (track -> track.stop (false));
             case MUTE_SELECTED -> this.withSelectedTrack (track -> this.requestMute (track, !this.isEffectivelyMuted (track)));
@@ -507,6 +513,14 @@ public class LooperController
             }
             case RECORD_NEXT_LAYER -> this.layerLed ();
             case CLEAR_LAST_LOOP -> LedState.when (this.anyLoop (false), LedColour.RED);
+            case MUTE_LOOP_1, MUTE_LOOP_2, MUTE_LOOP_3, MUTE_LOOP_4, MUTE_LOOP_5, MUTE_LOOP_6 -> {
+                final int track = action.getMutedLoopTrack ();
+                if (track >= this.getLoopCount ())
+                    yield LedState.DARK;
+                if (this.pendingMutes.containsKey (Integer.valueOf (track)))
+                    yield new LedState (LedColour.BLUE, LedPattern.BLINK_FAST);
+                yield LedState.when (trackBank.getItem (track).isMute (), LedColour.BLUE);
+            }
             case LOOP_SELECTED -> selected.map (this::loopLed).orElse (LedState.DARK);
             case STOP_SELECTED -> LedState.when (selected.isPresent () && selected.get ().isPlaying (), LedColour.WHITE);
             case MUTE_SELECTED -> {
@@ -1468,15 +1482,18 @@ public class LooperController
 
 
     /**
-     * @return The name of the current row from the "Names for new rows" list, empty if it has none
+     * @return The current row for the display: the scene's name, else its name from "Names for new rows", else "ROW n"
      */
     public String getRowDisplayName ()
     {
-        // Checked first so the usual case - no row names set - never asks Bitwig anything; this runs on every tick
-        final String names = this.configuration.getRowNames ();
-        if (names == null || names.isBlank ())
-            return "";
-        return LooperText.rowName (names, this.getRow ());
+        // Runs on every tick, so only cached values: the scene bank's position and the scene name it observes
+        final ISceneBank sceneBank = this.getTrackBank ().getSceneBank ();
+        final int row = sceneBank.getScrollPosition ();
+        final String scene = sceneBank.getItem (0).getName ();
+        if (scene != null && !scene.isBlank ())
+            return scene.trim ();
+        final String named = LooperText.rowName (this.configuration.getRowNames (), row);
+        return named.isEmpty () ? LooperText.displayRow (row) : named;
     }
 
 

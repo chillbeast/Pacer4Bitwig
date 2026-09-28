@@ -83,6 +83,7 @@ describe('looper roles', () => {
     expect(LOOPER_TAP_HOLD.SWA).toEqual({ tap: 'Row −', hold: 'Tracks ←' });
     expect(LOOPER_TAP_HOLD.SWB).toEqual({ tap: 'Row +', hold: 'Tracks →' });
     expect(LOOPER_TAP_HOLD.SWC).toEqual({ tap: 'Play/stop all', hold: 'Clear row' });
+    expect(LOOPER_TAP_HOLD.SWD).toEqual({ tap: 'Overdub', hold: 'Metronome' });
     expect(LOOPER_TAP_HOLD.FS1).toEqual({ tap: 'One-button looper', hold: 'Clear last' });
     expect(LOOPER_TAP_HOLD.EXP2.tap).toBe('Master volume');
   });

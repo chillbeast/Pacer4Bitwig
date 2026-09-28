@@ -6,16 +6,19 @@ architecture while keeping its hard-won SysEx protocol knowledge. Version 0.2.0.
 
 - Top-down rendering of the Pacer with live LED colours, labels and message summaries
 - Preset browser (Current + A1–D6) with copy/paste, duplicate, swap and drag-to-copy
-- Inspector for control modes, six steps per control, LEDs, expression pedals, preset name and on-load MIDI
+- Inspector for control modes, six steps per control, LEDs (colours named as in the Pacer manual: Magenta, Red,
+  Orange, Gold, Yellow, Green, Dark green, Cyan, …), expression pedals, preset name and on-load MIDI
 - Read one preset or a full backup with **verification and automatic retries**; send only the changed messages,
   verify by reading back
 - **Global settings** view (configs 1–4, current state read-only) with raw values where the meaning is unverified
 - **Device identity**: firmware version from the Universal Identity reply in the connection pill and About panel
 - **Hardware follow**: press a switch on the Pacer and the editor selects it (toggle "Follow" in the top bar)
 - **Share links**, **printable cheat sheet**, **Restore from backup** wizard with per-control differences
-- Templates: Bitwig Looper and Bitwig FX ([`docs/PACER-MAP.md`](../docs/PACER-MAP.md), selectable looper MIDI
-  channel), CC toggle pedalboard, program change pedalboard, MMC transport
-- LED Lab, MIDI monitor (Pacer SysEx, identity, MMC and channel messages)
+- Templates: Bitwig Pacer ([`docs/PACER-MAP.md`](../docs/PACER-MAP.md), selectable looper MIDI channel), CC toggle
+  pedalboard, program change pedalboard, MMC transport
+- **LED Lab**: turns a switch's LED on (127), off (0) or blinking through its own action CC, beside the verified
+  hardware facts
+- MIDI monitor (Pacer SysEx, identity, MMC and channel messages)
 - Works offline: import/export `.syx` and `.json`; installable as an app with an offline app shell
 - Undo/redo, command palette (**Ctrl+K**), shortcut overview (**?**), first-run guide, Help & troubleshooting
 - Accessible: keyboard-only operation (including the hardware view), focus-trapped dialogs, WCAG AA token contrast in
@@ -44,8 +47,8 @@ npm run preview    # serve the production build on http://localhost:4173
 ```
 
 The build uses relative asset paths by default. For a sub-path deployment set `VITE_BASE`, e.g.
-`VITE_BASE=/Pacer4Bitwig/ npm run build`. `.github/workflows/pages.yml` does that and only runs when started manually
-(GitHub Pages is not enabled for the repository).
+`VITE_BASE=/Pacer4Bitwig/ npm run build`. `.github/workflows/pages.yml` does that, adds the manual under `manual/`
+and only runs when started manually; the hosted build is <https://chillbeast.github.io/Pacer4Bitwig/>.
 
 ### Installable app / offline
 
@@ -83,14 +86,15 @@ Switch A LEDs 1–6"*). Reading a single preset retries incomplete or timed-out 
 request that went unanswered. When a repair was needed, the session backup contains the verified data re-encoded
 (byte-identical to the device format) instead of the raw first reply.
 
-### Bitwig Looper template
+### Bitwig Pacer template
 
 The template implements `docs/PACER-MAP.md`. Options:
 
 - **The extension paints the rest.** Colours, the display name and what every switch does are written live to preset
   index 0 (RAM) by PACER Looper and change with its active mode, so this template only has to speak the right CCs.
-  The preset-loaded message (on-load MIDI 1, CC 119 = **127**) tells the extension one of its presets was selected,
-  which makes it write the whole board again. Older presets sent 2, 17 or 18 and still count as ours.
+  The preset-loaded message (on-load MIDI 1, CC 119 = **127**) tells the extension its preset was selected, which
+  makes it write the whole board again and keep its mode. Older presets sent 2, 17 or 18 and still count as ours
+  (17 and 18, the retired FX preset, switch to the FX mode).
 - **LED MIDI control stays off** in the stored preset, so the board lights up normally without Bitwig; the extension
   turns it on per switch as soon as it starts and owns the colours from then on.
 
@@ -140,14 +144,13 @@ src/
   midi/        Web MIDI service (port auto-selection, hot-plug, SysEx reassembly, request/collect, paced writes),
                Universal Identity request/reply parsing
   store/       zustand stores: editor (slots + globals + undo/redo), device, ui, monitor
-  templates/   Bitwig Looper (docs/PACER-MAP.md, roles from docs/LOOPER.md), Bitwig FX (docs/FX-PRESET.md) and generic
-               pedalboards
+  templates/   Bitwig Pacer (docs/PACER-MAP.md, roles from docs/LOOPER.md) and generic pedalboards
   app/         operations (read with retries, write, import/export), identity, follow, share, service worker registration
   ui/          React components (hardware rendering, browser, inspector, global view, dialogs, LED Lab, palette,
                cheat sheet, help, first-run guide)
   styles/      CSS custom-property design tokens and component styles (incl. print and responsive styles)
 build/pwa.ts   Vite plugin that writes the service worker after production builds
-test/          vitest suites + fixtures (factory dumps, user patch, looper and FX generator output)
+test/          vitest suites + fixtures (factory dumps, user patch, the generator's bitwig-pacer-D1.syx)
 ```
 
 Key protocol facts (verified against factory dumps and a real device dump):

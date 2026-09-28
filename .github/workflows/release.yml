@@ -1,7 +1,7 @@
 name: Release
 
 # Push a version tag (e.g. `git tag v0.2.0 && git push origin v0.2.0`) to publish a GitHub release with the
-# ready-to-install extension and the looper presets attached.
+# ready-to-install extension and the Pacer preset (presets/bitwig-pacer-D1.syx) attached.
 on:
   push:
     tags:

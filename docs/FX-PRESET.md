@@ -50,18 +50,19 @@ SW 2; the display reads `FX`.
 | EXP 1   | Focused instrument: remote control 7 | | |
 | EXP 2   | Focused instrument: remote control 8 | | |
 
-- The modes are fixed for now, so this layout is not a setting. The FX, instrument and snapshot actions *can* be put
-  on the footswitch jacks, which keep their own settings in every mode — so FS 1–2 keep looping from here.
+- The built-in modes are fixed, so this layout is not a setting. The FX, instrument and snapshot actions *can* be
+  put on the Custom mode's switches or on the footswitch jacks, which are the same in every mode — so FS 1–2 keep
+  looping from here.
 - Four instruments fit because SW 6 is the mode switch and snapshots moved to SW 5; the old layout had three
   instruments and six FX switches.
-- *Momentary: tap again on release* works as the hold of any switch whose tap toggles something.
+- *Momentary: tap again on release* works as the hold of any Custom mode switch or jack whose tap toggles something.
 
 ## Behaviour
 
 ### Instruments
 
-- Four slots (A–D). SW D is the snapshot switch by default; set *FX SW D tap* to *Focus instrument D* for a fourth
-  instrument.
+- Four slots (A–D) on SW 1–4; snapshots are on SW 5. To put an instrument somewhere else, use the Custom mode or a
+  footswitch jack.
 - A slot remembers the track **name**, saved per project, and so does the focused slot. Assignments are made from
   the Pacer: Bitwig 6 shows a controller's project settings nowhere in its own panels. After renaming a track,
   assign it again. Instruments are found among the first 64 tracks of the project (tracks inside groups count).
@@ -84,7 +85,7 @@ SW 2; the display reads `FX`.
 ### Snapshots
 
 - Per instrument and saved per project. *Snapshots per instrument* = 2 (an A/B pair) by default, up to 4.
-- A snapshot stores the state of SW 1–6: device on/off, or the exact remote control value (set 35 % with a knob, then
+- A snapshot stores the state of FX 1–6: device on/off, or the exact remote control value (set 35 % with a knob, then
   store). Remote controls 7–8 are not stored because the pedals own them.
 - Tap moves to the next snapshot and recalls it if it has been stored; an empty snapshot changes nothing until you
   store into it.
@@ -92,9 +93,9 @@ SW 2; the display reads `FX`.
 
 ### Pedals
 
-- EXP 1/2 have their own target settings in the FX mode (*EXP 1 in the FX mode*; defaults: remote controls 7/8 of
-  the focused instrument), and they are re-bound whenever the mode changes. Response curve and heel/toe range are
-  shared with the other modes.
+- EXP 1/2 have their own target settings in the FX mode (*EXP 1 · FX pedalboard*, *EXP 2 · FX pedalboard*;
+  defaults: remote controls 7/8 of the focused instrument), and they are re-bound whenever the mode changes.
+  Response curve and heel/toe range are shared with the other modes.
 - They only act on a "Pacer" page. After a focus change, the first pedal move sets the new instrument's control to the
   pedal position.
 
@@ -117,7 +118,7 @@ Run with the one Pacer preset on D1 and at least two instrument tracks.
 
 1. [ ] Hold SW 6 and tap SW 2: the display reads `FX` and the board repaints. Tap SW 6: back to the looper, which
        works as before and never stopped playing.
-2. [ ] Select a track in Bitwig, hold SW 1: "Instrument A is now …", SW 1 lights.
+2. [ ] Select a track in Bitwig, hold SW 1 (1.5 s by default): "Instrument A is now …", SW 1 lights.
 3. [ ] Assign a second instrument to SW 2. Tapping SW 1 / SW 2 switches the focus ("FX: …") without changing Bitwig's
        selection or the Push's track.
 4. [ ] Track without a "Pacer" page: SW A switches its first device on/off; the LED follows, also when you click the

@@ -12,40 +12,45 @@ The single source of truth for how the **Pacer preset** (written by the editor) 
   "global"). The channel is configurable: extension setting *Looper MIDI channel*, `tools/pacer-preset.mjs
   --channel N`, and the channel picker of Pacer Studio's Bitwig Pacer template — all three must agree. The CC
   numbers never change.
-- The preset-loaded message (**CC 119 = 127**) tells the extension one of its presets was selected. Selecting a
-  preset on the Pacer discards every live edit, so the extension answers by writing the whole board again. Older
-  presets sent 2, 17 or 18 (the looper/FX split and their LED variants); those values still count as ours, so a
-  Pacer that has not been rewritten keeps working.
+- The preset-loaded message (**CC 119 = 127**) tells the extension its preset was selected (or the Pacer started up
+  on it). Selecting a preset on the Pacer discards every live edit, so the extension answers by writing the whole
+  board again and **keeps the current mode**. Older presets sent other values and still count as ours, so a Pacer
+  that has not been rewritten keeps working: **17 or 18** (the retired FX preset; any value 16–31 decodes the same)
+  repaint and switch to the FX mode; every other value (such as 2, from an old looper preset) repaints and keeps the
+  mode.
 - **One preset**, in slot **D1** (preset index `0x13`) by default, name `PACER` (space-padded to five characters like
   every preset name). There is nothing else to install: what each switch does, what colour it is and what the display
-  says are all written live and change with the extension's active mode. Never use D6 (`0x18`): the Pacer does not
+  says are all written live and change with the extension's active mode. The stored preset has **LED MIDI Ctrl off**,
+  so the board still lights without Bitwig; the extension turns it on live. Never use D6 (`0x18`): the Pacer does not
   answer GET requests for it (known firmware quirk, see `reference/pacer-editor/dumps/README.md`).
 
 ## Controls
 
 | Control | SysEx obj | Action CC (step 1) | Role in the Looper mode |
 |---------|-----------|--------------------|--------------------------|
-| SW 1    | `0x0D`    | 102                | Loop track 1             |
-| SW 2    | `0x0E`    | 103                | Loop track 2             |
-| SW 3    | `0x0F`    | 104                | Loop track 3             |
-| SW 4    | `0x10`    | 105                | Loop track 4             |
-| SW 5    | `0x11`    | 106                | Loop track 5             |
+| SW 1    | `0x0D`    | 102                | Loop track 1 · hold: delete the loop |
+| SW 2    | `0x0E`    | 103                | Loop track 2 · hold: delete the loop |
+| SW 3    | `0x0F`    | 104                | Loop track 3 · hold: delete the loop |
+| SW 4    | `0x10`    | 105                | Loop track 4 · hold: delete the loop |
+| SW 5    | `0x11`    | 106                | Undo · hold: redo        |
 | SW 6    | `0x12`    | 107                | **The mode switch, in every mode**: tap toggles, hold opens the mode menu |
-| SW A    | `0x14`    | 108                | Undo · hold: redo        |
-| SW B    | `0x15`    | 109                | Play/stop all loops · hold: clear row |
-| SW C    | `0x16`    | 110                | Launcher overdub · hold: metronome |
-| SW D    | `0x17`    | 111                | Tap tempo · hold: transport play/stop |
-| FS 1    | `0x18`    | 112                | One-button looper · hold: clear last loop |
-| FS 2    | `0x19`    | 113                | Play/stop all loops · hold: clear row |
-| FS 3    | `0x1A`    | 114                | (unassigned)             |
-| FS 4    | `0x1B`    | 115                | (unassigned)             |
+| SW A    | `0x14`    | 108                | Previous scene row · hold: move the loop track window left |
+| SW B    | `0x15`    | 109                | Next scene row (adds one after the last) · hold: move the loop track window right |
+| SW C    | `0x16`    | 110                | Play row / stop all loops · hold: clear the row |
+| SW D    | `0x17`    | 111                | Launcher overdub · hold: metronome |
+| FS 1    | `0x18`    | 112                | One-button looper · hold: clear the last recorded loop |
+| FS 2    | `0x19`    | 113                | Play row / stop all loops · hold: clear the row |
+| FS 3    | `0x1A`    | 114                | Focus the next instrument |
+| FS 4    | `0x1B`    | 115                | Next snapshot of the focused instrument |
 | EXP 1   | `0x36`    | 116 (0–127)        | Selected track volume    |
 | EXP 2   | `0x37`    | 117 (0–127)        | Master volume            |
-| Preset loaded | `0x7E` setting 1 | 119 (value 127) | Extension writes the whole board again |
+| Preset loaded | `0x7E` setting 1 | 119 (value 127) | Extension writes the whole board again, keeps the mode |
 
 - **The CCs never change**, not even between modes: a mode is a lookup table inside the extension, not a rewrite of
   the Pacer. The "role" column is the Looper mode; the other modes use the same CCs for their own jobs
-  (docs/LIVE-COLOURS-AND-MODES.md). Only the footswitch jacks are assignable in the Bitwig settings.
+  (docs/LIVE-COLOURS-AND-MODES.md). The footswitch jacks are global: they do the same in every mode. The built-in
+  modes are fixed; only the Custom mode's switches, the footswitch jacks and each mode's pedal targets are assignable
+  in the Bitwig settings.
 - Channel 16 is reserved for the looper. The extension passes channels 1–15 to Bitwig as the note input
   "PACER", so other presets must avoid channel 16. Expression pedals set to a MIDI target inject their messages into
   that same note input.
@@ -97,7 +102,8 @@ the whole board without selecting another preset, both rest on this.
 
 - **One object per message.** Bytes after the first object's elements are parsed as *more elements of that object*,
   not as a second object: a two-object message recoloured the first switch and silently wrote junk into its step 3.
-  A full mode change is therefore 10-21 separate messages.
+  A whole-board repaint is therefore at most 11 separate messages: one per switch (LED control, colour pair and LED
+  row together) plus the name.
 - **Speed is free.** 1000 colour messages went out in 304 ms (~3300/s), the last value landed, and the device still
   answered a full 189-message GET afterwards. Throughput is not a constraint.
 - **The display is the constraint.** Every SET shows `LOAD SYS`. A burst of 21 back-to-back messages reads as one
@@ -164,8 +170,6 @@ Presets that light several rows at once do it through the **DAW function** messa
 Transport or Track functions are assigned, the top and middle row icons are illuminated" (manual p.7). That is
 firmware behaviour tied to Nektar's DAW protocol, not something the LED configuration can reach.
 
-Two strategies, selectable in the extension settings (`LED mode`) and in the editor's looper template:
-
 ### How state reaches the LEDs
 
 Two channels, and keeping them apart is what makes this cheap:
@@ -182,9 +186,10 @@ is playing. Blink patterns still carry the states that are *waiting*:
 |---------------------|--------------------------------------------|
 | empty               | the mode colour, dimmed                    |
 | stopped, has clip   | solid, the "stopped" colour                |
-| playing             | solid with a dip on the beat               |
-| overdubbing         | solid with a dip, the "recording" colour   |
-| record/play/stop queued | fast blink (≈ 4 Hz) in the colour it is heading for |
+| playing             | solid, the "playing" colour, with a dip on the downbeat |
+| recording           | solid, the "recording" colour, with a dip on the downbeat |
+| overdubbing         | solid, the "recording" colour, with a dip on the downbeat |
+| record/play/stop queued, counting in, a mute waiting for its beat | fast blink (≈ 4 Hz) in the colour it is heading for |
 | muted               | solid, the "muted" colour                  |
 
 The four loop colours are settings (*Loop colour: stopped / playing / recording / muted*).

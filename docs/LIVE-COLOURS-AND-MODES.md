@@ -1,9 +1,9 @@
 # Live colours and modes
 
-**Status: built, not yet tested on hardware.** The live writer, the mode table and the SW 6 mode switch are in the
-extension (`pacer/live/`, `pacer/mode/`); what is left is the hardware checklist, retiring the multi-colour variant
-and cutting the preset generator down to one preset. The first section is hardware fact, verified on a real Pacer on
-2026-09-15/16 with the user watching.
+**Status: built (modes, live colours, one preset), not yet run through the hardware checklist.** The live writer,
+the five modes, the SW 6 mode switch and the state colours are in the extension (`pacer/live/`, `pacer/mode/`); the
+multi-colour variant is retired and the generator makes one preset. What is left is the hardware checklist. The
+first section is hardware fact, verified on a real Pacer on 2026-09-15/16 with the user watching.
 
 ## What the hardware actually does
 
@@ -27,7 +27,8 @@ and cutting the preset generator down to one preset. The first section is hardwa
   - All confirmed on hardware: SW 1 cycled through all twelve colours, SW 5 sent CC 60 instead of CC 106, the
     display read `MODE1` and then `LUP`, and the stored slot read back unchanged afterwards.
 - **One object per message.** Bytes after the first object's elements are parsed as more elements of *that* object,
-  so a whole-board change is 10-21 messages. Speed is not a problem: 1000 messages in 304 ms (~3300/s).
+  so a whole-board change is at most 11 messages: ten switches (each with its LED row) plus the name. Speed is not a
+  problem: 1000 messages in 304 ms (~3300/s).
 - **Every SET flashes `LOAD SYS` on the display.** A burst of 21 back-to-back messages reads as one brief flash;
   writes dribbled out a few per second hold `LOAD SYS` there continuously. Colour changes must be coalesced into
   bursts, never sent per tick.
@@ -37,9 +38,10 @@ and cutting the preset generator down to one preset. The first section is hardwa
   with and without the "DAW connected" message.
 - **CC 119 arrives on every preset selection** (seen in the MIDI monitor log), so preset announcements are reliable.
 
-Experiment scripts, all read-only or RAM-only: `tools/led-colour-lab.mjs` (Nektar's colour message),
-`tools/led-colour-chart.mjs` (writes a colour chart to a slot), `tools/led-live-colour.mjs` (one live colour write),
-`tools/led-layout-test.mjs` (the LED-number test).
+Experiment scripts: `tools/led-colour-lab.mjs` (Nektar's colour message, needs `--confirm`),
+`tools/led-colour-chart.mjs` (builds a colour chart for a slot), `tools/led-live-colour.mjs` (one live colour write,
+RAM only), `tools/live-name.mjs` (a live name write), `tools/led-layout-test.mjs` (the LED-number test). The two
+that build a slot's `.syx` leave the writing to `pacer-send.mjs`, which backs the slot up first.
 
 ## The plan
 
@@ -48,18 +50,17 @@ Experiment scripts, all read-only or RAM-only: `tools/led-colour-lab.mjs` (Nekta
 A writer next to `led/SwitchLedWriter` that sends the colour pair of a switch when the wanted colour changes, while
 on/off still goes through the CC echo (`127` = on colour, `0` = off colour). Points to settle:
 
-- Where it sits: `LedState` grows a real colour, `SwitchLedWriter` sends the SysEx when the colour changes and the CC
-  when the pattern changes. The light cache in DrivenByMoss only carries an int, so the colour has to be encoded into
-  that int (colour * 8 + pattern?) or kept beside it.
+- ~~Where it sits.~~ `live/LiveBoard` is the only place that writes the SysEx: it remembers what the Pacer shows and
+  sends a switch's colour pair only when it changes. `SwitchLedWriter` keeps sending the CC echo, bright or dim.
 - ~~How many SysEx messages per second are safe.~~ Measured: ~3300/s with no drops. The limit is not throughput but
   the `LOAD SYS` display message - sustained writes keep it on screen, so the engine must only write on real state
   changes and send them as one burst.
-- What the extension leaves behind on exit: the Pacer keeps the last live colours until a preset is selected. Either
-  live with it, or write the preset's own colours back in `exit ()`.
+- ~~What the extension leaves behind on exit.~~ Switching the extension off darkens every switch and writes `OFF` to
+  the display, so a board nobody drives does not look live. Selecting a preset brings its stored colours back.
 
 ### 2. Colours for state
 
-Proposed (all configurable later):
+As built; the four loop colours are settings (*Loop colour: stopped / playing / recording / muted*):
 
 | Loop switch | Colour |
 |-------------|--------|
@@ -70,18 +71,20 @@ Proposed (all configurable later):
 | muted | blue |
 | waiting (record/play/stop) | the colour it is heading for, blinking |
 
-Other switches: undo/redo white, transport gold, overdub red, metronome white, row navigation lavender. On the FX
-preset: FX switches green when on, instruments in the nearest colour to their track colour, snapshots by index.
+Other switches: undo/redo white, transport gold, overdub red, metronome white, row navigation lavender. In the FX
+mode: FX switches green when on, instruments in the nearest colour to their track colour, snapshots by index.
 
 ### 3. Modes instead of presets (built 2026-09-16)
 
-Implemented as `pacer/mode/`: `Mode` holds the three boards, `ModeState` is the SW 6 gesture, `SwitchRole` decides
-where a press goes, `ModePainter` turns a mode into colour and name writes, and `live/LiveBoard` sends them while
-dropping anything that would not change. All of it is unit-tested.
+Implemented as `pacer/mode/`: `Mode` holds the five boards (LOOP, FX, MIX, SONG, CUSTOM - the Custom board is built
+from the settings), `ModeState` is the SW 6 gesture, `SwitchRole` decides where a press goes, `ModePainter` turns a
+mode into colour and name writes, and `live/LiveBoard` sends them while dropping anything that would not change. All
+of it is unit-tested.
 
 **One preset, and the extension paints everything on top of it.** The stored preset is only a fallback and a
-bootstrap: ten switches as CC Trigger on CCs 102-111 channel 16, LED MIDI ctrl on, and the preset-loaded CC 119 so
-the extension knows when the Pacer arrives on it. Everything else is live.
+bootstrap: ten switches as CC Trigger on CCs 102-111 channel 16, LED MIDI ctrl **off** (so the board still lights
+without Bitwig; the extension turns it on live), and the preset-loaded CC 119 so the extension knows when the Pacer
+arrives on it. Everything else is live.
 
 **Switch CCs never change at runtime.** A mode is an extension-side lookup table, not a rewrite of the Pacer - the
 extension already decides what an incoming CC does. So a mode change writes only *colours and the name*: 10 colour
@@ -93,11 +96,12 @@ the stored preset, not a runtime mechanism.
 Chosen for its position: it sits under the display and encoder, physically apart from the 1-5 cluster, so it reads
 as a system switch rather than a performance slot.
 
-- **tap** - toggle between the last two modes
+- **tap** - toggle between the last two modes (or, with the menu open, close it and change nothing)
 - **hold** - the mode menu, and the nine other switches become its slots
-- **release without a tap** - stay where you were
+- **release** - the menu stays open, since a foot cannot hold one switch and press another. A mode slot goes there
+  and closes the menu; the navigation slots leave it open so they can be pressed again; a tap of SW 6 closes it.
 
-| Held on SW 6 | Slot | Why |
+| In the menu | Slot | Why |
 |--------------|------|-----|
 | 1-5 | Looper, FX, Mixer, Song, Custom | direct access, no cycling |
 | A / B | loop tracks left / right | needed from every mode, so pay for it once |
@@ -109,7 +113,10 @@ as a system switch rather than a performance slot.
 - per performance switch (1-5, A-D): tap / double-tap / hold action, colour, and **LED position**
 - both expression pedal targets - the biggest win with no spare footswitches, since two pedals that re-point per
   mode multiply the surface without new hardware
-- the four footswitch jacks (unassigned by default; the author has none yet)
+
+The four footswitch jacks are not part of a mode: they are global, the same in every mode, and have defaults (FS 1
+one-button looper, hold: clear the last recorded loop; FS 2 play row / stop all, hold: clear the row; FS 3 focus the
+next instrument; FS 4 next snapshot). Any action fits on them, including the mode actions.
 
 That is 9 switches x 3 gestures = 27 bindings per mode, on top of the existing 53 actions, which all already exist
 and are assignable. The mode system is plumbing, not new behaviour.
@@ -118,30 +125,35 @@ and are assignable. The mode system is plumbing, not new behaviour.
 
 Built in, not user-editable, until the ergonomics are proven. Designing a settings system for modes nobody has
 specified means guessing twice, and 5 modes x 27 bindings would be 135 entries in Bitwig's panel. Settings come
-later, where they turn out to matter. Starting set: **LOOP**, **FX**, **MIX**, and two free slots.
+later, where they turn out to matter. The set: **LOOP**, **FX**, **MIX**, **SONG** and **CUST**, the one mode laid
+out in the settings (*Settings > Custom mode*).
 
 Open questions:
 
 - ~~What are modes 4 and 5?~~ Song, and a custom board laid out in the settings.
 - Should a mode change the loop track window or the focused instrument too? Default no - it makes modes stateful
   and harder to reason about. Add it if it is missed.
-- Is the name worth re-writing on every press to keep it on the display, or should the display only show the mode
-  at the moment it changes? Re-writing costs one message per press and flashes `LOAD SYS` each time.
+- ~~Is the name worth re-writing on every press to keep it on the display?~~ It is a setting: *Put the mode name
+  back on the display after a press* (Modes, on by default). Each re-write costs one message and a `LOAD SYS` flash;
+  switch it off to leave the CC readout up.
 
-### 4. Retire multi-colour
+### 4. Retire multi-colour (done)
 
-Remove `LedMode.MULTI_COLOUR`, the colour-slot CCs from the contract, the multi-colour preset variants from the
-generator and Pacer Studio, and the multi-colour rows from the docs. Keep one preset (the current two-colour looper
-layout, whose switches already have LED MIDI control on) and let the extension paint it.
+`LedMode` is gone, and with it the colour-slot CCs in the contract, the multi-colour preset variants in the generator
+and Pacer Studio, and the multi-colour rows in the docs. There is one preset (`tools/pacer-preset.mjs` →
+`presets/bitwig-pacer-D1.syx`, or Pacer Studio's "Bitwig Pacer" template); it ships with LED MIDI ctrl off and the
+extension paints it.
 
-## Where things stand (2026-09-16)
+## Where things stand
 
-- **The whole mechanism is proven on hardware.** Colours, names, switch assignments, LED host control, jacks and
-  pedals are all live-writable with no EEPROM cost; see the rules for a live writer in docs/PACER-MAP.md. Nothing
-  is built yet.
-- Extension 0.3.0 installed; **PACER Looper is switched off in Bitwig's controller settings** after the LED tests.
-- Pacer: D1 = looper preset, D2 = FX preset, D3 = its factory contents (restored). Backups in `backups/`; the live
-  tests ran against D3's RAM copy and a preset select clears them.
-- Hardware checklists in docs/LOOPER.md and docs/FX-PRESET.md are still unrun apart from the pedals, the preset
-  announcement and the LED findings above.
+- **Built:** the five modes, the SW 6 mode switch and its menu, live state colours and the one preset. The mechanism
+  underneath is proven on hardware: colours, names, switch assignments, LED host control, jacks and pedals are all
+  live-writable with no EEPROM cost; see the rules for a live writer in docs/PACER-MAP.md.
+- **Not yet run through the hardware checklists** (docs/LOOPER.md section 10, docs/FX-PRESET.md): only the pedals,
+  the preset announcement and the LED findings above are verified.
+- The extension paints preset index 0 whatever preset is loaded; see "Guard live writes" in docs/ROADMAP.md.
+- At the live tests (2026-09-16): extension 0.3.0 installed, **PACER Looper switched off in Bitwig's controller
+  settings** afterwards; Pacer D1 = the old looper preset, D2 = the old FX preset (now retired: it still announces
+  itself, and selecting it switches to the FX mode), D3 = its factory contents (restored). Backups in `backups/`; the
+  live tests ran against D3's RAM copy and a preset select clears them.
 - Bitwig's audio engine hung once during a project switch (nothing to do with the extension, see its log).

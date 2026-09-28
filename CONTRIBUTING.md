@@ -4,8 +4,9 @@ Thanks for helping! Pacer owners with different setups are the best testers this
 
 ## Ways to help
 
-- **Hardware reports.** Run the checklist in [docs/LOOPER.md](docs/LOOPER.md#8-hardware-test-checklist) and the
-  LED Lab in Pacer Studio, then open an issue with your results (firmware version, OS, Bitwig version).
+- **Hardware reports.** Run the checklists in [docs/LOOPER.md](docs/LOOPER.md#10-hardware-test-checklist) and
+  [docs/FX-PRESET.md](docs/FX-PRESET.md#hardware-test-checklist) and the LED Lab in Pacer Studio, then open an issue
+  with your results (firmware version, OS, Bitwig version).
 - **Presets and templates.** Share Pacer presets (`.syx`) or editor templates for other DAWs, loopers and pedals.
 - **Code.** Pick an item from [docs/ROADMAP.md](docs/ROADMAP.md) or fix a bug.
 
@@ -45,9 +46,9 @@ Match the `drivenbymoss.version` in `bitwig/pom.xml` to the DrivenByMoss version
    (`tools/pacer-preset.mjs`) and the editor template together.
 2. **Never write to someone's Pacer without asking.** Tools and the editor must confirm the target slot and offer a
    backup before any SysEx SET. GET requests and plain CCs are fine.
-3. **Keep logic testable.** In the extension, decisions live in pure classes (`looper/`, `led/`) with JUnit tests;
-   `LooperController` applies them and `PacerControllerSetup` only wires hardware. In the editor, the protocol code in
-   `src/pacer/` has no UI dependencies and is covered by vitest against real dumps.
+3. **Keep logic testable.** In the extension, decisions live in pure classes (`looper/`, `led/`, `fx/`, `mode/`) with
+   JUnit tests; the controllers apply them and `PacerControllerSetup` only wires hardware. In the editor, the protocol
+   code in `src/pacer/` has no UI dependencies and is covered by vitest against real dumps.
 4. **Hardware facts need evidence.** When you learn something about the Pacer's SysEx or LEDs, note how you verified
    it (dump, LED Lab, firmware version) in the docs.
 5. Java code follows the upstream DrivenByMoss style (4-space indent, space before `(`, `final` everywhere).

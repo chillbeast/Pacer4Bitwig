@@ -501,6 +501,56 @@ class PacerControllerTest
     }
 
 
+    @Test
+    void aPickedUpPedalLeavesItsMidiTargetAloneUntilItGetsThere ()
+    {
+        this.setField ("pedalTakeover", dev.pacer4bitwig.pacer.looper.PedalTakeover.PICKUP);
+        this.setPedalTarget (Mode.LOOP, 0, dev.pacer4bitwig.pacer.looper.ExpressionTarget.MIDI_MOD_WHEEL);
+        final List<Integer> sent = new ArrayList<> ();
+        this.controller.setMidiSender ( (status, data1, data2) -> sent.add (Integer.valueOf (data2)));
+
+        this.controller.pedalMoved (0, 64);
+        assertEquals (List.of (Integer.valueOf (64)), sent, "nothing was sent before, so it follows at once");
+
+        // Pointed somewhere else and back (a mode change): the heel no longer yanks the mod wheel down
+        this.controller.pedalRetargeted (0);
+        this.controller.pedalMoved (0, 10);
+        this.controller.pedalMoved (0, 40);
+        assertEquals (1, sent.size (), "still below where the mod wheel was left");
+        this.controller.pedalMoved (0, 70);
+        this.controller.pedalMoved (0, 30);
+        assertEquals (List.of (Integer.valueOf (64), Integer.valueOf (70), Integer.valueOf (30)), sent, "passed 64, and follows from then on");
+    }
+
+
+    @Test
+    void aJumpingPedalAlwaysFollows ()
+    {
+        this.setPedalTarget (Mode.LOOP, 0, dev.pacer4bitwig.pacer.looper.ExpressionTarget.MIDI_MOD_WHEEL);
+        final List<Integer> sent = new ArrayList<> ();
+        this.controller.setMidiSender ( (status, data1, data2) -> sent.add (Integer.valueOf (data2)));
+        this.controller.pedalMoved (0, 64);
+        this.controller.pedalRetargeted (0);
+        this.controller.pedalMoved (0, 10);
+        assertEquals (List.of (Integer.valueOf (64), Integer.valueOf (10)), sent);
+    }
+
+
+    private void setPedalTarget (final Mode mode, final int index, final dev.pacer4bitwig.pacer.looper.ExpressionTarget target)
+    {
+        try
+        {
+            final java.lang.reflect.Field field = PacerConfiguration.class.getDeclaredField ("expressionTargets");
+            field.setAccessible (true);
+            ((dev.pacer4bitwig.pacer.looper.ExpressionTarget [] []) field.get (this.configuration))[mode.ordinal ()][index] = target;
+        }
+        catch (final ReflectiveOperationException ex)
+        {
+            throw new IllegalStateException (ex);
+        }
+    }
+
+
     private void runLater ()
     {
         final List<Runnable> due = new ArrayList<> (this.later);

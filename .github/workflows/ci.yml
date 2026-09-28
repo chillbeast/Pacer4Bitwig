@@ -80,3 +80,11 @@ jobs:
 
       - name: Generate the Pacer preset (includes a 189-message self-check)
         run: node pacer-preset.mjs
+
+      # The editor's template test compares against the committed fixture, so both copies must be what the generator
+      # makes today - otherwise a change to the generator (or a stale file) would leave every check green
+      - name: The committed preset and the editor's fixture match the generator
+        working-directory: .
+        run: |
+          git diff --exit-code -- presets
+          cmp presets/bitwig-pacer-D1.syx editor/test/fixtures/bitwig-pacer-D1.syx

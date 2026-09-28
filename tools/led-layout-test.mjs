@@ -1,7 +1,8 @@
 // Tests the manual's "up to 3 LEDs per switch" (LED Number 0-3: 0 default, 1 bottom, 2 middle, 3 top) by giving SW 3
 // three steps, each driving a different LED in a different colour. Writes ONLY SW 3 of one preset slot.
 //
-//   node led-layout-test.mjs --slot D3            write the test configuration (backs the slot up first)
+//   node led-layout-test.mjs --slot D3            build the test configuration as a .syx (write it with pacer-send.mjs,
+//                                                 which backs the slot up first)
 //   node led-layout-test.mjs --light              light the three LEDs one at a time, then together
 //
 // Colours are the manual's numbering: 1A=0x01 .. 12A=0x17, with the following even value the dimmed variant.
@@ -19,7 +20,7 @@ const option = (name, fallback) => {
 const SLOT = option ('--slot', 'D3').toUpperCase ();
 const CHANNEL = 16;
 const SW3_OBJECT = 0x0F;
-/** Step 1 keeps the looper's CC for SW 3; steps 2 and 3 use its colour-slot CCs (docs/PACER-MAP.md). */
+/** Step 1 keeps the looper's CC for SW 3; steps 2 and 3 use CCs 30 and 31, which nothing else listens to. */
 const STEPS = [
     { cc: 104, ledNumber: 1, colour: 0x03, name: 'bottom, colour 2A (0x03)' },
     { cc: 30, ledNumber: 2, colour: 0x0D, name: 'middle, colour 7A (0x0D)' },

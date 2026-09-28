@@ -2,10 +2,13 @@
 // on colour (F0 00 01 77 7F 01 06 18 [00 slot 02 off on] x10 cs F7, see docs/ROADMAP.md). Target 0x06 looks like a
 // display/RAM target, so this should not touch the presets - nothing here writes a preset.
 //
-//   node led-colour-lab.mjs --sweep                 sweep colours 0-31 on SW 1
-//   node led-colour-lab.mjs --sweep --from 0 --to 15 --switch 2 --dwell 1500
-//   node led-colour-lab.mjs --switch 1 --on 0x0D --off 0x03      one pair, held until you press Ctrl+C
-//   node led-colour-lab.mjs --daw --sweep           send Nektar's "DAW connected" message first
+//   node led-colour-lab.mjs --confirm --sweep                 sweep colours 0-31 on SW 1
+//   node led-colour-lab.mjs --confirm --sweep --from 0 --to 15 --switch 2 --dwell 1500
+//   node led-colour-lab.mjs --confirm --switch 1 --on 0x0D --off 0x03      one pair, held until you press Ctrl+C
+//   node led-colour-lab.mjs --confirm --daw --sweep           send Nektar's "DAW connected" message first
+//
+// The colour message and "DAW connected" are SysEx SETs (to targets 0x06 and 0x09), so every run needs --confirm.
+// On hardware (2026-09-16) the Pacer ignored target 0x06 outside its own DAW presets - see docs/PACER-MAP.md.
 
 import { findPacerPort, openMidi } from './lib/pacer.mjs';
 
@@ -26,6 +29,12 @@ const CHANNEL = number (option ('--channel', 16), 16) - 1;
 const SLOT = number (option ('--switch', 1), 1);
 const DWELL_MS = number (option ('--dwell', 1400), 1400);
 const NUM_SLOTS = 10;
+
+if (!args.includes ('--confirm'))
+{
+    console.error ('This sends SysEx SET messages to the Pacer (targets 0x06 and 0x09). Add --confirm to go ahead.');
+    process.exit (1);
+}
 
 const midi = openMidi ();
 const output = new midi.Output ();

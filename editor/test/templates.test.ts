@@ -79,7 +79,10 @@ describe('looper roles', () => {
 
   it('uses the LOOPER.md default actions', () => {
     expect(LOOPER_TAP_HOLD.SW6).toEqual({ tap: 'Previous mode', hold: 'Mode menu' });
-    expect(LOOPER_TAP_HOLD.SWB).toEqual({ tap: 'Play/stop all', hold: 'Clear row' });
+    expect(LOOPER_TAP_HOLD.SW5).toEqual({ tap: 'Undo', hold: 'Redo' });
+    expect(LOOPER_TAP_HOLD.SWA).toEqual({ tap: 'Row −', hold: 'Tracks ←' });
+    expect(LOOPER_TAP_HOLD.SWB).toEqual({ tap: 'Row +', hold: 'Tracks →' });
+    expect(LOOPER_TAP_HOLD.SWC).toEqual({ tap: 'Play/stop all', hold: 'Clear row' });
     expect(LOOPER_TAP_HOLD.FS1).toEqual({ tap: 'One-button looper', hold: 'Clear last' });
     expect(LOOPER_TAP_HOLD.EXP2.tap).toBe('Master volume');
   });

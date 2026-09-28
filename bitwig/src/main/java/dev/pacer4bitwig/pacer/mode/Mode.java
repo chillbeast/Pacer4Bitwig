@@ -23,18 +23,22 @@ import static dev.pacer4bitwig.pacer.mode.SwitchLayout.on;
  */
 public enum Mode implements Labelled, ModeBoard
 {
-    /** The looper: five loop tracks plus the transport essentials. */
-    LOOP ("LOOP", "Looper", 5, new SwitchLayout []
+    /**
+     * The looper, laid out like the looper preset before modes: four loop tracks (the default number of loop tracks)
+     * and undo on the bottom row, scene rows on SW A / SW B (hold: move the loop tracks), play/stop all - which used
+     * to be SW 6 - on SW C and tap tempo on SW D.
+     */
+    LOOP ("LOOP", "Looper", 4, new SwitchLayout []
     {
         LOOP_TRACK,
         LOOP_TRACK,
         LOOP_TRACK,
         LOOP_TRACK,
-        LOOP_TRACK,
-        MODE_SWITCH,
         of (Action.UNDO, Action.REDO, PacerColour.WHITE),
+        MODE_SWITCH,
+        of (Action.ROW_PREVIOUS, Action.TRACKS_LEFT, PacerColour.LAVENDER),
+        of (Action.ROW_NEXT, Action.TRACKS_RIGHT, PacerColour.LAVENDER),
         of (Action.PLAY_STOP_ALL, Action.CLEAR_ROW, PacerColour.GOLD),
-        of (Action.LAUNCHER_OVERDUB, Action.METRONOME, PacerColour.RED),
         of (Action.TAP_TEMPO, Action.TRANSPORT_PLAY_STOP, PacerColour.CYAN)
     }),
 

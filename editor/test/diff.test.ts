@@ -41,7 +41,8 @@ describe('cheat sheet labels', () => {
   it('uses the PACER Looper roles for the looper layout', () => {
     const looper = buildBitwigLooperPreset();
     expect(bitwigRolesOf(looper)).toBe(LOOPER_TAP_HOLD);
-    expect(cheatLabel(looper, LOOPER_LABELS, 'SWA', LOOPER_TAP_HOLD)).toEqual({ title: 'Undo', hold: 'Redo' });
+    expect(cheatLabel(looper, LOOPER_LABELS, 'SW5', LOOPER_TAP_HOLD)).toEqual({ title: 'Undo', hold: 'Redo' });
+    expect(cheatLabel(looper, LOOPER_LABELS, 'SWA', LOOPER_TAP_HOLD)).toEqual({ title: 'Row −', hold: 'Tracks ←' });
     expect(cheatLabel(looper, LOOPER_LABELS, 'SW6', LOOPER_TAP_HOLD)).toEqual({ title: 'Previous mode', hold: 'Mode menu' });
     expect(cheatLabel(looper, LOOPER_LABELS, 'EXP1', LOOPER_TAP_HOLD)).toEqual({ title: 'Selected track volume', hold: undefined });
   });

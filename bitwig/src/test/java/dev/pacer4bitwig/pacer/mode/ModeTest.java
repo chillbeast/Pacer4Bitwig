@@ -57,14 +57,33 @@ class ModeTest
 
 
     @Test
-    void loopModeOwnsTheBottomRowUpToTheModeSwitch ()
+    void loopModeLoopsOnSw1To4LikeTheDefaultNumberOfLoopTracks ()
     {
-        assertEquals (5, Mode.LOOP.getLoopSwitches ());
-        for (int i = 0; i < 5; i++)
+        // "Loop tracks" defaults to 4; a fifth loop switch would do nothing out of the box
+        assertEquals (4, Mode.LOOP.getLoopSwitches ());
+        for (int i = 0; i < 4; i++)
             assertTrue (Mode.LOOP.isLoopSwitch (i), "SW " + (i + 1) + " is a loop track");
+        assertFalse (Mode.LOOP.isLoopSwitch (4), "SW 5 is undo");
         assertFalse (Mode.LOOP.isLoopSwitch (6), "the top row is not a loop track");
         assertEquals (0, Mode.FX.getLoopSwitches (), "FX has no loop switches");
         assertEquals (0, Mode.MIX.getLoopSwitches (), "MIX has no loop switches");
+    }
+
+
+    @Test
+    void loopModeKeepsTheLooperPresetLayoutOfBeforeModes ()
+    {
+        // SW 5 and SW A-D do what they did on the looper preset; only SW 6's play/stop all had to move (to SW C)
+        assertEquals (Action.UNDO, Mode.LOOP.getLayout (4).tap ());
+        assertEquals (Action.REDO, Mode.LOOP.getLayout (4).hold ());
+        assertEquals (Action.ROW_PREVIOUS, Mode.LOOP.getLayout (6).tap (), "SW A: previous row");
+        assertEquals (Action.TRACKS_LEFT, Mode.LOOP.getLayout (6).hold ());
+        assertEquals (Action.ROW_NEXT, Mode.LOOP.getLayout (7).tap (), "SW B: next row");
+        assertEquals (Action.TRACKS_RIGHT, Mode.LOOP.getLayout (7).hold ());
+        assertEquals (Action.PLAY_STOP_ALL, Mode.LOOP.getLayout (8).tap (), "SW C: play row / stop all");
+        assertEquals (Action.CLEAR_ROW, Mode.LOOP.getLayout (8).hold ());
+        assertEquals (Action.TAP_TEMPO, Mode.LOOP.getLayout (9).tap (), "SW D: tap tempo");
+        assertEquals (Action.TRANSPORT_PLAY_STOP, Mode.LOOP.getLayout (9).hold ());
     }
 
 

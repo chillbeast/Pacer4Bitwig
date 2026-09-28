@@ -678,7 +678,7 @@ footer { border-top: 1px solid var(--line); padding-block: 2rem 3rem; color: var
         <div class="readout"><div class="readout-screen" id="readout">LOOP </div><span class="readout-label">PRESET</span></div>
         <button class="stomp" type="button" data-id="A" data-c="off" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW A</span><span class="stomp-role">Previous row</span></button>
         <button class="stomp" type="button" data-id="B" data-c="white" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW B</span><span class="stomp-role">Next row</span></button>
-        <button class="stomp" type="button" data-id="C" data-c="off" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW C</span><span class="stomp-role">Overdub</span></button>
+        <button class="stomp" type="button" data-id="C" data-c="green" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW C</span><span class="stomp-role">Play / stop all</span></button>
         <button class="stomp" type="button" data-id="D" data-c="white" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring" data-p="beat"></span></span><span class="stomp-name">SW D</span><span class="stomp-role">Tap tempo</span></button>
         <div class="brand">PACER</div>
       </div>
@@ -688,7 +688,7 @@ footer { border-top: 1px solid var(--line); padding-block: 2rem 3rem; color: var
         <button class="stomp" type="button" data-id="3" data-c="off" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW 3</span><span class="stomp-role">Loop 3</span></button>
         <button class="stomp" type="button" data-id="4" data-c="off" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW 4</span><span class="stomp-role">Loop 4</span></button>
         <button class="stomp" type="button" data-id="5" data-c="white" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW 5</span><span class="stomp-role">Undo</span></button>
-        <button class="stomp" type="button" data-id="6" data-c="white" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW 6</span><span class="stomp-role">Play / stop all</span></button>
+        <button class="stomp" type="button" data-id="6" data-c="white" aria-pressed="false"><span class="stomp-cap"><span class="stomp-ring"></span></span><span class="stomp-name">SW 6</span><span class="stomp-role">Mode</span></button>
       </div>
     </div>
 
@@ -895,11 +895,12 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
       <table>
         <thead><tr><th>Control</th><th>Tap</th><th>Hold</th></tr></thead>
         <tbody>
-          <tr><td><span class="sw">SW 1</span>&ndash;<span class="sw">SW 5</span></td><td class="wrap">Smart loop on loop track 1&ndash;5</td><td class="wrap">Delete that loop</td></tr>
+          <tr><td><span class="sw">SW 1</span>&ndash;<span class="sw">SW 4</span></td><td class="wrap">Smart loop on loop track 1&ndash;4</td><td class="wrap">Delete that loop</td></tr>
+          <tr><td><span class="sw">SW 5</span></td><td class="wrap">Undo</td><td class="wrap">Redo</td></tr>
           <tr><td><span class="sw">SW 6</span></td><td class="wrap">Close the menu, or go back to the mode you were in before</td><td class="wrap">The mode menu &mdash; it stays open when your foot comes off</td></tr>
-          <tr><td><span class="sw">SW A</span></td><td class="wrap">Undo</td><td class="wrap">Redo</td></tr>
-          <tr><td><span class="sw">SW B</span></td><td class="wrap">Stop all loops, or play the whole row when nothing plays</td><td class="wrap">Clear every loop in the row</td></tr>
-          <tr><td><span class="sw">SW C</span></td><td class="wrap">Launcher overdub on/off</td><td class="wrap">Metronome on/off</td></tr>
+          <tr><td><span class="sw">SW A</span></td><td class="wrap">Previous scene row</td><td class="wrap">Move the loop track window left</td></tr>
+          <tr><td><span class="sw">SW B</span></td><td class="wrap">Next scene row, adding one after the last</td><td class="wrap">Move the loop track window right</td></tr>
+          <tr><td><span class="sw">SW C</span></td><td class="wrap">Stop all loops, or play the whole row when nothing plays</td><td class="wrap">Clear every loop in the row</td></tr>
           <tr><td><span class="sw">SW D</span></td><td class="wrap">Tap tempo (its LED flashes the beat)</td><td class="wrap">Transport play/stop</td></tr>
           <tr><td><span class="sw">FS 1</span></td><td class="wrap">One-button looper: record the next layer</td><td class="wrap">Clear the last recorded loop</td></tr>
           <tr><td><span class="sw">FS 2</span></td><td class="wrap">Stop all loops / play the row</td><td class="wrap">Clear every loop in the row</td></tr>
@@ -1537,11 +1538,11 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
         "2": { role: "Loop 2", kind: "Loop switch · loop track 2", c: "red", p: "blip", tap: SMART, hold: "Delete that loop", led: "Stopped: a short flash on every downbeat", note: LOOP_NOTE },
         "3": { role: "Loop 3", kind: "Loop switch · loop track 3", c: "off", tap: SMART, hold: "Delete that loop", led: "Empty: the mode colour, dimmed", note: LOOP_NOTE },
         "4": { role: "Loop 4", kind: "Loop switch · loop track 4", c: "off", tap: SMART, hold: "Delete that loop", led: "Empty: the mode colour, dimmed", note: LOOP_NOTE },
-        "5": { role: "Loop 5", kind: "Loop switch · loop track 5", c: "off", tap: SMART, hold: "Delete that loop", led: "Empty: the mode colour, dimmed", note: LOOP_NOTE },
+        "5": { role: "Undo", kind: "Mode switch", c: "white", tap: "Undo", hold: "Redo", led: "On while there is something to undo" },
         "6": { role: "Mode", kind: "The mode switch", c: "white", tap: "Close the menu, or go back to the mode you were in before", hold: "Open the mode menu, which stays open when your foot comes off", led: "Always on: it is the way back to everything else", note: "SW 6 is the mode switch in every mode. It sits under the display and the encoder, apart from the rest of the bottom row. Hold it, take your foot off, then tap a mode \u2014 the whole gesture works with one foot." },
-        A: { role: "Undo", kind: "Mode switch", c: "white", tap: "Undo", hold: "Redo", led: "On while there is something to undo", note: "While counting in or recording, SW A–D count the beats of the bar instead." },
-        B: { role: "Play / stop all", kind: "Mode switch", c: "amber", tap: "Stop all loops, or play the whole row when nothing plays", hold: "Clear every loop in the row", led: "Green playing, amber loaded", note: "While counting in or recording, SW A–D count the beats of the bar instead." },
-        C: { role: "Overdub", kind: "Mode switch", c: "off", tap: "Launcher overdub on/off", hold: "Metronome on/off", led: "Off: overdub is off" },
+        A: { role: "Previous row", kind: "Mode switch", c: "off", tap: "Previous scene row", hold: "Move the loop track window left", led: "Off: already on the first row", note: "While counting in or recording, SW A–D count the beats of the bar instead." },
+        B: { role: "Next row", kind: "Mode switch", c: "white", tap: "Next scene row, adding one after the last", hold: "Move the loop track window right", led: "On: there is a row to move to (blue when it would add one)", note: "While counting in or recording, SW A–D count the beats of the bar instead." },
+        C: { role: "Play / stop all", kind: "Mode switch", c: "green", tap: "Stop all loops, or play the whole row when nothing plays", hold: "Clear every loop in the row", led: "Green playing, amber loaded", note: "While counting in or recording, SW A–D count the beats of the bar instead." },
         D: { role: "Tap tempo", kind: "Mode switch", c: "white", p: "beat", tap: "Tap tempo", hold: "Transport play/stop", led: "Flashes every beat while the transport runs" },
         FS1: jack("FS1"), FS2: jack("FS2"), FS3: jack("FS3"), FS4: jack("FS4"),
         EXP1: { kind: "Expression pedal", move: "Volume of the selected track", note: 'Response curve and range: see <a href="#pedals">Expression pedals</a>.' },

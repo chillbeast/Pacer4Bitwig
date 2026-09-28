@@ -30,6 +30,21 @@ public final class LooperText
 
 
     /**
+     * The row for the Pacer's five-character display, when the scene has no name: "ROW 3", "ROW12", "R128".
+     *
+     * @param rowIndex The row, 0-based
+     * @return The text, at most five characters
+     */
+    public static String displayRow (final int rowIndex)
+    {
+        final int row = rowIndex + 1;
+        if (row < 10)
+            return "ROW " + row;
+        return row < 100 ? "ROW" + row : "R" + row;
+    }
+
+
+    /**
      * "Row 3" or "Row 3: Chorus".
      *
      * @param rowIndex The row, 0-based

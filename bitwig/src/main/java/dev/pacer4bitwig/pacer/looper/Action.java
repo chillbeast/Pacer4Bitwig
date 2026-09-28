@@ -34,6 +34,19 @@ public enum Action implements Labelled
     /** Loop track 6. */
     LOOP_6 ("Loop track 6 (makes it a loop switch)", true, false),
 
+    /** Mute/unmute loop track 1 (honours "Mute timing"). */
+    MUTE_LOOP_1 ("Mute/unmute loop track 1", true, false),
+    /** Mute/unmute loop track 2. */
+    MUTE_LOOP_2 ("Mute/unmute loop track 2", true, false),
+    /** Mute/unmute loop track 3. */
+    MUTE_LOOP_3 ("Mute/unmute loop track 3", true, false),
+    /** Mute/unmute loop track 4. */
+    MUTE_LOOP_4 ("Mute/unmute loop track 4", true, false),
+    /** Mute/unmute loop track 5. */
+    MUTE_LOOP_5 ("Mute/unmute loop track 5", true, false),
+    /** Mute/unmute loop track 6. */
+    MUTE_LOOP_6 ("Mute/unmute loop track 6", true, false),
+
     /** Smart loop on the selected track. */
     LOOP_SELECTED ("Smart loop: selected track", true, false),
     /** Stop the selected track. */
@@ -256,6 +269,24 @@ public enum Action implements Labelled
             case LOOP_4 -> 3;
             case LOOP_5 -> 4;
             case LOOP_6 -> 5;
+            default -> -1;
+        };
+    }
+
+
+    /**
+     * @return The loop track a mute action is for, 0-5, -1 if this is not a loop track mute
+     */
+    public int getMutedLoopTrack ()
+    {
+        return switch (this)
+        {
+            case MUTE_LOOP_1 -> 0;
+            case MUTE_LOOP_2 -> 1;
+            case MUTE_LOOP_3 -> 2;
+            case MUTE_LOOP_4 -> 3;
+            case MUTE_LOOP_5 -> 4;
+            case MUTE_LOOP_6 -> 5;
             default -> -1;
         };
     }

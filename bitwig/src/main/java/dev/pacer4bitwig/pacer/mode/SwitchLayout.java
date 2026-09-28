@@ -8,8 +8,9 @@ import dev.pacer4bitwig.pacer.looper.Action;
 
 
 /**
- * What one switch does in one mode, and how it looks. Loop switches ({@link #LOOP_TRACK}) ignore the actions: their
- * behaviour comes from the loop track they stand for.
+ * What one switch does in one mode, and how it looks. A switch whose tap is a loop track action ({@link #loop(int)})
+ * is a loop switch: its behaviour - hold, double-tap, hold to record - comes from the looper, so its own hold and
+ * double-tap are ignored.
  *
  * @param tap The tap action
  * @param doubleTap The double-tap action
@@ -19,12 +20,33 @@ import dev.pacer4bitwig.pacer.looper.Action;
  */
 public record SwitchLayout (Action tap, Action doubleTap, Action hold, PacerColour colour, LedRow row)
 {
-    /** A loop switch: it stands for a loop track, so its actions come from the looper. */
-    public static final SwitchLayout LOOP_TRACK  = new SwitchLayout (Action.NONE, Action.NONE, Action.NONE, PacerColour.DARK_GREEN, LedRow.STRIP);
+    /** The colour loop switches rest at, dimmed, while their slot is empty. */
+    public static final PacerColour  LOOP_COLOUR = PacerColour.DARK_GREEN;
     /** SW 6, which is the mode switch in every mode and never runs a mode's action. */
     public static final SwitchLayout MODE_SWITCH = new SwitchLayout (Action.NONE, Action.NONE, Action.NONE, PacerColour.WHITE, LedRow.STRIP);
     /** An unused switch. */
     public static final SwitchLayout EMPTY       = new SwitchLayout (Action.NONE, Action.NONE, Action.NONE, PacerColour.OFF, LedRow.STRIP);
+
+
+    /**
+     * A loop switch.
+     *
+     * @param track The loop track it stands for, 0-5
+     * @return The layout
+     */
+    public static SwitchLayout loop (final int track)
+    {
+        return new SwitchLayout (Action.loopTrack (track), Action.NONE, Action.NONE, LOOP_COLOUR, LedRow.STRIP);
+    }
+
+
+    /**
+     * @return The loop track this switch stands for, -1 if it is not a loop switch
+     */
+    public int loopTrack ()
+    {
+        return this.tap.getLoopTrack ();
+    }
 
 
     /**

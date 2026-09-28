@@ -39,6 +39,7 @@ class PacerControllerTest
     private final List<String>       ran    = new ArrayList<> ();
     private final List<Runnable>     later  = new ArrayList<> ();
     private boolean                  loopTapOnPress;
+    private PacerConfiguration       configuration;
     private PacerController          controller;
 
 
@@ -50,6 +51,7 @@ class PacerControllerTest
             IHost.class
         }, (proxy, method, args) -> defaultValue (method.getReturnType ()));
         final PacerConfiguration configuration = new PacerConfiguration (host, null, Collections.emptyList ());
+        this.configuration = configuration;
 
         final LooperController looper = new LooperController (host, null, configuration, null)
         {
@@ -282,6 +284,90 @@ class PacerControllerTest
         this.controller.setModeListener ( () -> listened[0]++);
         this.controller.applyStartupMode ();
         assertEquals (1, listened[0]);
+    }
+
+
+    @Test
+    void aJackWhoseTapIsALoopTrackIsALoopSwitch ()
+    {
+        this.setJackTap (0, Action.LOOP_2);
+        this.loopTapOnPress = true;
+        final TapHoldCommand fs1 = this.jack (0);
+        fs1.execute (ButtonEvent.DOWN, 127);
+        fs1.execute (ButtonEvent.LONG, 127);
+        fs1.execute (ButtonEvent.UP, 0);
+        assertEquals (List.of ("loop tap 2", "loop hold 2", "loop release 2"), this.ran, "tap, the looper's hold, and the release that closes hold-to-record");
+    }
+
+
+    @Test
+    void aJackForALoopTrackThereIsNoneOfDoesNothing ()
+    {
+        // Loop tracks defaults to 4
+        this.setJackTap (0, Action.LOOP_6);
+        final TapHoldCommand fs1 = this.jack (0);
+        fs1.execute (ButtonEvent.DOWN, 127);
+        fs1.execute (ButtonEvent.UP, 0);
+        assertEquals (List.of ("LOOP_6"), this.ran, "it runs as a plain action, which the looper ignores for a track it lacks");
+    }
+
+
+    @Test
+    void theCustomLayoutChangesTheLooperInPlace ()
+    {
+        final var custom = this.configuration.getCustomBoard ();
+        custom.setTarget (dev.pacer4bitwig.pacer.mode.CustomTarget.LOOP);
+        custom.setTap (9, Action.TAP_TEMPO);
+        custom.rebuild ();
+
+        this.loopTapOnPress = true;
+        this.tap (9);
+        this.tap (SW_1);
+        assertEquals (List.of ("TAP_TEMPO", "loop tap 1", "loop release 1"), this.ran, "SW D changed, SW 1 is still a loop switch");
+    }
+
+
+    @Test
+    void pointingTheCustomLayoutAtABuiltInModeLeavesTheCustomMode ()
+    {
+        this.openMenu ();
+        this.tap (4);
+        assertEquals (Mode.CUSTOM, this.controller.getMode ());
+
+        final var custom = this.configuration.getCustomBoard ();
+        custom.setTarget (dev.pacer4bitwig.pacer.mode.CustomTarget.FX);
+        custom.rebuild ();
+        this.controller.customLayoutChanged ();
+        assertEquals (Mode.FX, this.controller.getMode (), "the custom slot is dark now, so its layout moved to FX");
+
+        // And the menu no longer offers the custom slot
+        this.openMenu ();
+        this.tap (4);
+        assertEquals (Mode.FX, this.controller.getMode ());
+        assertTrue (this.controller.isMenuOpen (), "a dark slot does nothing, not even close the menu");
+    }
+
+
+    private void setJackTap (final int index, final Action action)
+    {
+        try
+        {
+            final java.lang.reflect.Field field = PacerConfiguration.class.getDeclaredField ("footswitchTap");
+            field.setAccessible (true);
+            ((Action []) field.get (this.configuration))[index] = action;
+        }
+        catch (final ReflectiveOperationException ex)
+        {
+            throw new IllegalStateException (ex);
+        }
+    }
+
+
+    /** Wired exactly like the jacks in {@code PacerControllerSetup.registerTriggerCommands}. */
+    private TapHoldCommand jack (final int index)
+    {
+        final PacerController c = this.controller;
+        return new TapHoldCommand ( () -> c.isFootswitchTapOnPress (index), () -> c.footswitchTap (index), () -> c.footswitchHold (index), () -> c.footswitchRelease (index), null, () -> c.getFootswitchExtraHoldMillis (index), (task, delay) -> task.run ()).withDoubleTap ( () -> c.footswitchDoubleTap (index), () -> c.isFootswitchDoubleTapEnabled (index), () -> 350, System::currentTimeMillis);
     }
 
 

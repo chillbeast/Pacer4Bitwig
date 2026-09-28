@@ -21,6 +21,19 @@ public enum Action implements Labelled
     /** Stop and delete the most recently recorded loop of the row. */
     CLEAR_LAST_LOOP ("Clear the last recorded loop", false, true),
 
+    /** Loop track 1: a switch or jack whose tap is this is a loop switch for that track. */
+    LOOP_1 ("Loop track 1 (makes it a loop switch)", true, false),
+    /** Loop track 2. */
+    LOOP_2 ("Loop track 2 (makes it a loop switch)", true, false),
+    /** Loop track 3. */
+    LOOP_3 ("Loop track 3 (makes it a loop switch)", true, false),
+    /** Loop track 4. */
+    LOOP_4 ("Loop track 4 (makes it a loop switch)", true, false),
+    /** Loop track 5. */
+    LOOP_5 ("Loop track 5 (makes it a loop switch)", true, false),
+    /** Loop track 6. */
+    LOOP_6 ("Loop track 6 (makes it a loop switch)", true, false),
+
     /** Smart loop on the selected track. */
     LOOP_SELECTED ("Smart loop: selected track", true, false),
     /** Stop the selected track. */
@@ -223,6 +236,47 @@ public enum Action implements Labelled
     public boolean isFx ()
     {
         return this.fx;
+    }
+
+
+    /**
+     * A switch or jack whose tap is a loop track action is a loop switch for that track: smart loop on tap, and hold,
+     * double-tap and hold-to-record follow the Looper settings. Run as a plain action (a double-tap slot, say) it is
+     * the smart loop tap.
+     *
+     * @return The loop track's bank position 0-5, -1 if this is not a loop track action
+     */
+    public int getLoopTrack ()
+    {
+        return switch (this)
+        {
+            case LOOP_1 -> 0;
+            case LOOP_2 -> 1;
+            case LOOP_3 -> 2;
+            case LOOP_4 -> 3;
+            case LOOP_5 -> 4;
+            case LOOP_6 -> 5;
+            default -> -1;
+        };
+    }
+
+
+    /**
+     * @param track The loop track's bank position 0-5
+     * @return The action that makes a switch a loop switch for it
+     */
+    public static Action loopTrack (final int track)
+    {
+        return switch (track)
+        {
+            case 0 -> LOOP_1;
+            case 1 -> LOOP_2;
+            case 2 -> LOOP_3;
+            case 3 -> LOOP_4;
+            case 4 -> LOOP_5;
+            case 5 -> LOOP_6;
+            default -> throw new IllegalArgumentException ("No loop track " + track);
+        };
     }
 
 

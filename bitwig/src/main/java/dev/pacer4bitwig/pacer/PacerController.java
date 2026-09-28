@@ -16,6 +16,8 @@ import dev.pacer4bitwig.pacer.looper.ExpressionTarget;
 import dev.pacer4bitwig.pacer.looper.PedalResponse;
 import dev.pacer4bitwig.pacer.looper.TapTiming;
 import dev.pacer4bitwig.pacer.midi.RawMidiSender;
+import dev.pacer4bitwig.pacer.mode.CustomBoard;
+import dev.pacer4bitwig.pacer.mode.CustomTarget;
 import dev.pacer4bitwig.pacer.mode.Mode;
 import dev.pacer4bitwig.pacer.mode.ModeBoard;
 import dev.pacer4bitwig.pacer.mode.ModeMenu;
@@ -81,6 +83,8 @@ public class PacerController
         this.looper = looper;
         this.fx = fx;
         this.board = board;
+        // While the custom layout changes a built-in mode, the custom mode's own menu slot has nothing to show
+        this.modes.setOffered (mode -> mode != Mode.CUSTOM || this.configuration.getCustomBoard ().getTarget () == CustomTarget.OWN);
     }
 
 
@@ -114,15 +118,37 @@ public class PacerController
 
 
     /**
-     * The board of the active mode. {@link Mode#CUSTOM} is laid out in the settings rather than in code, so every
-     * read of a layout goes through here.
+     * The board of the active mode. The custom layout is the board of {@link Mode#CUSTOM}, or of the built-in mode it
+     * changes, so every read of a layout goes through here.
      *
      * @return The board
      */
     private ModeBoard getBoard ()
     {
         final Mode mode = this.modes.getActive ();
-        return mode == Mode.CUSTOM ? this.configuration.getCustomBoard () : mode;
+        final CustomBoard custom = this.configuration.getCustomBoard ();
+        return mode == Mode.CUSTOM || mode == custom.getTarget ().getMode () ? custom : mode;
+    }
+
+
+    /**
+     * The custom layout changed in the settings. Standing in the mode it lays out, that shows at once; and if the
+     * layout now changes a built-in mode while the custom mode is active, that mode takes over - the custom slot
+     * has gone dark.
+     */
+    public void customLayoutChanged ()
+    {
+        final CustomTarget target = this.configuration.getCustomBoard ().getTarget ();
+        if (this.modes.getActive () == Mode.CUSTOM && target != CustomTarget.OWN && this.modes.activate (target.getMode ()))
+        {
+            this.modeChanged ();
+            return;
+        }
+        if (this.getBoard () == this.configuration.getCustomBoard () || this.modes.isMenuOpen ())
+        {
+            this.board.invalidate ();
+            this.repaintSwitches ();
+        }
     }
 
 
@@ -303,7 +329,7 @@ public class PacerController
             }
             // Navigation leaves the menu open so it can be pressed again
             case NAVIGATION -> this.perform (ModeMenu.actionAt (switchIndex));
-            case LOOP_TRACK -> this.looper.loopSwitchTap (switchIndex);
+            case LOOP_TRACK -> this.looper.loopSwitchTap (this.pressLoopTrack (switchIndex));
             case ACTION -> this.perform (this.getSwitchTap (switchIndex));
             case NONE -> {
                 // Nothing assigned
@@ -321,7 +347,7 @@ public class PacerController
     {
         switch (this.pressRole (switchIndex))
         {
-            case LOOP_TRACK -> this.looper.loopSwitchDoubleTap (switchIndex);
+            case LOOP_TRACK -> this.looper.loopSwitchDoubleTap (this.pressLoopTrack (switchIndex));
             case ACTION -> this.perform (this.getSwitchDoubleTap (switchIndex));
             default -> {
                 // The mode switch and the menu have no double-tap
@@ -347,7 +373,7 @@ public class PacerController
         this.momentarySwitches[switchIndex] = null;
         switch (this.pressRole (switchIndex))
         {
-            case LOOP_TRACK -> this.looper.loopSwitchHold (switchIndex);
+            case LOOP_TRACK -> this.looper.loopSwitchHold (this.pressLoopTrack (switchIndex));
             case ACTION -> {
                 final Action hold = this.getSwitchHold (switchIndex);
                 if (hold == Action.MOMENTARY)
@@ -377,7 +403,7 @@ public class PacerController
         if (momentary != null)
             this.perform (momentary);
         if (this.pressRole (switchIndex) == SwitchRole.LOOP_TRACK)
-            this.looper.loopSwitchRelease (switchIndex);
+            this.looper.loopSwitchRelease (this.pressLoopTrack (switchIndex));
     }
 
 
@@ -403,6 +429,8 @@ public class PacerController
      */
     public boolean isFootswitchTapOnPress (final int index)
     {
+        if (this.jackLoopTrack (index) >= 0)
+            return this.looper.isLoopSwitchTapOnPress ();
         return TapTiming.actionTapOnPress (this.configuration.getFootswitchTap (index), this.configuration.getFootswitchHold (index));
     }
 
@@ -413,6 +441,8 @@ public class PacerController
      */
     public long getFootswitchExtraHoldMillis (final int index)
     {
+        if (this.jackLoopTrack (index) >= 0)
+            return this.looper.getLoopSwitchExtraHoldMillis ();
         return this.getExtraHoldMillis (this.configuration.getFootswitchHold (index));
     }
 
@@ -423,6 +453,8 @@ public class PacerController
      */
     public boolean isFootswitchDoubleTapEnabled (final int index)
     {
+        if (this.jackLoopTrack (index) >= 0)
+            return this.looper.isLoopSwitchDoubleTapEnabled ();
         return this.configuration.getFootswitchDoubleTap (index) != Action.NONE;
     }
 
@@ -434,7 +466,11 @@ public class PacerController
      */
     public void footswitchTap (final int index)
     {
-        this.perform (this.configuration.getFootswitchTap (index));
+        final int loopTrack = this.jackLoopTrack (index);
+        if (loopTrack >= 0)
+            this.looper.loopSwitchTap (loopTrack);
+        else
+            this.perform (this.configuration.getFootswitchTap (index));
     }
 
 
@@ -445,7 +481,11 @@ public class PacerController
      */
     public void footswitchDoubleTap (final int index)
     {
-        this.perform (this.configuration.getFootswitchDoubleTap (index));
+        final int loopTrack = this.jackLoopTrack (index);
+        if (loopTrack >= 0)
+            this.looper.loopSwitchDoubleTap (loopTrack);
+        else
+            this.perform (this.configuration.getFootswitchDoubleTap (index));
     }
 
 
@@ -457,6 +497,12 @@ public class PacerController
     public void footswitchHold (final int index)
     {
         this.momentaryFootswitches[index] = null;
+        final int loopTrack = this.jackLoopTrack (index);
+        if (loopTrack >= 0)
+        {
+            this.looper.loopSwitchHold (loopTrack);
+            return;
+        }
         final Action hold = this.configuration.getFootswitchHold (index);
         if (hold == Action.MOMENTARY)
             this.momentaryFootswitches[index] = this.configuration.getFootswitchTap (index);
@@ -476,6 +522,23 @@ public class PacerController
         this.momentaryFootswitches[index] = null;
         if (momentary != null)
             this.perform (momentary);
+        final int loopTrack = this.jackLoopTrack (index);
+        if (loopTrack >= 0)
+            this.looper.loopSwitchRelease (loopTrack);
+    }
+
+
+    /**
+     * A jack whose tap is a loop track is a loop switch, like a stomp switch would be: the Looper settings decide its
+     * hold and double-tap, and hold to record works on it.
+     *
+     * @param index 0-3
+     * @return The loop track, -1 if the jack is not a loop switch (or the project has too few loop tracks)
+     */
+    private int jackLoopTrack (final int index)
+    {
+        final int track = this.configuration.getFootswitchTap (index).getLoopTrack ();
+        return track >= 0 && track < this.configuration.getLoopTrackCount () ? track : -1;
     }
 
 
@@ -550,9 +613,11 @@ public class PacerController
         if (this.modes.isMenuOpen ())
             // The menu paints its own colours; the code only says lit or dark. The cached state colours are left
             // alone, so closing the menu does not first repaint every switch in its bare mode colour.
-            return ModeMenu.colourAt (switchIndex, this.modes.getActive ()) == PacerColour.OFF ? 0 : LedColour.WHITE.ordinal ();
+            return ModeMenu.colourAt (switchIndex, this.modes.getActive (), this.modes::isOffered) == PacerColour.OFF ? 0 : LedColour.WHITE.ordinal ();
 
-        if (this.getMode () == Mode.LOOP && switchIndex >= PacerMap.FIRST_TOP_ROW_SWITCH)
+        final ModeBoard shown = this.getBoard ();
+        // The beat counter lights the top row on the boards made for looping, but never over a loop switch
+        if (switchIndex >= PacerMap.FIRST_TOP_ROW_SWITCH && shown.countsBeats () && !shown.isLoopSwitch (switchIndex))
         {
             final int beatCode = this.looper.getBeatCounterCode (switchIndex - PacerMap.FIRST_TOP_ROW_SWITCH, now);
             if (beatCode >= 0)
@@ -568,12 +633,12 @@ public class PacerController
         final LedClock ledClock = this.looper.getLedClock (now);
         final LedState state = switch (this.role (switchIndex))
         {
-            case LOOP_TRACK -> this.looper.loopSwitchLed (switchIndex);
+            case LOOP_TRACK -> this.looper.loopSwitchLed (shown.getLoopTrack (switchIndex));
             // The mode switch is always lit: it is the way back to everything else
             case MODE_SWITCH -> LedState.solid (LedColour.WHITE);
             case ACTION -> {
                 // The board showing now, not the one a held switch was pressed on
-                final Action action = this.getBoard ().getLayout (switchIndex).tap ();
+                final Action action = shown.getLayout (switchIndex).tap ();
                 yield action.isFx () ? this.fx.actionLed (action) : this.looper.actionLed (action, ledClock);
             }
             default -> LedState.DARK;
@@ -676,7 +741,7 @@ public class PacerController
     /** The mode decides which switches are loop tracks, the project decides how many tracks there are. */
     private SwitchRole role (final int switchIndex)
     {
-        return SwitchRole.of (switchIndex, this.getBoard (), this.modes.isMenuOpen (), this.configuration.getLoopTrackCount ());
+        return SwitchRole.of (switchIndex, this.getBoard (), this.modes.isMenuOpen (), this.configuration.getLoopTrackCount (), this.modes::isOffered);
     }
 
 
@@ -685,6 +750,14 @@ public class PacerController
     {
         final SwitchRole latched = this.pressRoles[switchIndex];
         return latched == null ? this.role (switchIndex) : latched;
+    }
+
+
+    /** The loop track of a switch on the board it was pressed on. */
+    private int pressLoopTrack (final int switchIndex)
+    {
+        final ModeBoard latched = this.pressBoards[switchIndex];
+        return (latched == null ? this.getBoard () : latched).getLoopTrack (switchIndex);
     }
 
 

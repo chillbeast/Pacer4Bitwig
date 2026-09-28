@@ -173,10 +173,10 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
                 this.looper.startLedTest ();
         });
         this.configuration.addSettingObserver (PacerConfiguration.CUSTOM_MODE, () -> {
-            // Laying out the custom mode while standing in it should show up straight away
-            if (this.running && this.controller.getMode () == dev.pacer4bitwig.pacer.mode.Mode.CUSTOM)
+            // Laying out the custom layout while standing in the mode it changes should show up straight away
+            if (this.running)
             {
-                this.controller.repaintAll ();
+                this.controller.customLayoutChanged ();
                 this.getSurface ().forceFlush ();
             }
         });

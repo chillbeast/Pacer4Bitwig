@@ -8,6 +8,7 @@ import dev.pacer4bitwig.pacer.live.LiveBoard;
 import dev.pacer4bitwig.pacer.live.PacerColour;
 
 import java.util.function.IntFunction;
+import java.util.function.Predicate;
 
 
 /**
@@ -79,7 +80,7 @@ public final class ModePainter
     {
         if (state.isMenuOpen ())
         {
-            paintMenu (board, state.getActive ());
+            paintMenu (board, state.getActive (), state::isOffered);
             return;
         }
         // The name is written once: going through paintMode would set the mode's own name first and then replace
@@ -136,9 +137,22 @@ public final class ModePainter
      */
     public static void paintMenu (final LiveBoard board, final Mode active)
     {
+        paintMenu (board, active, mode -> true);
+    }
+
+
+    /**
+     * Paint the mode menu: the modes on SW 1-5 with the active one at full brightness, navigation on SW A-D.
+     *
+     * @param board The board to write to
+     * @param active The mode that is currently active
+     * @param offered Which modes the menu offers; the slots of the others stay dark
+     */
+    public static void paintMenu (final LiveBoard board, final Mode active, final Predicate<Mode> offered)
+    {
         for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
         {
-            final PacerColour colour = ModeMenu.colourAt (i, active);
+            final PacerColour colour = ModeMenu.colourAt (i, active, offered);
             // The active mode's slot is the one that is already "on", so it is the one shown bright
             final boolean dim = !ModeMenu.isActiveSlot (i, active) && !Mode.isModeSwitch (i);
             board.setLed (i, colour, dim, colour, true, LedRow.STRIP);

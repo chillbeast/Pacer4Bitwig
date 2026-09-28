@@ -93,12 +93,14 @@ class WaveFiveTest
 
 
     @Test
-    void loopSwitchCounts ()
+    void loopTrackActionsCoverEveryLoopTrack ()
     {
-        assertEquals (0, LoopSwitchCount.NONE.getCount ());
-        // SW 6 is the mode switch in every mode, so no option may promise a sixth loop switch
-        assertEquals (5, LoopSwitchCount.FIVE.getCount ());
-        assertEquals (LoopSwitchCount.values ().length, 6);
+        // Any switch or jack whose tap is one of these is a loop switch for that track
+        for (int track = 0; track < 6; track++)
+            assertEquals (track, Action.loopTrack (track).getLoopTrack ());
+        assertEquals (-1, Action.UNDO.getLoopTrack ());
+        assertEquals (-1, Action.LOOP_SELECTED.getLoopTrack (), "the selected track is not a loop switch of its own");
+        assertTrue (Action.LOOP_1.isTimingCritical (), "a loop tap fires on press");
     }
 
 

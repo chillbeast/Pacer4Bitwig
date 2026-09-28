@@ -76,11 +76,41 @@ class WaveFourTest
     void releaseRunsBeforeTheTapOnRelease ()
     {
         final List<String> events = new ArrayList<> ();
+        final TapHoldCommand command = new TapHoldCommand ( () -> false, () -> events.add ("tap"), () -> events.add ("hold"), () -> events.add ("release"), null, () -> 0, (task, delay) -> task.run ());
+
+        // A short press: the tap waits for the release, and the release action runs first
+        command.execute (ButtonEvent.DOWN, 127);
+        command.execute (ButtonEvent.UP, 0);
+        assertEquals (List.of ("release", "tap"), events);
+    }
+
+
+    @Test
+    void aTapOnPressAndAHoldBothRunBeforeTheRelease ()
+    {
+        final List<String> events = new ArrayList<> ();
         final TapHoldCommand command = new TapHoldCommand ( () -> true, () -> events.add ("tap"), () -> events.add ("hold"), () -> events.add ("release"), null, () -> 0, (task, delay) -> task.run ());
 
         command.execute (ButtonEvent.DOWN, 127);
         command.execute (ButtonEvent.LONG, 127);
         command.execute (ButtonEvent.UP, 0);
         assertEquals (List.of ("tap", "hold", "release"), events);
+    }
+
+
+    @Test
+    void whenTheTapFiresIsDecidedOnPress ()
+    {
+        // What the switch does can change while it is down; the release must not fire the tap a second time
+        final List<String> events = new ArrayList<> ();
+        final boolean [] onPress = {
+            true
+        };
+        final TapHoldCommand command = new TapHoldCommand ( () -> onPress[0], () -> events.add ("tap"), null, null, null, () -> 0, (task, delay) -> task.run ()).withPress ( () -> events.add ("press"));
+
+        command.execute (ButtonEvent.DOWN, 127);
+        onPress[0] = false;
+        command.execute (ButtonEvent.UP, 0);
+        assertEquals (List.of ("press", "tap"), events);
     }
 }

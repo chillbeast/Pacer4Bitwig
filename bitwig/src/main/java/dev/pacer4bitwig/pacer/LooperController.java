@@ -24,6 +24,7 @@ import dev.pacer4bitwig.pacer.led.LedPattern;
 import dev.pacer4bitwig.pacer.led.LedState;
 import dev.pacer4bitwig.pacer.looper.Action;
 import dev.pacer4bitwig.pacer.looper.CountIn;
+import dev.pacer4bitwig.pacer.looper.ElapsedBeats;
 import dev.pacer4bitwig.pacer.looper.ExpressionTarget;
 import dev.pacer4bitwig.pacer.looper.HoldAction;
 import dev.pacer4bitwig.pacer.looper.LayerPlanner;
@@ -37,12 +38,11 @@ import dev.pacer4bitwig.pacer.looper.LoopState;
 import dev.pacer4bitwig.pacer.looper.LoopSwitchMode;
 import dev.pacer4bitwig.pacer.looper.LooperText;
 import dev.pacer4bitwig.pacer.looper.MuteTiming;
+import dev.pacer4bitwig.pacer.looper.RecordHistory;
 import dev.pacer4bitwig.pacer.looper.TapTiming;
 import dev.pacer4bitwig.pacer.looper.VolumeFade;
 
-import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -88,7 +88,9 @@ public class LooperController
     private final Map<Integer, Long>      armedByLooper         = new HashMap<> ();
     private int                           lastArmedIndex        = -1;
     /** Recordings in order: {scene row, track bank position}. */
-    private final Deque<int []>           recordHistory         = new ArrayDeque<> ();
+    private final RecordHistory           recordHistory         = new RecordHistory (RECORD_HISTORY);
+    /** Count-ins, waiting mutes and fades count in beats played, which survive the arranger loop wrapping. */
+    private final ElapsedBeats            elapsed               = new ElapsedBeats ();
     private final LoopLengthTracker       lengthTracker         = new LoopLengthTracker (PacerMap.MAX_LOOP_TRACKS);
     private int                           matchedBars;
     private PendingCountIn                pendingCountIn;
@@ -246,7 +248,9 @@ public class LooperController
         final LoopState state = this.getLoopState (track);
         if (state == LoopState.RECORDING)
             this.playLoop (track);
-        else if (state == LoopState.RECORD_QUEUED)
+        else if (state == LoopState.RECORD_QUEUED || state == LoopState.EMPTY)
+            // Still waiting - for the quantization point, for the count-in, or for Bitwig to report the recording
+            // it was asked for (the slot reads empty until then): close the loop as soon as it records
             this.closeWhenRecording[switchIndex] = System.currentTimeMillis ();
     }
 
@@ -656,13 +660,7 @@ public class LooperController
     private void recordNow (final ITrack track)
     {
         this.getLoopSlot (track).startRecording ();
-        this.recordHistory.push (new int []
-        {
-            this.getRow (),
-            track.getIndex ()
-        });
-        while (this.recordHistory.size () > RECORD_HISTORY)
-            this.recordHistory.removeLast ();
+        this.recordHistory.recorded (this.getRow (), track.getIndex ());
     }
 
 
@@ -693,8 +691,8 @@ public class LooperController
 
         final double position = this.clock.getPositionInBeats ();
         if (Double.isNaN (pending.recordAtBeats))
-            pending.recordAtBeats = pending.countIn.recordAtBeats (position, this.clock.getBeatsPerBar ());
-        if (position < pending.recordAtBeats)
+            pending.recordAtBeats = this.elapsed.toElapsed (pending.countIn.recordAtBeats (position, this.clock.getBeatsPerBar ()), position);
+        if (this.elapsed.update (position) < pending.recordAtBeats)
             return;
 
         this.pendingCountIn = null;
@@ -726,10 +724,17 @@ public class LooperController
     {
         final long now = System.currentTimeMillis ();
         final ITrackBank trackBank = this.getTrackBank ();
+        final PendingCountIn countingIn = this.pendingCountIn;
         for (int i = 0; i < this.closeWhenRecording.length; i++)
         {
             if (this.closeWhenRecording[i] < 0)
                 continue;
+            if (countingIn != null && countingIn.trackIndex == i)
+            {
+                // The recording has not even been asked for yet; the wait starts when the count-in ends
+                this.closeWhenRecording[i] = now;
+                continue;
+            }
             final ITrack track = trackBank.getItem (i);
             final LoopState state = track.doesExist () ? this.getLoopState (track) : LoopState.EMPTY;
             if (state == LoopState.RECORDING)
@@ -824,20 +829,17 @@ public class LooperController
     private void clearLastLoop ()
     {
         final ITrackBank trackBank = this.getTrackBank ();
-        final int row = this.getRow ();
-        while (!this.recordHistory.isEmpty ())
-        {
-            final int [] entry = this.recordHistory.pop ();
-            if (entry[0] != row || entry[1] >= this.getLoopCount ())
-                continue;
-            final ITrack track = trackBank.getItem (entry[1]);
-            if (track.doesExist () && LoopState.of (this.getLoopSlot (track)) != LoopState.EMPTY)
-            {
-                this.clearLoop (track);
-                return;
-            }
-        }
-        this.notifyImportant ("No recorded loop left to clear in this row");
+        final int loops = this.getLoopCount ();
+        final int latest = this.recordHistory.takeLatest (this.getRow (), index -> {
+            if (index >= loops)
+                return false;
+            final ITrack track = trackBank.getItem (index);
+            return track.doesExist () && LoopState.of (this.getLoopSlot (track)) != LoopState.EMPTY;
+        });
+        if (latest >= 0)
+            this.clearLoop (trackBank.getItem (latest));
+        else
+            this.notifyImportant ("No recorded loop left to clear in this row");
     }
 
 
@@ -895,7 +897,8 @@ public class LooperController
             this.pendingMutes.remove (index);
             return;
         }
-        final double at = MuteTiming.nextBoundary (this.clock.getPositionInBeats (), timing.getUnitBeats (this.clock.getBeatsPerBar ()));
+        final double position = this.clock.getPositionInBeats ();
+        final double at = this.elapsed.toElapsed (MuteTiming.nextBoundary (position, timing.getUnitBeats (this.clock.getBeatsPerBar ())), position);
         this.pendingMutes.put (index, new double []
         {
             mute ? 1 : 0,
@@ -916,8 +919,8 @@ public class LooperController
         if (this.pendingMutes.isEmpty ())
             return;
         final boolean running = this.clock.isPlaying ();
-        final double position = this.clock.getPositionInBeats ();
-        this.applyPendingMutes (entry -> !running || position >= entry[1]);
+        final double beats = this.elapsed.update (this.clock.getPositionInBeats ());
+        this.applyPendingMutes (entry -> !running || beats >= entry[1]);
     }
 
 
@@ -1023,7 +1026,8 @@ public class LooperController
         if (current.getDirection () == VolumeFade.Direction.IN && !this.anyLoop (true))
             return;
 
-        final double position = this.clock.getPositionInBeats ();
+        // Beats played rather than the play position, so an arranger loop wrapping mid-fade does not restart it
+        final double position = this.elapsed.update (this.clock.getPositionInBeats ());
         current.startAt (position);
         final ITrackBank trackBank = this.getTrackBank ();
         for (final Integer index: current.getOriginalVolumes ().keySet ())
@@ -1037,7 +1041,7 @@ public class LooperController
             return;
         if (current.getDirection () == VolumeFade.Direction.OUT)
         {
-            trackBank.stop (false);
+            this.stopLoopTracks ();
             this.fadeStopRequestedAt = System.currentTimeMillis ();
         }
         else
@@ -1124,8 +1128,24 @@ public class LooperController
     {
         if (this.pendingCountIn != null)
             this.cancelCountIn ();
-        this.getTrackBank ().stop (false);
+        this.stopLoopTracks ();
         this.notify ("Stop all loops");
+    }
+
+
+    /**
+     * Stop the loop tracks, and only those. The track bank is as wide as the most loop tracks there can be, so
+     * stopping the whole bank also stopped whatever sits to the right of the loops - a backing track, say.
+     */
+    private void stopLoopTracks ()
+    {
+        final ITrackBank trackBank = this.getTrackBank ();
+        for (int i = 0; i < this.getLoopCount (); i++)
+        {
+            final ITrack track = trackBank.getItem (i);
+            if (track.doesExist ())
+                track.stop (false);
+        }
     }
 
 
@@ -1169,8 +1189,8 @@ public class LooperController
         Arrays.fill (this.holdRecording, false);
         Arrays.fill (this.closeWhenRecording, -1);
 
+        this.stopLoopTracks ();
         final ITrackBank trackBank = this.getTrackBank ();
-        trackBank.stop (false);
         for (int i = 0; i < this.getLoopCount (); i++)
         {
             final ITrack track = trackBank.getItem (i);
@@ -1444,9 +1464,11 @@ public class LooperController
     }
 
 
+    /** The selected track, if it is one of the loop tracks - the bank also holds the positions beyond them. */
     private Optional<ITrack> getSelectedTrack ()
     {
-        return this.getTrackBank ().getSelectedItem ();
+        final int loops = this.getLoopCount ();
+        return this.getTrackBank ().getSelectedItem ().filter (track -> track.getIndex () < loops);
     }
 
 

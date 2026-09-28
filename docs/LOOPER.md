@@ -328,7 +328,9 @@ Assignable switches light up when their tap action has something to do: undo/red
 all: green playing, amber loaded), previous/next row available (next row shows blue when it would add a scene),
 overdub on (red), metronome on, transport running (green), any loop muted (blue), selected loop soloed (amber),
 input monitoring on (green), reset available (purple). The one-button looper shows the loop it is busy with; fade
-actions blink while a fade runs. **Tap tempo** (Song mode, SW 5 hold) flashes green on every beat. The beat counter temporarily takes over SW A–D (section 5).
+actions blink while a fade runs. A switch's LED follows its *tap* action, so a switch whose tap is **Tap tempo** (in the
+Custom mode) flashes green on every beat; the Song mode's SW 5 (tap: transport, hold: tap tempo) shows whether the
+transport runs. The beat counter temporarily takes over SW A–D in the Looper mode (section 5).
 
 **LED test:** *Settings > Pacer LEDs > Test the LEDs* (or the *Test the LEDs* action) lights every switch white,
 red, green, amber, blue, purple for a second each.

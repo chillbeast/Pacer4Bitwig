@@ -16,6 +16,7 @@ import dev.pacer4bitwig.pacer.looper.Action;
 import dev.pacer4bitwig.pacer.live.LedRow;
 import dev.pacer4bitwig.pacer.looper.ClearHoldTime;
 import dev.pacer4bitwig.pacer.looper.CountIn;
+import dev.pacer4bitwig.pacer.looper.CounterUnit;
 import dev.pacer4bitwig.pacer.looper.DoubleTapWindow;
 import dev.pacer4bitwig.pacer.looper.ExpressionTarget;
 import dev.pacer4bitwig.pacer.looper.FadeLength;
@@ -201,6 +202,8 @@ public class PacerConfiguration extends AbstractConfiguration
     private volatile PedalTakeover           pedalTakeover        = PedalTakeover.JUMP;
     private volatile boolean                 beatSyncedLeds       = true;
     private volatile boolean                 countBeats           = true;
+    private volatile CounterUnit             counterUnit          = CounterUnit.BEATS;
+    private volatile boolean                 showEvents           = true;
     private volatile StartupMode             startupMode          = StartupMode.REMEMBER;
     private volatile Mode                    projectMode          = Mode.LOOP;
     private IEnumSetting                     projectModeSetting;
@@ -340,6 +343,8 @@ public class PacerConfiguration extends AbstractConfiguration
         // Every restore is one SysEx, which flashes LOAD SYS; turn it off to leave the display on the CC readout
         onOffSetting (settings, "Put the mode name back on the display after a press", CATEGORY_MODES, true, value -> this.keepModeName = value);
         onOffSetting (settings, "Show what the mode is doing on the display", CATEGORY_MODES, true, value -> this.showContext = value);
+        // Each event costs two writes (the word, then the name again), each one a LOAD SYS flash
+        onOffSetting (settings, "Show events on the display (REC 2, 4 BAR, UNDO, SNAP2...)", CATEGORY_MODES, true, value -> this.showEvents = value);
         // Any action, like a jack. Nothing gives SW 6 back its instant tap.
         enumSetting (settings, "SW 6 double-tap (its tap then waits for the double-tap speed)", CATEGORY_MODES, Action.values (), Action.SHIFT_TOGGLE, value -> this.modeSwitchDoubleTap = value);
     }
@@ -526,6 +531,7 @@ public class PacerConfiguration extends AbstractConfiguration
     {
         onOffSetting (settings, "Blink in time with the transport", CATEGORY_LEDS, true, value -> this.beatSyncedLeds = value);
         onOffSetting (settings, "Count beats on SW A-D (count-in and recording)", CATEGORY_LEDS, true, value -> this.countBeats = value);
+        enumSetting (settings, "While recording, SW A-D count", CATEGORY_LEDS, CounterUnit.values (), CounterUnit.BEATS, value -> this.counterUnit = value);
         enumSetting (settings, "Loop colour: stopped", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourStopped, value -> this.colourStopped = value);
         enumSetting (settings, "Loop colour: playing", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourPlaying, value -> this.colourPlaying = value);
         enumSetting (settings, "Loop colour: recording", CATEGORY_LEDS, LoopColours.Choice.values (), this.colourRecording, value -> this.colourRecording = value);
@@ -620,6 +626,15 @@ public class PacerConfiguration extends AbstractConfiguration
     public Action getModeSwitchDoubleTap ()
     {
         return this.modeSwitchDoubleTap;
+    }
+
+
+    /**
+     * @return True to put short words for what just happened on the display ("REC 2", "UNDO")
+     */
+    public boolean isShowEvents ()
+    {
+        return this.showEvents;
     }
 
 
@@ -843,6 +858,15 @@ public class PacerConfiguration extends AbstractConfiguration
     public boolean isCountBeats ()
     {
         return this.countBeats;
+    }
+
+
+    /**
+     * @return What SW A-D count while a loop records
+     */
+    public CounterUnit getCounterUnit ()
+    {
+        return this.counterUnit;
     }
 
 

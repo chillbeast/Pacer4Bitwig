@@ -3,7 +3,7 @@
 package dev.pacer4bitwig.pacer.looper;
 
 /**
- * Texts the looper shows in notifications.
+ * Texts the looper shows in notifications and on the Pacer's five-character display.
  */
 public final class LooperText
 {
@@ -41,6 +41,33 @@ public final class LooperText
         if (row < 10)
             return "ROW " + row;
         return row < 100 ? "ROW" + row : "R" + row;
+    }
+
+
+    /**
+     * An event about one loop for the display: "REC 3", "MUTE2", "CLR 1".
+     *
+     * @param prefix Four characters
+     * @param trackIndex The loop track, 0-based
+     * @return The text, five characters for loops 1-9
+     */
+    public static String loopWord (final String prefix, final int trackIndex)
+    {
+        return prefix + (trackIndex + 1);
+    }
+
+
+    /**
+     * A loop's length for the display: "4 BAR", "12BAR", "128B".
+     *
+     * @param bars The length in bars, at least 1
+     * @return The text, at most five characters
+     */
+    public static String barsWord (final int bars)
+    {
+        if (bars < 10)
+            return bars + " BAR";
+        return bars < 100 ? bars + "BAR" : bars + "B";
     }
 
 

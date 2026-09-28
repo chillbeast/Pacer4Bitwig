@@ -50,6 +50,9 @@ import java.util.Map;
  */
 public class PacerController
 {
+    /** How long an event word stays on the display - long enough to outlast the release of the switch that caused it. */
+    private static final long        EVENT_MILLIS          = 1500;
+
     private final IHost              host;
     private final PacerConfiguration configuration;
     private final LooperController   looper;
@@ -89,6 +92,9 @@ public class PacerController
     private final Map<ExpressionTarget, Integer> midiSent  = new EnumMap<> (ExpressionTarget.class);
     /** Which loop each pedal's "loop being recorded" target last moved; a new one has to be picked up again. */
     private final int []             activeLoops           = new int [PacerConfiguration.NUM_EXPRESSION];
+    /** A word for what just happened, shown on the display instead of the name until {@link #eventUntil}. */
+    private volatile String          eventWord;
+    private volatile long            eventUntil;
 
 
     /**
@@ -256,6 +262,13 @@ public class PacerController
      */
     private String getDisplayName ()
     {
+        final String event = this.eventWord;
+        if (event != null)
+        {
+            if (System.currentTimeMillis () < this.eventUntil)
+                return event;
+            this.eventWord = null;
+        }
         final ModeBoard board = this.getBoard ();
         if (!this.configuration.isShowContext ())
             return board.getDisplayName ();
@@ -266,6 +279,21 @@ public class PacerController
             default -> "";
         };
         return context == null || context.isBlank () ? board.getDisplayName () : context.trim ();
+    }
+
+
+    /**
+     * Put a word for what just happened on the display for a moment ("REC 2", "4 BAR", "UNDO"), if the setting
+     * allows it. It costs two writes: the word, and the name again after it.
+     *
+     * @param word At most five characters
+     */
+    public void showEvent (final String word)
+    {
+        if (!this.configuration.isShowEvents () || word == null || word.isBlank ())
+            return;
+        this.eventUntil = System.currentTimeMillis () + EVENT_MILLIS;
+        this.eventWord = word;
     }
 
 
@@ -914,6 +942,8 @@ public class PacerController
     /** The shift layer went up or down: the switches show the other layer at once. */
     private void shiftChanged ()
     {
+        if (this.shift.isOn ())
+            this.showEvent ("SHIFT");
         this.repaintSwitches ();
     }
 

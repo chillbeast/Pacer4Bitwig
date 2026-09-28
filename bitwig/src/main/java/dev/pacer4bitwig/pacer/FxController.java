@@ -14,6 +14,7 @@ import dev.pacer4bitwig.pacer.led.LedState;
 import dev.pacer4bitwig.pacer.looper.Action;
 
 import java.util.Arrays;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 
@@ -47,6 +48,10 @@ public class FxController
     private final FxTracks            tracks;
     private final Supplier<String>    selectedTrackName;
     private final SnapshotBank []     banks              = new SnapshotBank [PacerConfiguration.NUM_INSTRUMENTS];
+    /** Short words for the Pacer's display, e.g. "SNAP2". */
+    private Consumer<String>          events             = word -> {
+        // Nobody listening
+    };
     /** The stored text each bank was decoded from. */
     private final String []           bankSources        = new String [PacerConfiguration.NUM_INSTRUMENTS];
     private String                    focusRequestedName = "";
@@ -206,6 +211,15 @@ public class FxController
     {
         if (this.isFocusReady () && this.isPageSelected ())
             this.tracks.setRemoteValue (index, value);
+    }
+
+
+    /**
+     * @param events Receives what just happened as a word for the Pacer's display ("SNAP2")
+     */
+    public void setEventSink (final Consumer<String> events)
+    {
+        this.events = events;
     }
 
 
@@ -494,6 +508,7 @@ public class FxController
             }
         }
         this.notifyImportant (instrument + ": snapshot " + (index + 1));
+        this.events.accept ("SNAP" + (index + 1));
     }
 
 
@@ -507,6 +522,7 @@ public class FxController
         bank.store (index, this.captureValues ());
         this.saveBank (slot);
         this.notifyImportant (this.getFocusedInstrumentName () + ": snapshot " + (index + 1) + " stored");
+        this.events.accept ("SAVE" + (index + 1));
     }
 
 

@@ -60,6 +60,16 @@ public final class LoopLengthTracker
 
 
     /**
+     * @param index The loop track
+     * @return The position in beats where its recording started, NaN if it is not recording (or not seen yet)
+     */
+    public double getRecordingSince (final int index)
+    {
+        return this.recordingSince[index];
+    }
+
+
+    /**
      * Forget all recordings in progress, e.g. after the track window moved.
      */
     public void reset ()

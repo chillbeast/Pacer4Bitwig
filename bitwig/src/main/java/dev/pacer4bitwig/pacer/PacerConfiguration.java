@@ -314,7 +314,12 @@ public class PacerConfiguration extends AbstractConfiguration
         });
 
         final IEnumSetting trackCountSetting = settings.getEnumSetting ("Loop tracks", CATEGORY_LOOPER, LOOP_TRACK_COUNTS, LOOP_TRACK_COUNTS[3]);
-        trackCountSetting.addValueObserver (value -> this.loopTrackCount = Math.max (0, Arrays.asList (LOOP_TRACK_COUNTS).indexOf (value)) + 1);
+        trackCountSetting.addValueObserver (value -> {
+            this.loopTrackCount = Math.max (0, Arrays.asList (LOOP_TRACK_COUNTS).indexOf (value)) + 1;
+            // A pedal on "Loop track n: volume" is bound only while there is such a loop track
+            this.notifyObservers (EXPRESSION_1);
+            this.notifyObservers (EXPRESSION_2);
+        });
         enumSetting (settings, "Loop switch mode", CATEGORY_LOOPER, LoopSwitchMode.values (), LoopSwitchMode.TAP, value -> this.loopSwitchMode = value);
         onOffSetting (settings, "Loop switch fires on press (off: on release)", CATEGORY_LOOPER, true, value -> this.loopOnPress = value);
         enumSetting (settings, "Tap on a playing loop", CATEGORY_LOOPER, PlayingTapAction.values (), PlayingTapAction.STOP, value -> this.playingTapAction = value);

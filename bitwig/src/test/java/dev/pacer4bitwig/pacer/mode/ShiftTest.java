@@ -80,6 +80,28 @@ class ShiftTest
 
 
     @Test
+    void aLatchedLayerSurvivesAHold ()
+    {
+        final ShiftLayer shift = new ShiftLayer ();
+        shift.toggle ();
+        shift.hold (12);
+        assertTrue (shift.release (12));
+        assertEquals (ShiftLayer.State.ON, shift.getState (), "still latched after the jack let go");
+    }
+
+
+    @Test
+    void aShiftKeyStaysAShiftKeyOnItsOwnLayer ()
+    {
+        final CustomBoard board = new CustomBoard ();
+        board.setTarget (CustomTarget.LOOP);
+        board.setTap (SW_5, Action.SHIFT_TOGGLE);
+        board.rebuild ();
+        assertEquals (Action.SHIFT_TOGGLE, new ShiftedBoard (board).getLayout (SW_5).tap (), "not the Looper's shifted SW 5");
+    }
+
+
+    @Test
     void theShiftedBoardFallsThroughWhereTheLayerIsEmpty ()
     {
         final ShiftedBoard shifted = new ShiftedBoard (Mode.FX);

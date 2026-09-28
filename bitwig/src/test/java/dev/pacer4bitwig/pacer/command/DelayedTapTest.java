@@ -76,6 +76,18 @@ class DelayedTapTest
 
 
     @Test
+    void aLateTimerDoesNotSwallowATap ()
+    {
+        final TapHoldCommand command = this.command ();
+        this.tap (command, 10_000);
+        // The second tap comes after the window, but before the timer of the first has run
+        this.tap (command, 10_400);
+        this.windowPasses ();
+        assertEquals (List.of ("tap", "tap"), this.events);
+    }
+
+
+    @Test
     void aHoldRightAfterATapRunsTheTapFirst ()
     {
         final TapHoldCommand command = this.command ();

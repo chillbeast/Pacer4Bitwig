@@ -38,10 +38,12 @@ import dev.pacer4bitwig.pacer.live.PresetCheck;
 import dev.pacer4bitwig.pacer.live.PresetGuard;
 import dev.pacer4bitwig.pacer.midi.NoteInputFactory;
 import dev.pacer4bitwig.pacer.mode.Mode;
+import dev.pacer4bitwig.pacer.mode.ModeMenu;
 import dev.pacer4bitwig.util.Diagnostics;
 import dev.pacer4bitwig.util.FailSoft;
 
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 
 /**
@@ -59,6 +61,10 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     private static final long          NAME_RESTORE_MS          = 400;
     /** After a press or an announcement, flush the LEDs every tick for this long even if nothing blinks. */
     private static final long          FLUSH_AFTER_EVENT_MS     = 1000;
+    /** A name restore the preset check holds back is tried again on every tick, for this long. */
+    private static final long          NAME_RESTORE_GIVE_UP_MS  = 3000;
+    /** The row on the display when the scene has no name: "ROW 3", "ROW12", "R128" (as preset check keys). */
+    private static final Pattern       ROW_NAME                 = Pattern.compile ("ROW [1-9]|ROW[1-9][0-9]|R[1-9][0-9][0-9] ");
     /** Tracks of a freshly opened project can arrive after startup: apply the loop track position again after these. */
     private static final long []       TRACK_START_RETRIES_MS   =
     {
@@ -83,7 +89,7 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     private int                        midiChannel              = PacerMap.DEFAULT_MIDI_CHANNEL;
     private volatile boolean           running;
     /** Is the Pacer still on the Bitwig preset? Live writes wait while it is not (setting "Check the Pacer..."). */
-    private final PresetGuard          presetGuard              = new PresetGuard (PacerMap.PRESET_NAME);
+    private final PresetGuard          presetGuard;
     private GuardedGate                writeGate;
     /** Keeps one failing entry point from taking the rest down. */
     private final FailSoft             failSoft;
@@ -123,6 +129,8 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
 
         this.configuration = new PacerConfiguration (host, this.valueChanger, factory.getArpeggiatorModes ());
         final PacerConfiguration settings = this.configuration;
+        // Names only the extension leaves on the display: an earlier session's, found at startup
+        this.presetGuard = new PresetGuard (PacerMap.PRESET_NAME, key -> isOwnName (key, settings));
         this.diagnostics = new Diagnostics (host::println, settings::getDiagnosticsLevel);
         this.failSoft = new FailSoft ( (where, error, first) -> {
             host.error ("PACER Looper: error in " + where + " - carried on", error);
@@ -306,7 +314,10 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
             pedal.bind (surface.getMidiInput (), BindType.CC, this.midiChannel, i == 0 ? PacerMap.EXP1_CC : PacerMap.EXP2_CC);
             // Used whenever no parameter is bound directly: MIDI, FX and loop targets, response curves and ranges, pick-up
             final String name = "EXP " + (i + 1);
-            pedal.bind ((ContinuousCommand) value -> this.failSoft.run (name, () -> this.controller.pedalMoved (index, value)));
+            pedal.bind ((ContinuousCommand) value -> this.failSoft.run (name, () -> {
+                this.controlUsed ();
+                this.controller.pedalMoved (index, value);
+            }));
             this.pedals[i] = pedal;
             this.bindPedal (i);
         }
@@ -379,12 +390,13 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
             return;
         try
         {
-            this.failSoft.run ("tick", () -> {
-                this.controller.tick ();
-                this.checkPreset ();
-                this.restoreName ();
-                this.dawMode.flushLeds ();
-            });
+            // Each part on its own: one that keeps failing must not stop the colours, the preset check or the others
+            this.failSoft.run ("looper tick", this.controller::tickLooper);
+            this.failSoft.run ("FX tick", this.controller::tickFx);
+            this.failSoft.run ("paint", this.controller::paint);
+            this.failSoft.run ("preset check", this::checkPreset);
+            this.failSoft.run ("name restore", this::restoreName);
+            this.failSoft.run ("DAW mode", this.dawMode::flushLeds);
             // Blinking needs a flush on every tick. A steady board does not: Bitwig flushes whenever its state
             // changes, and a press - which can change what the LEDs show without Bitwig knowing - buys a second.
             if (this.controller.isAnimating () || System.currentTimeMillis () < this.flushUntil)
@@ -468,10 +480,45 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     }
 
 
-    /** A switch or jack command that reports what it throws instead of passing it on to Bitwig. */
+    /**
+     * A switch or jack command that reports what it throws instead of passing it on to Bitwig. The press itself is
+     * proof that the Bitwig preset is loaded.
+     */
     private TriggerCommand failSoft (final String name, final TriggerCommand command)
     {
-        return (event, velocity) -> this.failSoft.run (name, () -> command.execute (event, velocity));
+        return (event, velocity) -> this.failSoft.run (name, () -> {
+            this.controlUsed ();
+            command.execute (event, velocity);
+        });
+    }
+
+
+    /** A control of the Bitwig preset sent something: tell the preset check, and paint if it thought otherwise. */
+    private void controlUsed ()
+    {
+        if (this.configuration.getPresetCheck () == PresetCheck.OFF || !this.presetGuard.controlUsed (System.currentTimeMillis ()))
+            return;
+        this.diagnostics.log (Diagnostics.Level.ACTIONS, () -> "preset check: a control of the Bitwig preset was used - painting it again");
+        this.controller.repaintAll ();
+        this.eventHappened ();
+    }
+
+
+    /**
+     * @param key A name as the preset check compares it
+     * @param settings The settings, for the custom mode's name
+     * @return True if only the extension puts this name on the display
+     */
+    private static boolean isOwnName (final String key, final PacerConfiguration settings)
+    {
+        if (ROW_NAME.matcher (key).matches ())
+            return true;
+        if (key.equals (PresetGuard.key ("OFF")) || key.equals (PresetGuard.key (ModeMenu.NAME)) || key.equals (PresetGuard.key (settings.getCustomBoard ().getDisplayName ())))
+            return true;
+        for (final Mode mode: Mode.values ())
+            if (key.equals (PresetGuard.key (mode.getDisplayName ())))
+                return true;
+        return false;
     }
 
 
@@ -508,11 +555,12 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     private void restoreName ()
     {
         final long takenAt = this.displayTakenAt;
-        if (takenAt == 0 || System.currentTimeMillis () - takenAt < NAME_RESTORE_MS)
+        final long now = System.currentTimeMillis ();
+        if (takenAt == 0 || now - takenAt < NAME_RESTORE_MS)
             return;
-        this.displayTakenAt = 0;
-        if (this.configuration.isKeepModeName () && !this.controller.isMenuOpen ())
-            this.board.repeatName ();
+        // Held back while the preset check asks, it is tried again on the next ticks
+        if (!this.configuration.isKeepModeName () || this.controller.isMenuOpen () || this.board.repeatName () || now - takenAt > NAME_RESTORE_GIVE_UP_MS)
+            this.displayTakenAt = 0;
     }
 
 }

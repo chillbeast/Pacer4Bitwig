@@ -221,6 +221,8 @@ public class TapHoldCommand implements TriggerCommand
                 this.doubleTap.run ();
                 return;
             }
+            // A tap still waiting (its timer is late) is not lost to the next one
+            this.runWaitingTap ();
             this.lastTapAt = now;
             if (this.delayTap.getAsBoolean ())
             {

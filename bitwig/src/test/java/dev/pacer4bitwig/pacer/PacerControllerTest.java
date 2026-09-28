@@ -449,6 +449,21 @@ class PacerControllerTest
 
 
     @Test
+    void aShiftKeyInTheCustomLayoutTakesTheLayerDownAgain ()
+    {
+        final var custom = this.configuration.getCustomBoard ();
+        custom.setTarget (dev.pacer4bitwig.pacer.mode.CustomTarget.LOOP);
+        custom.setTap (SW_5, Action.SHIFT_TOGGLE);
+        custom.rebuild ();
+        this.tap (SW_5);
+        assertEquals (ShiftLayer.State.ON, this.controller.getShiftState ());
+        this.tap (SW_5);
+        assertEquals (ShiftLayer.State.OFF, this.controller.getShiftState (), "not the Looper's shifted SW 5 (mute all)");
+        assertTrue (this.ran.isEmpty (), "nothing else ran: " + this.ran);
+    }
+
+
+    @Test
     void aSwitchWithNothingOnItsShiftLayerKeepsItsJob ()
     {
         this.controller.perform (Action.MODE_MIX);

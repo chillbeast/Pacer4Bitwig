@@ -49,8 +49,9 @@ The single source of truth for how the **Pacer preset** (written by the editor) 
 - **The CCs never change**, not even between modes: a mode is a lookup table inside the extension, not a rewrite of
   the Pacer. The "role" column is the Looper mode; the other modes use the same CCs for their own jobs
   (docs/LIVE-COLOURS-AND-MODES.md). The footswitch jacks are global: they do the same in every mode. The built-in
-  modes are fixed; only the Custom mode's switches, the footswitch jacks and each mode's pedal targets are assignable
-  in the Bitwig settings.
+  modes are fixed, but the custom layout (*Settings > Custom layout*) can change one of them switch by switch or be a
+  mode of its own; with the footswitch jacks and each mode's pedal targets, that is what is assignable in the Bitwig
+  settings. A switch or jack whose tap is *Loop track n* is a loop switch for that track, wherever it is.
 - Channel 16 is reserved for the looper. The extension passes channels 1–15 to Bitwig as the note input
   "PACER", so other presets must avoid channel 16. Expression pedals set to a MIDI target inject their messages into
   that same note input.

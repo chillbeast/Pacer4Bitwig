@@ -9,8 +9,10 @@ Ideas that are not built yet, with what is already known about them. Pick one, o
 - Exclusive arm, mute/solo, mute all, fade out/in, double/halve loops
 - Hold to record (release closes the loop, also after a count-in), the beat counter on SW A–D while counting in or
   recording, names for new rows (Verse, Chorus, …) from a list in the settings
-- Assignable footswitch jacks and a Custom mode laid out in the settings (tap, double-tap, hold), safer holds for
+- Assignable footswitch jacks and a custom layout in the settings (tap, double-tap, hold, colour, LED) - a mode of
+  its own or changes to a built-in mode; loop switches and per-loop mutes on any switch or jack; safer holds for
   clearing actions
+- Rows that play along (previous / next row can launch the row moved to), the row on the display
 - Expression pedals: Bitwig parameters or MIDI (CC 1/2/7/11/74, pressure, pitch bend), response curves, a target per
   mode
 - Five modes on one preset, painted live: LOOP, FX, MIX, SONG and CUST (docs/LIVE-COLOURS-AND-MODES.md); live state

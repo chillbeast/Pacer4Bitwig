@@ -425,6 +425,20 @@ class ModeTest
 
 
     @Test
+    void automaticColourNeverLeavesAnAssignedSwitchDark ()
+    {
+        // A custom loop switch has no action of its own: it takes the looper's colour, so an empty loop still shows
+        assertEquals (SwitchLayout.LOOP_TRACK.colour (), SwitchColour.AUTO.resolve (true, Action.NONE, Action.NONE, Action.NONE));
+        // Only a hold assigned: the hold picks the colour
+        assertEquals (SwitchColour.automatic (Action.METRONOME), SwitchColour.AUTO.resolve (false, Action.NONE, Action.NONE, Action.METRONOME));
+        assertEquals (SwitchColour.automatic (Action.UNDO), SwitchColour.AUTO.resolve (false, Action.NONE, Action.UNDO, Action.NONE));
+        assertEquals (SwitchColour.automatic (Action.UNDO), SwitchColour.AUTO.resolve (false, Action.UNDO, Action.NONE, Action.REDO), "the tap wins");
+        assertEquals (PacerColour.OFF, SwitchColour.AUTO.resolve (false, Action.NONE, Action.NONE, Action.NONE));
+        assertEquals (PacerColour.CYAN, SwitchColour.CYAN.resolve (true, Action.NONE, Action.NONE, Action.NONE), "a chosen colour wins");
+    }
+
+
+    @Test
     void theWordRowFallsBackToTheStripOnSwitchesThatHaveNone ()
     {
         // SW A-D have only two LEDs, so a custom layout asking for the word row must not go dark

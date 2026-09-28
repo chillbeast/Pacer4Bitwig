@@ -1315,7 +1315,8 @@ public class LooperController
         if (!track.doesExist ())
             return;
         track.select ();
-        this.notify ("Loop " + (next + 1) + ": " + track.getName ());
+        // Navigation, which "Only important ones" keeps
+        this.notifyImportant ("Loop " + (next + 1) + ": " + track.getName ());
     }
 
 

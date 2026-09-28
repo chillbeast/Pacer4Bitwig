@@ -167,7 +167,11 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     {
         super.createObservers ();
 
-        this.configuration.addSettingObserver (PacerConfiguration.LED_TEST, () -> this.looper.startLedTest ());
+        // The framework calls every observer once at the end of init; the test must only run when it is clicked
+        this.configuration.addSettingObserver (PacerConfiguration.LED_TEST, () -> {
+            if (this.running)
+                this.looper.startLedTest ();
+        });
         this.configuration.addSettingObserver (PacerConfiguration.CUSTOM_MODE, () -> {
             // Laying out the custom mode while standing in it should show up straight away
             if (this.running && this.controller.getMode () == dev.pacer4bitwig.pacer.mode.Mode.CUSTOM)

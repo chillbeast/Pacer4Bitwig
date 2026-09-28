@@ -119,6 +119,22 @@ class PacerControllerTest
 
             /** {@inheritDoc} */
             @Override
+            public int getBeatCounterCode (final int topRowIndex, final long now)
+            {
+                return -1;
+            }
+
+
+            /** {@inheritDoc} */
+            @Override
+            public LedState loopSwitchLed (final int switchIndex)
+            {
+                return LedState.DARK;
+            }
+
+
+            /** {@inheritDoc} */
+            @Override
             public LedState actionLed (final Action action, final LedClock ledClock)
             {
                 return LedState.DARK;
@@ -148,6 +164,14 @@ class PacerControllerTest
             public String getFocusedInstrumentName ()
             {
                 return "";
+            }
+
+
+            /** {@inheritDoc} */
+            @Override
+            public LedState actionLed (final Action action)
+            {
+                return LedState.DARK;
             }
         };
 
@@ -226,6 +250,38 @@ class PacerControllerTest
         this.tap (SW_1);
         assertEquals (List.of ("loop tap 1", "loop release 1"), this.ran);
         assertFalse (this.controller.isMenuOpen ());
+    }
+
+
+    @Test
+    void comingBackToTheBitwigPresetKeepsTheMode ()
+    {
+        // CC 119 = 127 arrives whenever D1 is selected or the Pacer starts: repaint, but stay where you were
+        this.controller.perform (Action.MODE_SONG);
+        this.controller.presetAnnounced (127);
+        assertEquals (Mode.SONG, this.controller.getMode ());
+    }
+
+
+    @Test
+    void theRetiredFxPresetStillSelectsTheFxMode ()
+    {
+        final int [] listened = new int [1];
+        this.controller.setModeListener ( () -> listened[0]++);
+        this.controller.presetAnnounced (17);
+        assertEquals (Mode.FX, this.controller.getMode ());
+        assertEquals (1, listened[0], "a real mode change re-points the pedals");
+    }
+
+
+    @Test
+    void startingUpPointsThePedalsAtTheStartupMode ()
+    {
+        // The pedals are bound during init, while the mode is still the default
+        final int [] listened = new int [1];
+        this.controller.setModeListener ( () -> listened[0]++);
+        this.controller.applyStartupMode ();
+        assertEquals (1, listened[0]);
     }
 
 

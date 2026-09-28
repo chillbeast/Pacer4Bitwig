@@ -75,6 +75,35 @@ public enum SwitchColour implements Labelled
 
 
     /**
+     * The colour to paint a switch of the custom board. {@link #AUTO} gives a loop switch the looper's colour, and
+     * any other switch the colour of its first assigned action - tap, then hold, then double-tap - so a switch with
+     * only a hold is not left dark.
+     *
+     * @param loopSwitch True if the switch stands for a loop track
+     * @param tap The tap action
+     * @param doubleTap The double-tap action
+     * @param hold The hold action
+     * @return The colour
+     */
+    public PacerColour resolve (final boolean loopSwitch, final Action tap, final Action doubleTap, final Action hold)
+    {
+        if (this.colour != null)
+            return this.colour;
+        if (loopSwitch)
+            return SwitchLayout.LOOP_TRACK.colour ();
+        for (final Action action: new Action []
+        {
+            tap,
+            hold,
+            doubleTap
+        })
+            if (action != Action.NONE)
+                return automatic (action);
+        return PacerColour.OFF;
+    }
+
+
+    /**
      * A sensible colour for an action, so a custom board looks deliberate without picking twelve colours by hand.
      *
      * @param action The action

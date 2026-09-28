@@ -132,7 +132,12 @@ public class PacerController
     public void applyStartupMode ()
     {
         this.modes.activate (this.configuration.getModeAtStartup ());
-        this.repaintAll ();
+        this.board.invalidate ();
+        this.refreshColours ();
+        this.paint ();
+        // The pedals were bound during init, before the mode was known
+        if (this.modeListener != null)
+            this.modeListener.run ();
     }
 
 
@@ -287,14 +292,14 @@ public class PacerController
                 if (this.modes.tapModeSwitch ())
                     this.modeChanged ();
                 else
-                    this.paint ();
+                    this.repaintSwitches ();
             }
             case MODE_SLOT -> {
                 // Picking a mode closes the menu, so one foot can hold, let go, and tap
                 if (this.modes.select (switchIndex))
                     this.modeChanged ();
                 else
-                    this.paint ();
+                    this.repaintSwitches ();
             }
             // Navigation leaves the menu open so it can be pressed again
             case NAVIGATION -> this.perform (ModeMenu.actionAt (switchIndex));
@@ -382,7 +387,7 @@ public class PacerController
         // held FX switch still switches off when the mode changed under it
         // Saved with the project, for "Mode at startup = whatever this project used last"
         this.configuration.setProjectMode (this.modes.getActive ());
-        this.paint ();
+        this.repaintSwitches ();
         if (this.modeListener != null)
             this.modeListener.run ();
         if (this.configuration.getNotificationLevel ().shows (true))
@@ -543,11 +548,9 @@ public class PacerController
         }
 
         if (this.modes.isMenuOpen ())
-        {
-            // The menu paints its own colours; the code only says lit or dark
-            this.switchColours[switchIndex] = PacerColour.OFF;
+            // The menu paints its own colours; the code only says lit or dark. The cached state colours are left
+            // alone, so closing the menu does not first repaint every switch in its bare mode colour.
             return ModeMenu.colourAt (switchIndex, this.modes.getActive ()) == PacerColour.OFF ? 0 : LedColour.WHITE.ordinal ();
-        }
 
         if (this.getMode () == Mode.LOOP && switchIndex >= PacerMap.FIRST_TOP_ROW_SWITCH)
         {
@@ -590,12 +593,15 @@ public class PacerController
      */
     public void presetAnnounced (final int value)
     {
-        // Which of our presets it is decides the mode; selecting it deliberately is a deliberate mode change
-        final PresetAnnouncement announcement = PresetAnnouncement.fromValue (value);
-        this.modes.activate (announcement.kind () == PresetKind.FX ? Mode.FX : Mode.LOOP);
-        this.repaintAll ();
-        if (this.modeListener != null)
-            this.modeListener.run ();
+        // The Bitwig preset (127) arrives whenever it is selected or the Pacer starts up, and coming back to it must
+        // not throw away the mode you were in. Only the retired FX preset (17, 18), still on some Pacers, asks for a
+        // mode of its own.
+        final boolean fxPreset = PresetAnnouncement.fromValue (value).kind () == PresetKind.FX;
+        this.board.invalidate ();
+        if (fxPreset && this.modes.activate (Mode.FX))
+            this.modeChanged ();
+        else
+            this.paint ();
     }
 
 
@@ -647,6 +653,25 @@ public class PacerController
 
 
     // ---- Helpers ------------------------------------------------------------------------------------------------
+
+    /**
+     * Paint after the board changed under the switches (a mode change, the menu closing). The cached colours are the
+     * last flush's answers for the old board, so they are worked out again first - once per change, not per flush -
+     * and the Pacer gets one burst with the right colours rather than a wrong one and then a correction.
+     */
+    private void repaintSwitches ()
+    {
+        this.refreshColours ();
+        this.paint ();
+    }
+
+
+    private void refreshColours ()
+    {
+        for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
+            this.getLedCode (i);
+    }
+
 
     /** The mode decides which switches are loop tracks, the project decides how many tracks there are. */
     private SwitchRole role (final int switchIndex)

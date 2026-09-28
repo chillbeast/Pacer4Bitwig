@@ -1,6 +1,6 @@
 ---
 name: Hardware report
-about: Results of the looper checklist or the LED Lab on your Pacer
+about: Results of the hardware checklists or the LED Lab on your Pacer
 title: "[hardware] "
 labels: hardware
 ---
@@ -11,24 +11,27 @@ labels: hardware
 - Operating system:
 - Bitwig Studio version:
 - Pacer4Bitwig / Pacer Studio version or commit:
-- Mode the Pacer was in (the display name): LOOP / FX / MIX / SONG
+- Mode the Pacer was in (the display name): LOOP / FX / MIX / SONG / CUST
 
-## Looper checklist (docs/LOOPER.md, section 8)
+## Hardware checklist (docs/LOOPER.md, section 10; docs/FX-PRESET.md for the FX mode)
 
 Tick what works, describe what does not.
 
-- [ ] 1. Every switch does something
-- [ ] 2. Record / close / play LED sequence
-- [ ] 3. Exclusive arm
-- [ ] 4. Hold to delete
-- [ ] 5. Stop all / play row
-- [ ] 6. Row navigation
-- [ ] 7. Tap tempo LED flashes on the beat
-- [ ] 8. EXP 1
-- [ ] 9. LEDs repaint after changing presets
-- [ ] 10. Other presets reach Bitwig on channels 1-15
-- [ ] 11. Hold SW 6: the mode menu appears; tapping a slot switches mode
-- [ ] 12. The display shows the mode name, and returns to it after a press
+- [ ] Every switch does something
+- [ ] Record / close / play LED sequence (loop colours, dip on the downbeat)
+- [ ] Exclusive arm
+- [ ] Hold to delete a loop
+- [ ] Play row / stop all
+- [ ] Row navigation
+- [ ] Launcher overdub and metronome, beat counter on SW A–D
+- [ ] Expression pedals
+- [ ] LEDs repaint after changing presets, and the mode stays
+- [ ] Other presets reach Bitwig on channels 1-15
+- [ ] Looper settings (count-in, loop length, fades, hold times, mute timing, …)
+- [ ] Hold SW 6: the mode menu opens and stays open; tapping a slot switches mode
+- [ ] Each mode (LOOP, FX, MIX, SONG, CUST) paints its board and does what the guide says
+- [ ] The display shows the mode name, and returns to it after a press
+- [ ] FX mode checklist (docs/FX-PRESET.md)
 
 ## LED Lab observations
 

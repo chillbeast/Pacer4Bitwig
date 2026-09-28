@@ -4,17 +4,17 @@ Turn a **Nektar Pacer** into a live-looper pedalboard for **Bitwig Studio**, and
 
 | Part | What it is |
 |------|------------|
-| [`bitwig/`](bitwig) | **PACER Looper** Bitwig extension (Java, DrivenByMoss framework): smart record/play/stop per loop track, undo, scene rows, overdub, tap tempo, expression pedals, LED feedback |
+| [`bitwig/`](bitwig) | **PACER Looper** Bitwig extension (Java, DrivenByMoss framework): five modes on one preset (looper, FX pedalboard, mixer, song, custom), smart record/play/stop per loop track, undo, scene rows, overdub, tap tempo, expression pedals, live LED colours |
 | [`editor/`](editor) | **Pacer Studio**: a Web MIDI preset editor with a hardware-first UI, templates and an LED lab — **use it online: <https://chillbeast.github.io/Pacer4Bitwig/>** (Chrome or Edge) |
-| [`tools/`](tools) | Node scripts: read-only backup, looper preset generator, guarded preset writer |
-| **[Manual](https://chillbeast.github.io/Pacer4Bitwig/manual/)** | The setup guide and manual: interactive switch map, both presets, settings, troubleshooting, test checklists ([`docs/manual.html`](docs/manual.html)) |
+| [`tools/`](tools) | Node scripts: read-only backup, preset generator, guarded preset writer |
+| **[Manual](https://chillbeast.github.io/Pacer4Bitwig/manual/)** | The setup guide and manual: interactive switch map, the one preset and its modes, settings, troubleshooting, test checklists ([`docs/manual.html`](docs/manual.html)) |
 | [`docs/LOOPER.md`](docs/LOOPER.md) | User guide: Bitwig setup, switch functions, LEDs, settings, test checklist |
-| [`docs/FX-PRESET.md`](docs/FX-PRESET.md) | FX preset guide: the Pacer as a pedalboard for live instruments (effects, instrument focus, snapshots) |
+| [`docs/FX-PRESET.md`](docs/FX-PRESET.md) | FX mode guide: the Pacer as a pedalboard for live instruments (effects, instrument focus, snapshots) |
 | [`docs/PACER-MAP.md`](docs/PACER-MAP.md) | The MIDI contract between the Pacer preset and the extension |
 
 ## Download
 
-Grab `Pacer4Bitwig.bwextension` and the looper presets from the
+Grab `Pacer4Bitwig.bwextension` and the Pacer preset (`presets/bitwig-pacer-D1.syx`) from the
 [latest release](https://github.com/chillbeast/Pacer4Bitwig/releases) (or from the artifacts of any CI run), copy the
 extension into `Documents/Bitwig Studio/Extensions` and follow [docs/LOOPER.md](docs/LOOPER.md). What changed:
 [CHANGELOG.md](CHANGELOG.md).
@@ -29,9 +29,9 @@ cd tools && npm install && node pacer-backup.mjs
 cd ../bitwig && mvn -q install
 #    Bitwig: Settings > Controllers > Add > Nektar > PACER Looper (ports: PACER / PACER)
 
-# 3. Put the looper preset on the Pacer (overwrites D1; backs D1 up first)
+# 3. Put the preset on the Pacer (overwrites D1; backs D1 up first)
 cd ../tools && node pacer-preset.mjs && node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1
-#    ...or use the Bitwig Looper template in Pacer Studio:
+#    ...or use the Bitwig Pacer template in Pacer Studio:
 cd ../editor && npm install && npm run dev
 ```
 

@@ -72,6 +72,22 @@ public final class RecordHistory
 
 
     /**
+     * The most recent recording of a row that is still there, without forgetting it.
+     *
+     * @param row The scene row
+     * @param stillThere Whether the loop on a track position still exists
+     * @return The track bank position, -1 if none
+     */
+    public int peekLatest (final int row, final IntPredicate stillThere)
+    {
+        for (final int [] entry: this.entries)
+            if (entry[0] == row && stillThere.test (entry[1]))
+                return entry[1];
+        return -1;
+    }
+
+
+    /**
      * Forget everything.
      */
     public void clear ()

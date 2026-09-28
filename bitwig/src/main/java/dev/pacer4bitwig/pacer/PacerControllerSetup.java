@@ -340,6 +340,7 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
 
     private void bindPedal (final int index)
     {
+        this.controller.pedalRetargeted (index);
         final IHwFader pedal = this.pedals[index];
         if (pedal != null)
             // Null (no parameter) routes the pedal to its command

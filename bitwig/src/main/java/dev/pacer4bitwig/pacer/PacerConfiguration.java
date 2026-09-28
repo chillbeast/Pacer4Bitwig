@@ -33,6 +33,7 @@ import dev.pacer4bitwig.pacer.looper.MuteTiming;
 import dev.pacer4bitwig.pacer.looper.NotificationLevel;
 import dev.pacer4bitwig.pacer.looper.PedalCurve;
 import dev.pacer4bitwig.pacer.looper.PedalResponse;
+import dev.pacer4bitwig.pacer.looper.PedalTakeover;
 import dev.pacer4bitwig.pacer.looper.PlayingTapAction;
 import dev.pacer4bitwig.pacer.looper.QuantizationChoice;
 import dev.pacer4bitwig.pacer.looper.RowMove;
@@ -197,6 +198,7 @@ public class PacerConfiguration extends AbstractConfiguration
     private final int []                     pedalMinimum         = new int [NUM_EXPRESSION];
     private final int []                     pedalMaximum         = new int [NUM_EXPRESSION];
     private volatile int                     pedalMidiChannel     = 0;
+    private volatile PedalTakeover           pedalTakeover        = PedalTakeover.JUMP;
     private volatile boolean                 beatSyncedLeds       = true;
     private volatile boolean                 countBeats           = true;
     private volatile StartupMode             startupMode          = StartupMode.REMEMBER;
@@ -511,6 +513,12 @@ public class PacerConfiguration extends AbstractConfiguration
         }
         final IEnumSetting channelSetting = settings.getEnumSetting ("MIDI channel for pedal messages", CATEGORY_PEDALS, MIDI_CHANNELS, MIDI_CHANNELS[0]);
         channelSetting.addValueObserver (value -> this.pedalMidiChannel = Math.max (0, Arrays.asList (MIDI_CHANNELS).indexOf (value)));
+        // Pick-up routes every target through the extension, so both pedals are bound again when it changes
+        enumSetting (settings, "Pedal takeover (after a mode change or a new target)", CATEGORY_PEDALS, PedalTakeover.values (), PedalTakeover.JUMP, value -> {
+            this.pedalTakeover = value;
+            this.notifyObservers (EXPRESSION_1);
+            this.notifyObservers (EXPRESSION_2);
+        });
     }
 
 
@@ -799,6 +807,15 @@ public class PacerConfiguration extends AbstractConfiguration
     public PedalResponse getPedalResponse (final int index)
     {
         return new PedalResponse (this.pedalCurves[index], this.pedalMinimum[index], this.pedalMaximum[index]);
+    }
+
+
+    /**
+     * @return What a pedal does to its target on the first move after getting it
+     */
+    public PedalTakeover getPedalTakeover ()
+    {
+        return this.pedalTakeover;
     }
 
 

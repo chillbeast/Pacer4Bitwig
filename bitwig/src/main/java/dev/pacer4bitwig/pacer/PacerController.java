@@ -14,7 +14,9 @@ import dev.pacer4bitwig.pacer.live.LiveBoard;
 import dev.pacer4bitwig.pacer.live.PacerColour;
 import dev.pacer4bitwig.pacer.looper.Action;
 import dev.pacer4bitwig.pacer.looper.ExpressionTarget;
+import dev.pacer4bitwig.pacer.looper.PedalPickup;
 import dev.pacer4bitwig.pacer.looper.PedalResponse;
+import dev.pacer4bitwig.pacer.looper.PedalTakeover;
 import dev.pacer4bitwig.pacer.looper.TapTiming;
 import dev.pacer4bitwig.pacer.midi.RawMidiSender;
 import dev.pacer4bitwig.pacer.mode.CustomBoard;
@@ -30,6 +32,10 @@ import dev.pacer4bitwig.pacer.mode.SwitchLayout;
 import dev.pacer4bitwig.pacer.mode.SwitchRole;
 import dev.pacer4bitwig.pacer.preset.PresetAnnouncement;
 import dev.pacer4bitwig.pacer.preset.PresetKind;
+
+import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.Map;
 
 
 /**
@@ -77,6 +83,12 @@ public class PacerController
     private final boolean []         controlDown           = new boolean [PacerMap.NUM_SWITCHES + PacerMap.NUM_FOOTSWITCHES];
     /** The control whose gesture is running an action, -1 outside of one: "shift while held" needs to know. */
     private int                      performingControl     = -1;
+    /** Pick-up takeover, per pedal. */
+    private final PedalPickup []     pickups               = new PedalPickup [PacerConfiguration.NUM_EXPRESSION];
+    /** The last value sent to each MIDI target, which is where a picked-up pedal has to reach. */
+    private final Map<ExpressionTarget, Integer> midiSent  = new EnumMap<> (ExpressionTarget.class);
+    /** Which loop each pedal's "loop being recorded" target last moved; a new one has to be picked up again. */
+    private final int []             activeLoops           = new int [PacerConfiguration.NUM_EXPRESSION];
 
 
     /**
@@ -95,6 +107,9 @@ public class PacerController
         this.looper = looper;
         this.fx = fx;
         this.board = board;
+        for (int i = 0; i < this.pickups.length; i++)
+            this.pickups[i] = new PedalPickup ();
+        Arrays.fill (this.activeLoops, -1);
         // While the custom layout changes a built-in mode, the custom mode's own menu slot has nothing to show
         this.modes.setOffered (mode -> mode != Mode.CUSTOM || this.configuration.getCustomBoard ().getTarget () == CustomTarget.OWN);
     }
@@ -613,8 +628,9 @@ public class PacerController
     // ---- Expression pedals --------------------------------------------------------------------------------------
 
     /**
-     * The parameter a pedal is bound to directly. Only parameter targets with a linear, full-range response are bound;
-     * everything else (MIDI and FX targets, curves, ranges) goes through {@link #pedalMoved(int, int)}.
+     * The parameter a pedal is bound to directly. Only parameter targets with a linear, full-range response are bound,
+     * and only while the takeover jumps; everything else (MIDI, FX and loop targets, curves, ranges, pick-up) goes
+     * through {@link #pedalMoved(int, int)}.
      *
      * @param index 0-1
      * @return The parameter, or null to route the pedal through its command
@@ -622,9 +638,21 @@ public class PacerController
     public IParameter getPedalBinding (final int index)
     {
         final ExpressionTarget target = this.getExpressionTarget (index);
-        if (target.getKind () != ExpressionTarget.Kind.PARAMETER || !this.configuration.getPedalResponse (index).isIdentity ())
+        if (target.getKind () != ExpressionTarget.Kind.PARAMETER || !this.configuration.getPedalResponse (index).isIdentity () || this.isPickup ())
             return null;
         return this.looper.getExpressionParameter (target);
+    }
+
+
+    /**
+     * A pedal was pointed at a new target (a mode change, a setting), so a pick-up starts over.
+     *
+     * @param index 0-1
+     */
+    public void pedalRetargeted (final int index)
+    {
+        this.pickups[index].reset ();
+        this.activeLoops[index] = -1;
     }
 
 
@@ -638,24 +666,63 @@ public class PacerController
     {
         final ExpressionTarget target = this.getExpressionTarget (index);
         final PedalResponse response = this.configuration.getPedalResponse (index);
+        final double output = response.map (value / 127.0);
 
         switch (target.getKind ())
         {
             case CC, CHANNEL_PRESSURE, PITCH_BEND_UP -> {
-                final int [] message = target.toMidi (response.map (value), this.configuration.getPedalMidiChannel ());
+                final int mapped = response.map (value);
+                final Integer last = this.midiSent.get (target);
+                if (!this.pickUp (index, mapped / 127.0, last == null ? Double.NaN : last.intValue () / 127.0))
+                    return;
+                final int [] message = target.toMidi (mapped, this.configuration.getPedalMidiChannel ());
                 if (message != null)
                     this.midiSender.send (message[0], message[1], message[2]);
+                this.midiSent.put (target, Integer.valueOf (mapped));
             }
-            case FX_REMOTE -> this.fx.setRemoteValue (target.getRemoteIndex (), response.map (value / 127.0));
-            case PARAMETER -> {
-                final IParameter parameter = this.looper.getExpressionParameter (target);
-                if (parameter != null)
-                    parameter.setNormalizedValue (response.map (value / 127.0));
+            case FX_REMOTE -> {
+                if (this.pickUp (index, output, this.fx.getRemoteValue (target.getRemoteIndex ())))
+                    this.fx.setRemoteValue (target.getRemoteIndex (), output);
+            }
+            case PARAMETER -> this.moveParameter (index, this.looper.getExpressionParameter (target), output);
+            case ACTIVE_LOOP -> {
+                // A new recording is a new target: pick it up again
+                final int loop = this.looper.getActiveLoop ();
+                if (loop != this.activeLoops[index])
+                {
+                    this.pickups[index].reset ();
+                    this.activeLoops[index] = loop;
+                }
+                this.moveParameter (index, this.looper.getLoopVolume (loop), output);
+            }
+            case ALL_LOOPS -> {
+                if (this.pickUp (index, output, this.looper.getLoopsLevel ()))
+                    this.looper.setLoopsLevel (output);
             }
             case NONE -> {
                 // Not assigned
             }
         }
+    }
+
+
+    private void moveParameter (final int index, final IParameter parameter, final double output)
+    {
+        if (parameter != null && this.pickUp (index, output, this.isPickup () ? this.looper.getNormalizedValue (parameter) : Double.NaN))
+            parameter.setNormalizedValue (output);
+    }
+
+
+    /** With a jumping takeover everything goes through; with pick-up, only once the pedal reached the target. */
+    private boolean pickUp (final int index, final double output, final double current)
+    {
+        return !this.isPickup () || this.pickups[index].accept (output, current);
+    }
+
+
+    private boolean isPickup ()
+    {
+        return this.configuration.getPedalTakeover () == PedalTakeover.PICKUP;
     }
 
 

@@ -7,8 +7,8 @@ import dev.pacer4bitwig.util.Labelled;
 
 /**
  * What an expression pedal controls: a Bitwig parameter (bound directly), a remote control of the FX preset's focused
- * instrument, or a MIDI message sent into the extension's note input, which reaches the instruments of every track
- * listening to it.
+ * instrument, a loop - one loop track, the loop being recorded, or all of them keeping their balance - or a MIDI
+ * message sent into the extension's note input, which reaches the instruments of every track listening to it.
  */
 public enum ExpressionTarget implements Labelled
 {
@@ -32,6 +32,27 @@ public enum ExpressionTarget implements Labelled
     PROJECT_REMOTE_1 ("Project remote control 1", Kind.PARAMETER, 0),
     /** Project remote control 2. */
     PROJECT_REMOTE_2 ("Project remote control 2", Kind.PARAMETER, 0),
+
+    /** Volume of loop track 1 (the track bank position, so it follows the loop track window). */
+    LOOP_1_VOLUME ("Loop track 1: volume", Kind.PARAMETER, 0),
+    /** Volume of loop track 2. */
+    LOOP_2_VOLUME ("Loop track 2: volume", Kind.PARAMETER, 1),
+    /** Volume of loop track 3. */
+    LOOP_3_VOLUME ("Loop track 3: volume", Kind.PARAMETER, 2),
+    /** Volume of loop track 4. */
+    LOOP_4_VOLUME ("Loop track 4: volume", Kind.PARAMETER, 3),
+    /** Volume of loop track 5. */
+    LOOP_5_VOLUME ("Loop track 5: volume", Kind.PARAMETER, 4),
+    /** Volume of loop track 6. */
+    LOOP_6_VOLUME ("Loop track 6: volume", Kind.PARAMETER, 5),
+    /** Volume of loop track 7. */
+    LOOP_7_VOLUME ("Loop track 7: volume", Kind.PARAMETER, 6),
+    /** Volume of loop track 8. */
+    LOOP_8_VOLUME ("Loop track 8: volume", Kind.PARAMETER, 7),
+    /** Volume of the loop being recorded or waiting to record, else the one recorded last in this row. */
+    ACTIVE_LOOP_VOLUME ("Loop being recorded (else the last recorded): volume", Kind.ACTIVE_LOOP, 0),
+    /** All loop tracks at once, keeping their balance. */
+    ALL_LOOPS_VOLUME ("All loop tracks: volume (keeps their balance)", Kind.ALL_LOOPS, 0),
 
     /** Remote control 1 of the FX preset's focused instrument ("Pacer" page). */
     FOCUSED_REMOTE_1 ("Focused instrument: remote control 1", Kind.FX_REMOTE, 0),
@@ -75,6 +96,10 @@ public enum ExpressionTarget implements Labelled
         PARAMETER,
         /** A remote control of the FX preset's focused instrument. */
         FX_REMOTE,
+        /** The volume of whichever loop is being recorded, or was recorded last. */
+        ACTIVE_LOOP,
+        /** One fader over every loop track. */
+        ALL_LOOPS,
         /** A MIDI control change. */
         CC,
         /** MIDI channel pressure. */
@@ -124,6 +149,15 @@ public enum ExpressionTarget implements Labelled
 
 
     /**
+     * @return The loop track (0-7) of a loop track volume target, -1 for every other target
+     */
+    public int getLoopTrack ()
+    {
+        return this.name ().startsWith ("LOOP_") ? this.controller : -1;
+    }
+
+
+    /**
      * @return The remote control (0-7) of a focused instrument target
      */
     public int getRemoteIndex ()
@@ -166,7 +200,7 @@ public enum ExpressionTarget implements Labelled
                     bend >> 7
                 };
             }
-            case NONE, PARAMETER, FX_REMOTE -> null;
+            case NONE, PARAMETER, FX_REMOTE, ACTIVE_LOOP, ALL_LOOPS -> null;
         };
     }
 }

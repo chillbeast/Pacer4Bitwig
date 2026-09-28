@@ -37,6 +37,7 @@ import dev.pacer4bitwig.pacer.looper.LoopLengthTracker;
 import dev.pacer4bitwig.pacer.looper.LoopState;
 import dev.pacer4bitwig.pacer.looper.LoopSwitchMode;
 import dev.pacer4bitwig.pacer.looper.LooperText;
+import dev.pacer4bitwig.pacer.looper.LoopsLevel;
 import dev.pacer4bitwig.pacer.looper.MuteTiming;
 import dev.pacer4bitwig.pacer.looper.RecordHistory;
 import dev.pacer4bitwig.pacer.looper.RowMove;
@@ -104,6 +105,8 @@ public class LooperController
     private final long []                 closeWhenRecording    = new long [PacerMap.MAX_LOOP_TRACKS];
     /** Quantized mute changes: track bank position to {target (1 = mute), apply at beats}. */
     private final Map<Integer, double []> pendingMutes          = new HashMap<> ();
+    /** The pedal target "all loop tracks": one fader that keeps their balance. */
+    private final LoopsLevel              loopsLevel            = new LoopsLevel (PacerMap.MAX_LOOP_TRACKS);
 
 
     /** A recording waiting for its count-in. */
@@ -1323,6 +1326,7 @@ public class LooperController
         this.lastArmedIndex = -1;
         this.recordHistory.clear ();
         this.lengthTracker.reset ();
+        this.loopsLevel.reset ();
     }
 
 
@@ -1446,6 +1450,9 @@ public class LooperController
      */
     public IParameter getExpressionParameter (final ExpressionTarget target)
     {
+        // A bank position, so the pedal follows the loop track window like the loop switches do
+        if (target.getLoopTrack () >= 0)
+            return this.getTrackBank ().getItem (target.getLoopTrack ()).getVolumeParameter ();
         final ICursorTrack cursorTrack = this.model.getCursorTrack ();
         return switch (target)
         {
@@ -1460,6 +1467,78 @@ public class LooperController
             case PROJECT_REMOTE_2 -> this.model.getProject ().getParameterBank ().getItem (1);
             default -> null;
         };
+    }
+
+
+    /**
+     * The loop the pedal target "loop being recorded" controls: one that is recording or waiting to record, else the
+     * one recorded last in this row, else the selected loop track.
+     *
+     * @return The loop track, -1 if there is none
+     */
+    public int getActiveLoop ()
+    {
+        final LoopState [] states = this.getRowStates ();
+        for (int i = 0; i < states.length; i++)
+            if (states[i] == LoopState.RECORDING || states[i] == LoopState.RECORD_QUEUED)
+                return i;
+        final int latest = this.recordHistory.peekLatest (this.getRow (), index -> index < states.length && states[index] != null && states[index] != LoopState.EMPTY);
+        if (latest >= 0)
+            return latest;
+        return this.getSelectedTrack ().map (ITrack::getIndex).orElse (Integer.valueOf (-1)).intValue ();
+    }
+
+
+    /**
+     * @param loopTrack The loop track, 0-7
+     * @return Its volume, null if the track does not exist
+     */
+    public IParameter getLoopVolume (final int loopTrack)
+    {
+        if (loopTrack < 0 || loopTrack >= this.getLoopCount ())
+            return null;
+        final ITrack track = this.getTrackBank ().getItem (loopTrack);
+        return track.doesExist () ? track.getVolumeParameter () : null;
+    }
+
+
+    /**
+     * @param parameter A parameter
+     * @return Its value, 0-1
+     */
+    public double getNormalizedValue (final IParameter parameter)
+    {
+        return this.model.getValueChanger ().toNormalizedValue (parameter.getValue ());
+    }
+
+
+    /**
+     * @return Where the "all loop tracks" fader is, 0-1
+     */
+    public double getLoopsLevel ()
+    {
+        return this.loopsLevel.getGain ();
+    }
+
+
+    /**
+     * Move the "all loop tracks" fader: every loop track follows, keeping its level relative to the others.
+     *
+     * @param gain 0-1
+     */
+    public void setLoopsLevel (final double gain)
+    {
+        final ITrackBank trackBank = this.getTrackBank ();
+        final double [] volumes = new double [this.getLoopCount ()];
+        for (int i = 0; i < volumes.length; i++)
+        {
+            final ITrack track = trackBank.getItem (i);
+            volumes[i] = track.doesExist () ? this.getNormalizedValue (track.getVolumeParameter ()) : Double.NaN;
+        }
+        final double [] result = this.loopsLevel.apply (volumes, gain);
+        for (int i = 0; i < result.length; i++)
+            if (!Double.isNaN (result[i]))
+                trackBank.getItem (i).getVolumeParameter ().setNormalizedValue (result[i]);
     }
 
 

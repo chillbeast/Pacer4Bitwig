@@ -209,6 +209,16 @@ public class FxController
     }
 
 
+    /**
+     * @param index 0-7
+     * @return A remote control's value on the focused instrument's "Pacer" page, NaN while that is not reachable
+     */
+    public double getRemoteValue (final int index)
+    {
+        return this.isFocusReady () && this.isPageSelected () ? this.tracks.getRemoteValue (index) : Double.NaN;
+    }
+
+
     // ---- FX switches --------------------------------------------------------------------------------------------
 
     private void toggleFx (final int index)

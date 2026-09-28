@@ -25,17 +25,32 @@ public interface ModeBoard
 
 
     /**
-     * @return How many of the leading switches stand for loop tracks
+     * @param switchIndex 0-9
+     * @return The loop track the switch stands for, -1 if it is not a loop switch. SW 6 never is: it is the mode switch.
      */
-    int getLoopSwitches ();
+    default int getLoopTrack (final int switchIndex)
+    {
+        return Mode.isModeSwitch (switchIndex) ? -1 : this.getLayout (switchIndex).loopTrack ();
+    }
 
 
     /**
      * @param switchIndex 0-9
-     * @return True if the switch stands for a loop track. SW 6 never does: it is the mode switch.
+     * @return True if the switch stands for a loop track
      */
     default boolean isLoopSwitch (final int switchIndex)
     {
-        return switchIndex < this.getLoopSwitches () && !Mode.isModeSwitch (switchIndex);
+        return this.getLoopTrack (switchIndex) >= 0;
+    }
+
+
+    /**
+     * The beat counter takes over the top row while counting in and recording, on the boards made for looping.
+     *
+     * @return True if SW A-D count the beats here (those of them that are not loop switches)
+     */
+    default boolean countsBeats ()
+    {
+        return false;
     }
 }

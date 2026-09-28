@@ -39,6 +39,7 @@ import dev.pacer4bitwig.pacer.looper.LoopSwitchMode;
 import dev.pacer4bitwig.pacer.looper.LooperText;
 import dev.pacer4bitwig.pacer.looper.MuteTiming;
 import dev.pacer4bitwig.pacer.looper.RecordHistory;
+import dev.pacer4bitwig.pacer.looper.RowMove;
 import dev.pacer4bitwig.pacer.looper.TapTiming;
 import dev.pacer4bitwig.pacer.looper.VolumeFade;
 
@@ -175,18 +176,18 @@ public class LooperController
     /**
      * A loop switch was tapped.
      *
-     * @param switchIndex 0-5
+     * @param trackIndex The loop track, 0-5
      */
-    public void loopSwitchTap (final int switchIndex)
+    public void loopSwitchTap (final int trackIndex)
     {
-        final ITrack track = this.getTrackBank ().getItem (switchIndex);
-        this.holdRecording[switchIndex] = false;
+        final ITrack track = this.getTrackBank ().getItem (trackIndex);
+        this.holdRecording[trackIndex] = false;
         if (this.configuration.getLoopSwitchMode () == LoopSwitchMode.HOLD_TO_RECORD && track.doesExist () && this.getLoopState (track) == LoopState.EMPTY)
         {
             if (this.configuration.isSelectOnPress ())
                 track.select ();
             this.startRecording (track);
-            this.holdRecording[switchIndex] = true;
+            this.holdRecording[trackIndex] = true;
             return;
         }
         this.loopTap (track);
@@ -196,11 +197,11 @@ public class LooperController
     /**
      * A loop switch was double-tapped (the first tap has already run).
      *
-     * @param switchIndex 0-5
+     * @param trackIndex The loop track, 0-5
      */
-    public void loopSwitchDoubleTap (final int switchIndex)
+    public void loopSwitchDoubleTap (final int trackIndex)
     {
-        final ITrack track = this.getTrackBank ().getItem (switchIndex);
+        final ITrack track = this.getTrackBank ().getItem (trackIndex);
         if (!track.doesExist ())
             return;
         switch (this.configuration.getLoopDoubleTap ())
@@ -208,12 +209,12 @@ public class LooperController
             case STOP -> track.stop (false);
             case MUTE -> this.requestMute (track, !this.isEffectivelyMuted (track));
             case CLEAR -> {
-                this.holdRecording[switchIndex] = false;
-                this.closeWhenRecording[switchIndex] = -1;
+                this.holdRecording[trackIndex] = false;
+                this.closeWhenRecording[trackIndex] = -1;
                 this.clearLoop (track);
             }
             case UNDO -> this.perform (Action.UNDO);
-            case NOTHING -> this.loopSwitchTap (switchIndex);
+            case NOTHING -> this.loopSwitchTap (trackIndex);
         }
     }
 
@@ -221,28 +222,28 @@ public class LooperController
     /**
      * A loop switch was held.
      *
-     * @param switchIndex 0-5
+     * @param trackIndex The loop track, 0-5
      */
-    public void loopSwitchHold (final int switchIndex)
+    public void loopSwitchHold (final int trackIndex)
     {
         // Holding is how hold-to-record records - never delete that recording
-        if (!this.holdRecording[switchIndex])
-            this.loopHold (this.getTrackBank ().getItem (switchIndex));
+        if (!this.holdRecording[trackIndex])
+            this.loopHold (this.getTrackBank ().getItem (trackIndex));
     }
 
 
     /**
      * A loop switch was released.
      *
-     * @param switchIndex 0-5
+     * @param trackIndex The loop track, 0-5
      */
-    public void loopSwitchRelease (final int switchIndex)
+    public void loopSwitchRelease (final int trackIndex)
     {
-        if (!this.holdRecording[switchIndex])
+        if (!this.holdRecording[trackIndex])
             return;
-        this.holdRecording[switchIndex] = false;
+        this.holdRecording[trackIndex] = false;
 
-        final ITrack track = this.getTrackBank ().getItem (switchIndex);
+        final ITrack track = this.getTrackBank ().getItem (trackIndex);
         if (!track.doesExist ())
             return;
         final LoopState state = this.getLoopState (track);
@@ -251,7 +252,7 @@ public class LooperController
         else if (state == LoopState.RECORD_QUEUED || state == LoopState.EMPTY)
             // Still waiting - for the quantization point, for the count-in, or for Bitwig to report the recording
             // it was asked for (the slot reads empty until then): close the loop as soon as it records
-            this.closeWhenRecording[switchIndex] = System.currentTimeMillis ();
+            this.closeWhenRecording[trackIndex] = System.currentTimeMillis ();
     }
 
 
@@ -276,12 +277,12 @@ public class LooperController
 
 
     /**
-     * @param switchIndex 0-5, a loop switch
+     * @param trackIndex The loop track, 0-5
      * @return What the loop switch's LED shows
      */
-    public LedState loopSwitchLed (final int switchIndex)
+    public LedState loopSwitchLed (final int trackIndex)
     {
-        return this.loopLed (this.getTrackBank ().getItem (switchIndex));
+        return this.loopLed (this.getTrackBank ().getItem (trackIndex));
     }
 
 
@@ -411,6 +412,13 @@ public class LooperController
             }
             case RECORD_NEXT_LAYER -> this.recordNextLayer ();
             case CLEAR_LAST_LOOP -> this.clearLastLoop ();
+            case LOOP_1, LOOP_2, LOOP_3, LOOP_4, LOOP_5, LOOP_6 -> {
+                // As a plain action (a double-tap or a hold slot): the smart loop tap. As a switch's tap, the switch
+                // is a loop switch and never gets here.
+                final int track = action.getLoopTrack ();
+                if (track < this.getLoopCount ())
+                    this.loopTap (this.getTrackBank ().getItem (track));
+            }
             case LOOP_SELECTED -> this.withSelectedTrack (this::loopTap);
             case STOP_SELECTED -> this.withSelectedTrack (track -> track.stop (false));
             case MUTE_SELECTED -> this.withSelectedTrack (track -> this.requestMute (track, !this.isEffectivelyMuted (track)));
@@ -493,6 +501,10 @@ public class LooperController
         return switch (action)
         {
             case NONE -> LedState.DARK;
+            case LOOP_1, LOOP_2, LOOP_3, LOOP_4, LOOP_5, LOOP_6 -> {
+                final int track = action.getLoopTrack ();
+                yield track < this.getLoopCount () ? this.loopLed (trackBank.getItem (track)) : LedState.DARK;
+            }
             case RECORD_NEXT_LAYER -> this.layerLed ();
             case CLEAR_LAST_LOOP -> LedState.when (this.anyLoop (false), LedColour.RED);
             case LOOP_SELECTED -> selected.map (this::loopLed).orElse (LedState.DARK);
@@ -1223,6 +1235,8 @@ public class LooperController
     private void scrollRows (final boolean forwards)
     {
         final ISceneBank sceneBank = this.getTrackBank ().getSceneBank ();
+        // Moving on while loops play: the setting can take the playing section along to the row moved to
+        final boolean playAlong = this.configuration.getRowMove () == RowMove.PLAY && this.clock.isPlaying () && this.anyLoop (true);
         boolean created = false;
         if (!forwards)
         {
@@ -1253,7 +1267,15 @@ public class LooperController
                     name = wanted;
                 }
             }
-            this.notifyImportant (LooperText.rowLabel (row, name));
+            // By now the slots show the new row. An empty one is left alone, so the old loops play on while you
+            // record the new section over them
+            final boolean play = playAlong && !isNew && this.anyLoop (false) && !this.anyLoop (true);
+            if (play)
+            {
+                scene.launch (true, false);
+                scene.launch (false, false);
+            }
+            this.notifyImportant ((play ? "Play " : "") + LooperText.rowLabel (row, name));
         }, isNew ? 3 * NOTIFY_DELAY_MS : NOTIFY_DELAY_MS);
     }
 

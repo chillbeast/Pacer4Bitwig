@@ -14,7 +14,6 @@ import de.mossgrabers.framework.daw.midi.ArpeggiatorMode;
 import dev.pacer4bitwig.pacer.controller.PacerMap;
 import dev.pacer4bitwig.pacer.looper.Action;
 import dev.pacer4bitwig.pacer.live.LedRow;
-import dev.pacer4bitwig.pacer.live.PacerColour;
 import dev.pacer4bitwig.pacer.looper.ClearHoldTime;
 import dev.pacer4bitwig.pacer.looper.CountIn;
 import dev.pacer4bitwig.pacer.looper.DoubleTapWindow;
@@ -24,12 +23,11 @@ import dev.pacer4bitwig.pacer.looper.HoldAction;
 import dev.pacer4bitwig.pacer.looper.LoopColours;
 import dev.pacer4bitwig.pacer.looper.LoopDoubleTap;
 import dev.pacer4bitwig.pacer.looper.LoopLength;
-import dev.pacer4bitwig.pacer.looper.LoopSwitchCount;
+import dev.pacer4bitwig.pacer.mode.CustomBoard;
+import dev.pacer4bitwig.pacer.mode.CustomTarget;
 import dev.pacer4bitwig.pacer.mode.Mode;
-import dev.pacer4bitwig.pacer.mode.ModeBoard;
 import dev.pacer4bitwig.pacer.mode.StartupMode;
 import dev.pacer4bitwig.pacer.mode.SwitchColour;
-import dev.pacer4bitwig.pacer.mode.SwitchLayout;
 import dev.pacer4bitwig.pacer.looper.LoopSwitchMode;
 import dev.pacer4bitwig.pacer.looper.MuteTiming;
 import dev.pacer4bitwig.pacer.looper.NotificationLevel;
@@ -37,6 +35,7 @@ import dev.pacer4bitwig.pacer.looper.PedalCurve;
 import dev.pacer4bitwig.pacer.looper.PedalResponse;
 import dev.pacer4bitwig.pacer.looper.PlayingTapAction;
 import dev.pacer4bitwig.pacer.looper.QuantizationChoice;
+import dev.pacer4bitwig.pacer.looper.RowMove;
 import dev.pacer4bitwig.pacer.preset.PresetKind;
 import dev.pacer4bitwig.util.Labelled;
 
@@ -132,7 +131,9 @@ public class PacerConfiguration extends AbstractConfiguration
 
     private static final String              CATEGORY_LOOPER      = "Looper";
     private static final String              CATEGORY_MODES       = "Modes";
-    private static final String              CATEGORY_CUSTOM      = "Custom mode";
+    private static final String              CATEGORY_CUSTOM      = "Custom layout";
+    /** The first option of every custom switch setting: leave the switch as the mode has it. */
+    private static final String              AS_IN_THE_MODE       = "As in the mode";
     private static final String              CATEGORY_FX          = "FX mode";
     private static final String              CATEGORY_JACKS       = "Footswitch jacks FS 1-4";
     private static final String              CATEGORY_PEDALS      = "Expression pedals";
@@ -184,6 +185,7 @@ public class PacerConfiguration extends AbstractConfiguration
     private volatile boolean                 selectOnPress        = true;
     private volatile CountIn                 countIn              = CountIn.OFF;
     private volatile MuteTiming              muteTiming           = MuteTiming.IMMEDIATE;
+    private volatile RowMove                 rowMove              = RowMove.SELECT;
     private volatile FadeLength              fadeLength           = FadeLength.BARS_2;
     private volatile String                  rowNames             = "";
     private final Action []                  footswitchTap        = new Action [PacerMap.NUM_FOOTSWITCHES];
@@ -201,41 +203,8 @@ public class PacerConfiguration extends AbstractConfiguration
     private IEnumSetting                     projectModeSetting;
     private volatile boolean                 showContext          = true;
     private volatile boolean                 keepModeName         = true;
-    private volatile String                  customName           = "CUST";
-    private volatile LoopSwitchCount         customLoopSwitches   = LoopSwitchCount.NONE;
-    private final Action []                  customTap            = new Action [PacerMap.NUM_SWITCHES];
-    private final Action []                  customDoubleTap      = new Action [PacerMap.NUM_SWITCHES];
-    private final Action []                  customHold           = new Action [PacerMap.NUM_SWITCHES];
-    private final SwitchColour []            customColour         = new SwitchColour [PacerMap.NUM_SWITCHES];
-    private final LedRow []                  customRow            = new LedRow [PacerMap.NUM_SWITCHES];
-    /** Rebuilt whenever a custom setting changes, so painting never allocates. */
-    private final SwitchLayout []            customLayouts        = new SwitchLayout [PacerMap.NUM_SWITCHES];
-    /** Reads the settings above; the layouts themselves are prebuilt, so this does no work per paint. */
-    private final ModeBoard                  customBoard          = new ModeBoard ()
-    {
-        /** {@inheritDoc} */
-        @Override
-        public String getDisplayName ()
-        {
-            return PacerConfiguration.this.customName;
-        }
-
-
-        /** {@inheritDoc} */
-        @Override
-        public SwitchLayout getLayout (final int switchIndex)
-        {
-            return PacerConfiguration.this.customLayouts[switchIndex];
-        }
-
-
-        /** {@inheritDoc} */
-        @Override
-        public int getLoopSwitches ()
-        {
-            return PacerConfiguration.this.customLoopSwitches.getCount ();
-        }
-    };
+    /** The custom layout: a mode of its own, or a built-in mode with some switches changed. */
+    private final CustomBoard                customBoard          = new CustomBoard ();
     private volatile LoopColours.Choice      colourStopped        = LoopColours.Choice.of (LoopColours.DEFAULT.stopped ());
     private volatile LoopColours.Choice      colourPlaying        = LoopColours.Choice.of (LoopColours.DEFAULT.playing ());
     private volatile LoopColours.Choice      colourRecording      = LoopColours.Choice.of (LoopColours.DEFAULT.recording ());
@@ -274,11 +243,6 @@ public class PacerConfiguration extends AbstractConfiguration
             this.footswitchHold[i] = FOOTSWITCH_DEFAULTS[i][1];
         }
         Arrays.fill (this.footswitchDoubleTap, Action.NONE);
-        Arrays.fill (this.customTap, Action.NONE);
-        Arrays.fill (this.customDoubleTap, Action.NONE);
-        Arrays.fill (this.customHold, Action.NONE);
-        Arrays.fill (this.customColour, SwitchColour.AUTO);
-        Arrays.fill (this.customRow, LedRow.STRIP);
         for (int mode = 0; mode < this.expressionTargets.length; mode++)
         {
             // A mode added without a default row still gets something rather than nulls
@@ -287,7 +251,6 @@ public class PacerConfiguration extends AbstractConfiguration
             else
                 Arrays.fill (this.expressionTargets[mode], ExpressionTarget.NONE);
         }
-        this.rebuildCustomLayouts ();
         Arrays.fill (this.pedalCurves, PedalCurve.LINEAR);
         Arrays.fill (this.pedalMaximum, 100);
         Arrays.fill (this.instrumentTracks, "");
@@ -353,6 +316,7 @@ public class PacerConfiguration extends AbstractConfiguration
         enumSetting (settings, "Count-in from a stopped transport", CATEGORY_LOOPER, CountIn.values (), CountIn.OFF, value -> this.countIn = value);
         enumSetting (settings, "Mute timing", CATEGORY_LOOPER, MuteTiming.values (), MuteTiming.IMMEDIATE, value -> this.muteTiming = value);
         enumSetting (settings, "Fade length", CATEGORY_LOOPER, FadeLength.values (), FadeLength.BARS_2, value -> this.fadeLength = value);
+        enumSetting (settings, "Previous / next row while loops play", CATEGORY_LOOPER, RowMove.values (), RowMove.SELECT, value -> this.rowMove = value);
         settings.getStringSetting ("Names for new rows (comma separated)", CATEGORY_LOOPER, 200, "").addValueObserver (value -> this.rowNames = value == null ? "" : value);
 
         // Where the loop tracks start, in every project: moving the window from the Pacer writes it. Deliberately not
@@ -375,18 +339,19 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
-     * The custom mode is laid out here, switch by switch. SW 6 is missing on purpose: it is the mode switch in every
-     * mode, including this one.
+     * The custom layout, switch by switch: a mode of its own, or changes to a built-in mode. Every switch setting
+     * starts at "As in the mode", so only what differs has to be set. SW 6 is missing on purpose: it is the mode
+     * switch in every mode, including this one.
      */
     private void initCustom (final ISettingsUI settings)
     {
-        settings.getStringSetting ("Name on the Pacer display (5 characters)", CATEGORY_CUSTOM, 5, "CUST").addValueObserver (value -> {
-            this.customName = value == null || value.isBlank () ? "CUST" : value;
-            this.rebuildCustomLayouts ();
+        enumSetting (settings, "The custom layout changes", CATEGORY_CUSTOM, CustomTarget.values (), CustomTarget.OWN, value -> {
+            this.customBoard.setTarget (value);
+            this.customChanged ();
         });
-        enumSetting (settings, "Loop switches", CATEGORY_CUSTOM, LoopSwitchCount.values (), LoopSwitchCount.NONE, value -> {
-            this.customLoopSwitches = value;
-            this.rebuildCustomLayouts ();
+        settings.getStringSetting ("Name on the display (blank: the mode's own)", CATEGORY_CUSTOM, 5, "").addValueObserver (value -> {
+            this.customBoard.setName (value);
+            this.customChanged ();
         });
 
         for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
@@ -395,45 +360,45 @@ public class PacerConfiguration extends AbstractConfiguration
                 continue;
             final int index = i;
             final String name = PacerMap.SWITCH_NAMES[i];
-            enumSetting (settings, name + " tap", CATEGORY_CUSTOM, Action.values (), Action.NONE, value -> {
-                this.customTap[index] = value;
-                this.rebuildCustomLayouts ();
+            inheritableSetting (settings, name + " · tap", Action.values (), value -> {
+                this.customBoard.setTap (index, value);
+                this.customChanged ();
             });
-            enumSetting (settings, name + " double-tap", CATEGORY_CUSTOM, Action.values (), Action.NONE, value -> {
-                this.customDoubleTap[index] = value;
-                this.rebuildCustomLayouts ();
+            inheritableSetting (settings, name + " · double-tap", Action.values (), value -> {
+                this.customBoard.setDoubleTap (index, value);
+                this.customChanged ();
             });
-            enumSetting (settings, name + " hold", CATEGORY_CUSTOM, Action.values (), Action.NONE, value -> {
-                this.customHold[index] = value;
-                this.rebuildCustomLayouts ();
+            inheritableSetting (settings, name + " · hold", Action.values (), value -> {
+                this.customBoard.setHold (index, value);
+                this.customChanged ();
             });
-            enumSetting (settings, name + " colour", CATEGORY_CUSTOM, SwitchColour.values (), SwitchColour.AUTO, value -> {
-                this.customColour[index] = value;
-                this.rebuildCustomLayouts ();
+            enumSetting (settings, name + " · colour", CATEGORY_CUSTOM, SwitchColour.values (), SwitchColour.AUTO, value -> {
+                this.customBoard.setColour (index, value);
+                this.customChanged ();
             });
-            enumSetting (settings, name + " LED", CATEGORY_CUSTOM, LedRow.values (), LedRow.STRIP, value -> {
-                this.customRow[index] = value;
-                this.rebuildCustomLayouts ();
+            inheritableSetting (settings, name + " · LED", LedRow.values (), value -> {
+                this.customBoard.setRow (index, value);
+                this.customChanged ();
             });
         }
     }
 
 
-    private void rebuildCustomLayouts ()
+    private void customChanged ()
     {
-        for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
-        {
-            if (Mode.isModeSwitch (i))
-            {
-                this.customLayouts[i] = SwitchLayout.MODE_SWITCH;
-                continue;
-            }
-            final Action tap = this.customTap[i];
-            final boolean loopSwitch = i < this.customLoopSwitches.getCount ();
-            final PacerColour colour = this.customColour[i].resolve (loopSwitch, tap, this.customDoubleTap[i], this.customHold[i]);
-            this.customLayouts[i] = new SwitchLayout (tap, this.customDoubleTap[i], this.customHold[i], colour, this.customRow[i].orStripOn (i));
-        }
+        this.customBoard.rebuild ();
         this.notifyObservers (CUSTOM_MODE);
+    }
+
+
+    /** A custom layout setting whose first option leaves the switch as the mode has it (the observer gets null). */
+    private static <E extends Labelled> void inheritableSetting (final ISettingsUI settings, final String label, final E [] values, final Consumer<E> observer)
+    {
+        final String [] labels = new String [values.length + 1];
+        labels[0] = AS_IN_THE_MODE;
+        System.arraycopy (Labelled.labels (values), 0, labels, 1, values.length);
+        final IEnumSetting setting = settings.getEnumSetting (label, CATEGORY_CUSTOM, labels, AS_IN_THE_MODE);
+        setting.addValueObserver (value -> observer.accept (AS_IN_THE_MODE.equals (value) ? null : Labelled.fromLabel (values, value, null)));
     }
 
 
@@ -567,9 +532,18 @@ public class PacerConfiguration extends AbstractConfiguration
 
 
     /**
-     * @return The custom mode's board, laid out entirely in the settings
+     * @return What previous / next row does while loops play
      */
-    public ModeBoard getCustomBoard ()
+    public RowMove getRowMove ()
+    {
+        return this.rowMove;
+    }
+
+
+    /**
+     * @return The custom layout: the board of the custom mode, or of the built-in mode it changes
+     */
+    public CustomBoard getCustomBoard ()
     {
         return this.customBoard;
     }

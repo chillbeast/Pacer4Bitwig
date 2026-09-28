@@ -14,7 +14,7 @@ import dev.pacer4bitwig.util.Labelled;
 public enum SwitchColour implements Labelled
 {
     /** Pick a colour from the switch's action. */
-    AUTO ("Automatic (from the action)", null),
+    AUTO ("Automatic (as in the mode, or from the action)", null),
     /** Dark until the switch has something to show. */
     OFF ("Off", PacerColour.OFF),
     /** Magenta. */
@@ -90,7 +90,7 @@ public enum SwitchColour implements Labelled
         if (this.colour != null)
             return this.colour;
         if (loopSwitch)
-            return SwitchLayout.LOOP_TRACK.colour ();
+            return SwitchLayout.LOOP_COLOUR;
         for (final Action action: new Action []
         {
             tap,

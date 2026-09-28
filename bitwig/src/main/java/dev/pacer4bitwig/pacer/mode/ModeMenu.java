@@ -6,6 +6,8 @@ import dev.pacer4bitwig.pacer.controller.PacerMap;
 import dev.pacer4bitwig.pacer.live.PacerColour;
 import dev.pacer4bitwig.pacer.looper.Action;
 
+import java.util.function.Predicate;
+
 
 /**
  * The layer that appears while SW 6 is held: the nine other switches become mode slots and navigation.
@@ -107,10 +109,24 @@ public final class ModeMenu
      */
     public static PacerColour colourAt (final int switchIndex, final Mode active)
     {
+        return colourAt (switchIndex, active, mode -> true);
+    }
+
+
+    /**
+     * The colour a switch shows while the menu is open.
+     *
+     * @param switchIndex 0-9
+     * @param active The mode that is currently active
+     * @param offered Which modes the menu offers; the slots of the others stay dark
+     * @return The colour
+     */
+    public static PacerColour colourAt (final int switchIndex, final Mode active, final Predicate<Mode> offered)
+    {
         if (Mode.isModeSwitch (switchIndex))
             return PacerColour.WHITE;
         if (switchIndex < SLOTS.length)
-            return SLOT_COLOURS[switchIndex];
+            return offered.test (SLOTS[switchIndex]) ? SLOT_COLOURS[switchIndex] : PacerColour.OFF;
         return actionAt (switchIndex) == Action.NONE ? PacerColour.OFF : NAV_COLOUR;
     }
 

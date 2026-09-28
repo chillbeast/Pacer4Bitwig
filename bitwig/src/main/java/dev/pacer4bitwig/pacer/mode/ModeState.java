@@ -2,6 +2,9 @@
 
 package dev.pacer4bitwig.pacer.mode;
 
+import java.util.function.Predicate;
+
+
 /**
  * Which mode is active, and the SW 6 gestures that change it.
  * <p>
@@ -14,9 +17,11 @@ package dev.pacer4bitwig.pacer.mode;
  */
 public final class ModeState
 {
-    private Mode    active;
-    private Mode    previous;
-    private boolean menuOpen;
+    private Mode            active;
+    private Mode            previous;
+    private boolean         menuOpen;
+    /** The modes the menu offers: the custom mode's slot goes dark while its settings change a built-in mode. */
+    private Predicate<Mode> offered = mode -> true;
 
 
     /**
@@ -28,6 +33,25 @@ public final class ModeState
     {
         this.active = initial;
         this.previous = initial;
+    }
+
+
+    /**
+     * @param offered Which modes can be reached: from the menu, the next-mode action and a toggle back
+     */
+    public void setOffered (final Predicate<Mode> offered)
+    {
+        this.offered = offered == null ? mode -> true : offered;
+    }
+
+
+    /**
+     * @param mode A mode
+     * @return True if the menu offers it
+     */
+    public boolean isOffered (final Mode mode)
+    {
+        return mode != null && ModeMenu.slotOf (mode) >= 0 && this.offered.test (mode);
     }
 
 
@@ -129,7 +153,14 @@ public final class ModeState
      */
     public boolean next ()
     {
-        return this.activate (this.active.next ());
+        Mode candidate = this.active;
+        for (int step = 0; step < Mode.values ().length; step++)
+        {
+            candidate = candidate.next ();
+            if (this.isOffered (candidate))
+                return this.activate (candidate);
+        }
+        return false;
     }
 
 
@@ -141,7 +172,8 @@ public final class ModeState
      */
     public boolean activate (final Mode mode)
     {
-        if (mode == null || mode == this.active)
+        // A mode the menu does not offer cannot be reached any other way either - a toggle back, the startup mode
+        if (mode == null || mode == this.active || !this.isOffered (mode))
             return false;
         this.previous = this.active;
         this.active = mode;

@@ -60,13 +60,21 @@ class ModeTest
     void loopModeLoopsOnSw1To4LikeTheDefaultNumberOfLoopTracks ()
     {
         // "Loop tracks" defaults to 4; a fifth loop switch would do nothing out of the box
-        assertEquals (4, Mode.LOOP.getLoopSwitches ());
         for (int i = 0; i < 4; i++)
-            assertTrue (Mode.LOOP.isLoopSwitch (i), "SW " + (i + 1) + " is a loop track");
+            assertEquals (i, Mode.LOOP.getLoopTrack (i), "SW " + (i + 1) + " is loop track " + (i + 1));
         assertFalse (Mode.LOOP.isLoopSwitch (4), "SW 5 is undo");
         assertFalse (Mode.LOOP.isLoopSwitch (6), "the top row is not a loop track");
-        assertEquals (0, Mode.FX.getLoopSwitches (), "FX has no loop switches");
-        assertEquals (0, Mode.MIX.getLoopSwitches (), "MIX has no loop switches");
+        for (final Mode mode: new Mode []
+        {
+            Mode.FX,
+            Mode.MIX,
+            Mode.SONG,
+            Mode.CUSTOM
+        })
+            for (int i = 0; i < PacerMap.NUM_SWITCHES; i++)
+                assertFalse (mode.isLoopSwitch (i), mode + " has no loop switches");
+        assertTrue (Mode.LOOP.countsBeats (), "the looper counts beats on the top row");
+        assertFalse (Mode.FX.countsBeats (), "the FX switches never turn into a beat counter");
     }
 
 
@@ -114,11 +122,12 @@ class ModeTest
     @Test
     void loopSwitchesCarryNoActionsOfTheirOwn ()
     {
-        for (int i = 0; i < Mode.LOOP.getLoopSwitches (); i++)
+        for (int i = 0; i < 4; i++)
         {
             final SwitchLayout layout = Mode.LOOP.getLayout (i);
-            assertEquals (Action.NONE, layout.tap (), "a loop switch gets its behaviour from the looper");
-            assertEquals (Action.NONE, layout.hold ());
+            assertEquals (Action.loopTrack (i), layout.tap (), "its tap says which loop track");
+            assertEquals (Action.NONE, layout.hold (), "a loop switch gets its hold from the looper");
+            assertEquals (SwitchLayout.LOOP_COLOUR, layout.colour ());
         }
     }
 
@@ -393,7 +402,6 @@ class ModeTest
                 continue;
             assertEquals (Action.NONE, Mode.CUSTOM.getLayout (i).tap (), "SW " + i + " is a placeholder");
         }
-        assertEquals (0, Mode.CUSTOM.getLoopSwitches ());
         assertEquals ("CUST", Mode.CUSTOM.getDisplayName ());
     }
 
@@ -428,7 +436,7 @@ class ModeTest
     void automaticColourNeverLeavesAnAssignedSwitchDark ()
     {
         // A custom loop switch has no action of its own: it takes the looper's colour, so an empty loop still shows
-        assertEquals (SwitchLayout.LOOP_TRACK.colour (), SwitchColour.AUTO.resolve (true, Action.NONE, Action.NONE, Action.NONE));
+        assertEquals (SwitchLayout.LOOP_COLOUR, SwitchColour.AUTO.resolve (true, Action.NONE, Action.NONE, Action.NONE));
         // Only a hold assigned: the hold picks the colour
         assertEquals (SwitchColour.automatic (Action.METRONOME), SwitchColour.AUTO.resolve (false, Action.NONE, Action.NONE, Action.METRONOME));
         assertEquals (SwitchColour.automatic (Action.UNDO), SwitchColour.AUTO.resolve (false, Action.NONE, Action.UNDO, Action.NONE));

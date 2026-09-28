@@ -8,8 +8,8 @@ import dev.pacer4bitwig.pacer.live.PacerColour;
 import dev.pacer4bitwig.pacer.looper.Action;
 import dev.pacer4bitwig.util.Labelled;
 
-import static dev.pacer4bitwig.pacer.mode.SwitchLayout.LOOP_TRACK;
 import static dev.pacer4bitwig.pacer.mode.SwitchLayout.MODE_SWITCH;
+import static dev.pacer4bitwig.pacer.mode.SwitchLayout.loop;
 import static dev.pacer4bitwig.pacer.mode.SwitchLayout.of;
 import static dev.pacer4bitwig.pacer.mode.SwitchLayout.on;
 
@@ -28,12 +28,12 @@ public enum Mode implements Labelled, ModeBoard
      * and undo on the bottom row, scene rows on SW A / SW B (hold: move the loop tracks), play/stop all - which used
      * to be SW 6 - on SW C, and launcher overdub (hold: metronome) on SW D.
      */
-    LOOP ("LOOP", "Looper", 4, new SwitchLayout []
+    LOOP ("LOOP", "Looper", new SwitchLayout []
     {
-        LOOP_TRACK,
-        LOOP_TRACK,
-        LOOP_TRACK,
-        LOOP_TRACK,
+        loop (0),
+        loop (1),
+        loop (2),
+        loop (3),
         of (Action.UNDO, Action.REDO, PacerColour.WHITE),
         MODE_SWITCH,
         of (Action.ROW_PREVIOUS, Action.TRACKS_LEFT, PacerColour.LAVENDER),
@@ -43,7 +43,7 @@ public enum Mode implements Labelled, ModeBoard
     }),
 
     /** The pedalboard: instruments on the bottom row, their FX switches on the top row. */
-    FX ("FX", "FX pedalboard", 0, new SwitchLayout []
+    FX ("FX", "FX pedalboard", new SwitchLayout []
     {
         of (Action.FOCUS_A, Action.MUTE_A, Action.ASSIGN_A, PacerColour.WHITE),
         of (Action.FOCUS_B, Action.MUTE_B, Action.ASSIGN_B, PacerColour.WHITE),
@@ -61,7 +61,7 @@ public enum Mode implements Labelled, ModeBoard
      * The mixer. SW 1-4 sit under the printed words {@code Solo}, {@code Mute}, {@code Rec Arm} and {@code Click}
      * and light that word, so the panel labels itself (docs/PACER-MAP.md).
      */
-    MIX ("MIX", "Mixer", 0, new SwitchLayout []
+    MIX ("MIX", "Mixer", new SwitchLayout []
     {
         on (Action.SOLO_SELECTED, Action.NONE, PacerColour.YELLOW, LedRow.WORD),
         on (Action.MUTE_SELECTED, Action.NONE, PacerColour.BLUE, LedRow.WORD),
@@ -79,7 +79,7 @@ public enum Mode implements Labelled, ModeBoard
      * Building a song out of rows. SW 1-5 sit under the printed transport icons - loop, rewind, fast forward, stop
      * and play - and light those rather than the colour strip, so the panel labels itself a second time.
      */
-    SONG ("SONG", "Song", 0, new SwitchLayout []
+    SONG ("SONG", "Song", new SwitchLayout []
     {
         on (Action.PLAY_STOP_ALL, Action.CLEAR_ROW, PacerColour.GREEN, LedRow.ICON),
         on (Action.ROW_PREVIOUS, Action.NONE, PacerColour.LAVENDER, LedRow.ICON),
@@ -94,10 +94,10 @@ public enum Mode implements Labelled, ModeBoard
     }),
 
     /**
-     * Laid out entirely in the settings. Its own layouts here are placeholders and are never read: the controller
-     * swaps in the board built from the settings (see {@code PacerConfiguration.getCustomBoard}).
+     * Laid out entirely in the settings. Its own layouts here are the empty board a custom mode of its own starts
+     * from ({@link CustomBoard}); the controller always shows the board built from the settings instead.
      */
-    CUSTOM ("CUST", "Custom", 0, new SwitchLayout []
+    CUSTOM ("CUST", "Custom", new SwitchLayout []
     {
         SwitchLayout.EMPTY,
         SwitchLayout.EMPTY,
@@ -117,17 +117,15 @@ public enum Mode implements Labelled, ModeBoard
 
     private final String         displayName;
     private final String         label;
-    private final int            loopSwitches;
     private final SwitchLayout [] layouts;
 
 
-    Mode (final String displayName, final String label, final int loopSwitches, final SwitchLayout [] layouts)
+    Mode (final String displayName, final String label, final SwitchLayout [] layouts)
     {
         if (layouts.length != PacerMap.NUM_SWITCHES)
             throw new IllegalArgumentException (label + " must lay out all " + PacerMap.NUM_SWITCHES + " switches");
         this.displayName = displayName;
         this.label = label;
-        this.loopSwitches = loopSwitches;
         this.layouts = layouts;
     }
 
@@ -158,9 +156,9 @@ public enum Mode implements Labelled, ModeBoard
 
     /** {@inheritDoc} */
     @Override
-    public int getLoopSwitches ()
+    public boolean countsBeats ()
     {
-        return this.loopSwitches;
+        return this == LOOP;
     }
 
 

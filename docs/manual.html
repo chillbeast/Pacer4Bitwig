@@ -448,6 +448,8 @@ dl.pairs dd { margin: 0; color: var(--ink-dim); max-width: var(--measure); }
   cursor: pointer;
 }
 .segmented button[aria-pressed="true"] { background: var(--ink); color: var(--ground); }
+.segmented button.shift-toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.explorer-controls { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
 .explorer-note { font-size: .8rem; color: var(--ink-faint); }
 
 .pacer {
@@ -655,12 +657,17 @@ footer { border-top: 1px solid var(--line); padding-block: 2rem 3rem; color: var
 
   <div class="explorer" id="explorer">
     <div class="explorer-bar">
-      <div class="segmented" role="group" aria-label="Mode shown on the Pacer">
-        <button type="button" id="show-looper" aria-pressed="true">Looper</button>
-        <button type="button" id="show-fx" aria-pressed="false">FX</button>
-        <button type="button" id="show-mix" aria-pressed="false">Mixer</button>
-        <button type="button" id="show-song" aria-pressed="false">Song</button>
-        <button type="button" id="show-custom" aria-pressed="false">Custom</button>
+      <div class="explorer-controls">
+        <div class="segmented" role="group" aria-label="Mode shown on the Pacer">
+          <button type="button" id="show-looper" aria-pressed="true">Looper</button>
+          <button type="button" id="show-fx" aria-pressed="false">FX</button>
+          <button type="button" id="show-mix" aria-pressed="false">Mixer</button>
+          <button type="button" id="show-song" aria-pressed="false">Song</button>
+          <button type="button" id="show-custom" aria-pressed="false">Custom</button>
+        </div>
+        <div class="segmented" role="group" aria-label="Shift layer">
+          <button type="button" class="shift-toggle" id="show-shift" aria-pressed="false" title="The shift layer: double-tap SW 6 on the Pacer">Shift</button>
+        </div>
       </div>
       <span class="explorer-note" id="explorer-note">The Looper mode, its display naming the row. The LEDs show an example moment at 120 bpm: loop 1 playing, loop 2 stopped.</span>
     </div>
@@ -719,6 +726,7 @@ footer { border-top: 1px solid var(--line); padding-block: 2rem 3rem; color: var
     <div><span class="eyebrow">Play</span>
       <ul>
         <li><a href="#looper">Looper mode</a></li>
+        <li><a href="#shift">The shift layer</a></li>
         <li><a href="#fx">FX mode</a></li>
         <li><a href="#pedals">Expression pedals</a></li>
         <li><a href="#leds">LEDs</a></li>
@@ -752,7 +760,7 @@ footer { border-top: 1px solid var(--line); padding-block: 2rem 3rem; color: var
   <dl class="pairs">
     <div><dt>PACER Looper</dt><dd>The Bitwig controller extension (<code>Pacer4Bitwig.bwextension</code>). All behaviour lives here, and almost everything is configurable in Bitwig's controller settings.</dd></div>
     <div><dt>One Pacer preset</dt><dd><span class="sw">PACER</span> on slot D1. It only has to speak the right CCs: the extension writes the colours, the display name and what every switch does <em>live</em> while it plays.</dd></div>
-    <div><dt>Five modes</dt><dd><span class="sw">LOOP</span> loops, <span class="sw">FX</span> the pedalboard for what you are playing, <span class="sw">MIX</span> solo, mute, monitoring and the click, <span class="sw">SONG</span> building a song out of rows, and <span class="sw">CUST</span> laid out however you like in the settings &mdash; or let those settings change one of the other four. Tap SW 6 to toggle, hold it for the menu.</dd></div>
+    <div><dt>Five modes</dt><dd><span class="sw">LOOP</span> loops, <span class="sw">FX</span> the pedalboard for what you are playing, <span class="sw">MIX</span> solo, mute, monitoring and the click, <span class="sw">SONG</span> building a song out of rows, and <span class="sw">CUST</span> laid out however you like in the settings &mdash; or let those settings change one of the other four. Tap SW 6 to toggle, hold it for the menu, double-tap it for the <a href="#shift">shift layer</a>, a second job on the same switches.</dd></div>
     <div><dt>Pacer Studio</dt><dd>A preset editor that runs in Chrome or Edge, <a href="https://chillbeast.github.io/Pacer4Bitwig/">online</a> or installed. It writes the preset, backs up the Pacer, and has an LED Lab and a MIDI monitor.</dd></div>
     <div><dt>Command-line tools</dt><dd>In <code>tools/</code>: a read-only backup, the preset generator, a guarded preset writer and a MIDI monitor.</dd></div>
   </dl>
@@ -840,7 +848,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
     <p>Loops need tracks to live on, and launch quantization to land on the grid.</p>
   </div>
   <ol class="steps">
-    <li><p><strong>Create the loop tracks</strong> next to each other, e.g. <em>Loop 1&ndash;4</em>. The looper manages 1&ndash;6 tracks (setting <em>Loop tracks</em>). Audio tracks take your interface input; instrument tracks work too, and can overdub notes into a playing clip.</p></li>
+    <li><p><strong>Create the loop tracks</strong> next to each other, e.g. <em>Loop 1&ndash;4</em>. The looper manages 1&ndash;8 tracks (setting <em>Loop tracks</em>). Audio tracks take your interface input; instrument tracks work too, and can overdub notes into a playing clip.</p></li>
     <li><p><strong>Tell the extension where they are</strong> if they are not the first tracks: <em>Looper &rsaquo; Loop tracks start at track</em>. It applies to every project, so a template that starts with a group track only needs it once. Holding <span class="sw">SW A</span> or <span class="sw">SW B</span> in the Looper mode, or tapping them in the mode menu, moves the loop track window and writes the same setting.</p></li>
     <li><p><strong>Set Launch quantization to 1 bar</strong> in the extension settings. That is what makes loops start and end on the grid.</p></li>
     <li><p><strong>Set the tempo</strong>, or tap it in the Song mode by holding <span class="sw">SW 5</span>.</p></li>
@@ -877,12 +885,13 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
 <section class="chapter" id="looper">
   <div class="chapter-head">
     <h3>The Looper mode</h3>
-    <p>Select <span class="sw">D1</span> on the Pacer: the extension writes the whole board, and a new project starts in this mode, with the row on the display (<code>ROW 1</code>). Each loop switch runs one loop track like a looper pedal, the rest of the Pacer moves you around the song. <span class="sw">SW 6</span> is the mode switch &mdash; tap it to go back to the mode you were in before, hold it for the menu.</p>
+    <p>Select <span class="sw">D1</span> on the Pacer: the extension writes the whole board, and a new project starts in this mode, with the row on the display (<code>ROW 1</code>). Each loop switch runs one loop track like a looper pedal, the rest of the Pacer moves you around the song. <span class="sw">SW 6</span> is the mode switch &mdash; tap it to go back to the mode you were in before, hold it for the menu, double-tap it for the shift layer.</p>
   </div>
 
   <div class="sub">
     <h4>SW 6 and the mode menu</h4>
     <p>Hold SW 6 and the menu opens; it stays open when your foot comes off. Tap a mode and you are there. Tap SW 6 again to close the menu without changing anything; with the menu shut, a tap goes back to the mode you were in before.</p>
+    <p><strong>Double-tap SW 6</strong> runs whatever <em>SW 6 double-tap</em> says: any action, by default the <a href="#shift">shift layer</a> on/off. So that a double-tap never toggles the mode first, SW 6's tap then waits out the <em>Double-tap speed</em> window before it toggles; set <em>SW 6 double-tap</em> to <em>Nothing</em> for an instant tap. With the menu open, a tap closes it at once.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>In the menu</th><th>Tap</th></tr></thead>
@@ -896,16 +905,41 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
     <p>Navigation leaves the menu open, so you can step through rows or tracks with repeated taps.</p>
   </div>
 
-  <div class="sub">
+  <div class="sub" id="display">
     <h4>The display</h4>
     <p>The display names the mode, or what the mode is doing when that says more: the FX mode names the focused instrument, the Looper and Song modes the row you are on &mdash; the scene's name in Bitwig, its name from <em>Names for new rows</em>, or <code>ROW 3</code>. <em>Show what the mode is doing on the display</em> turns that off.</p>
+    <p><strong>Events</strong> take the display for a moment and then give it back (<em>Show events on the display</em>, on by default):</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Word</th><th>When</th></tr></thead>
+        <tbody>
+          <tr><td><code>REC 2</code></td><td class="wrap">Loop 2 starts recording (<code>COUNT</code> while a count-in runs)</td></tr>
+          <tr><td><code>4 BAR</code></td><td class="wrap">A loop closed, and how long it is</td></tr>
+          <tr><td><code>CLR 2</code> &middot; <code>CLEAR</code></td><td class="wrap">Loop 2 was cleared &middot; the whole row was</td></tr>
+          <tr><td><code>UNDO</code> &middot; <code>REDO</code></td><td class="wrap">Undo, redo</td></tr>
+          <tr><td><code>MUTE2</code> &middot; <code>UNMT2</code></td><td class="wrap">Loop 2 muted or unmuted, as asked for: a waiting mute shows it when you press</td></tr>
+          <tr><td><code>MUTED</code> &middot; <code>UNMUT</code></td><td class="wrap">All loops muted or unmuted</td></tr>
+          <tr><td><code>STOP</code> &middot; <code>PLAY</code></td><td class="wrap">Stop all, play the row</td></tr>
+          <tr><td><code>FDOUT</code> &middot; <code>FD IN</code></td><td class="wrap">A fade started</td></tr>
+          <tr><td><code>RESET</code></td><td class="wrap">The looper was reset</td></tr>
+          <tr><td><code>SNAP2</code> &middot; <code>SAVE2</code></td><td class="wrap">FX snapshot 2 recalled &middot; stored</td></tr>
+          <tr><td><code>SHIFT</code></td><td class="wrap">The <a href="#shift">shift layer</a> went up</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Each event costs two name writes &mdash; the word, then the name again 1.5 s later &mdash; and each flashes <code>LOAD SYS</code>.</p>
+    <p><strong>Another preset loaded.</strong> The extension paints <em>whatever preset is loaded</em>, so it checks first that it is still its own: it reads the loaded preset's name back (a read-only request) before painting when its last answer is more than 1.5 s old, and every 5 s. On another preset it leaves the Pacer alone &mdash; Bitwig says so once &mdash; until you select the Bitwig preset again. The same check notices a Pacer that was unplugged and plugged back in, and paints it again. <em>Check the Pacer is on its preset</em> sets how: every 5 s and before painting (the default), only before painting, or off.</p>
+    <div class="aside warn">
+      <span class="eyebrow">Not tried on hardware yet</span>
+      <p>Whether the Pacer shows the preset check's request on its display has not been tested. If the display flashes <code>LOAD SYS</code> every five seconds, choose <em>Check the Pacer is on its preset = Only before painting</em>.</p>
+    </div>
   </div>
 
   <div class="sub">
     <h4>Three gestures on every switch</h4>
     <dl class="pairs">
       <div><dt>Tap</dt><dd>Runs on press whenever timing matters (loops, the one-button looper, tap tempo) or when the switch has no hold action; otherwise on release, so a hold never runs the tap first.</dd></div>
-      <div><dt>Double-tap</dt><dd>The first tap always runs straight away. A second tap within the <em>Double-tap speed</em> window (0.25, 0.35 or 0.5 s) runs the double-tap action instead of a second tap. Only the FX mode has double-taps built in.</dd></div>
+      <div><dt>Double-tap</dt><dd>The first tap always runs straight away. A second tap within the <em>Double-tap speed</em> window (0.25, 0.35 or 0.5 s) runs the double-tap action instead of a second tap. Double-taps are built in only on the FX mode's switches and on SW 6, where one raises the shift layer.</dd></div>
       <div><dt>Hold</dt><dd>Half a second. Actions that delete loops ask for 1.5 s by default, or 2.5 s (<em>Hold time for clearing actions</em>), so a heavy foot never clears a take.</dd></div>
     </dl>
   </div>
@@ -918,7 +952,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
         <tbody>
           <tr><td><span class="sw">SW 1</span>&ndash;<span class="sw">SW 4</span></td><td class="wrap">Smart loop on loop track 1&ndash;4</td><td class="wrap">Delete that loop</td></tr>
           <tr><td><span class="sw">SW 5</span></td><td class="wrap">Undo</td><td class="wrap">Redo</td></tr>
-          <tr><td><span class="sw">SW 6</span></td><td class="wrap">Close the menu, or go back to the mode you were in before</td><td class="wrap">The mode menu &mdash; it stays open when your foot comes off</td></tr>
+          <tr><td><span class="sw">SW 6</span></td><td class="wrap">Close the menu, or go back to the mode you were in before &middot; double-tap: the <a href="#shift">shift layer</a> on/off</td><td class="wrap">The mode menu &mdash; it stays open when your foot comes off</td></tr>
           <tr><td><span class="sw">SW A</span></td><td class="wrap">Previous scene row</td><td class="wrap">Move the loop track window left</td></tr>
           <tr><td><span class="sw">SW B</span></td><td class="wrap">Next scene row, adding one after the last</td><td class="wrap">Move the loop track window right</td></tr>
           <tr><td><span class="sw">SW C</span></td><td class="wrap">Stop all loops, or play the whole row when nothing plays</td><td class="wrap">Clear every loop in the row</td></tr>
@@ -932,7 +966,38 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
         </tbody>
       </table>
     </div>
-    <p>To change a switch, point the custom layout at this mode and set only what differs (see <a href="#custom">Your own layout</a>). The footswitch jacks have settings of their own and do the same in every mode.</p>
+    <p>Tap tempo and transport play/stop are on the shift layer's SW D, and on the Song mode's SW 5. To change a switch, point the custom layout at this mode and set only what differs (see <a href="#custom">Your own layout</a>). The footswitch jacks have settings of their own and do the same in every mode.</p>
+  </div>
+
+  <div class="sub" id="shift">
+    <h4>The shift layer</h4>
+    <p>Every mode can have a second layer on the same switches. <strong>Double-tap SW 6</strong> (the default <em>SW 6 double-tap</em>) and SW 6 turns <span class="led" data-c="amber"></span> gold, the display says <code>SHIFT</code> for a moment, and every switch with something on its shift layer does that instead; double-tap again to go back. A switch with nothing on its shift layer keeps its normal job, and SW 6 stays the mode switch. Changing mode drops the shift layer.</p>
+    <p>Three actions raise it, for SW 6's double-tap, a footswitch jack, or any switch in your own layout:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Action</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td>Shift layer on/off</td><td class="wrap">Latches it until the same action again. The default on SW 6's double-tap.</td></tr>
+          <tr><td>Shift layer for the next press</td><td class="wrap">Up for one switch press, then back; SW 6 blinks <span class="led" data-c="amber" data-p="medium"></span> gold meanwhile. Asking again before that press cancels it.</td></tr>
+          <tr><td>Shift layer while held</td><td class="wrap">Up while that switch or jack stays down: hold a footswitch on FS 1 with one foot, play the shifted switches with the other.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The Looper's shift layer is where <strong>loop tracks 5&ndash;8</strong> live; set <em>Loop tracks</em> to 8 to use them.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Shifted</th><th>Tap</th><th>Hold</th></tr></thead>
+        <tbody>
+          <tr><td><span class="sw">SW 1</span>&ndash;<span class="sw">SW 4</span></td><td class="wrap">Smart loop on loop track 5&ndash;8. They are loop switches, resting in cyan so they look different from loops 1&ndash;4.</td><td class="wrap">Delete that loop</td></tr>
+          <tr><td><span class="sw">SW 5</span></td><td class="wrap">Mute/unmute all loops</td><td class="wrap">Reset the looper</td></tr>
+          <tr><td><span class="sw">SW A</span></td><td class="wrap">Duplicate the row</td><td class="wrap">&ndash;</td></tr>
+          <tr><td><span class="sw">SW B</span></td><td class="wrap">Show looper status</td><td class="wrap">&ndash;</td></tr>
+          <tr><td><span class="sw">SW C</span></td><td class="wrap">Fade out and stop all loops</td><td class="wrap">Fade the row in</td></tr>
+          <tr><td><span class="sw">SW D</span></td><td class="wrap">Transport play/stop</td><td class="wrap">Tap tempo</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>The <a href="#fx">FX mode</a>'s shift layer puts FX 5 and FX 6 on SW A and SW B (hold: momentary) and previous / next instrument on SW C and SW D. The Mixer and Song modes have none yet: their switches keep their jobs when shifted. The custom layout lays out the shift layer too (<em>Custom layout: shift layer</em>, see <a href="#custom">Your own layout</a>), so this is the place to build your own workflow.</p>
   </div>
 
   <div class="sub" id="smart-loop">
@@ -957,7 +1022,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
   <div class="sub">
     <h4>Shaping the loop switches</h4>
     <dl class="pairs">
-      <div><dt>How many</dt><dd><em>Loop tracks</em>: 1&ndash;6, default 4. SW 1&ndash;4 are the Looper mode's loop switches, and one beyond the project's loop tracks does nothing: with three tracks, SW 4 is idle. For more loop switches, or loops somewhere else, give any switch or footswitch jack the tap <em>Loop track 1&ndash;6</em> (see <a href="#custom">Your own layout</a>). FS 1 and the row actions run every loop track.</dd></div>
+      <div><dt>How many</dt><dd><em>Loop tracks</em>: 1&ndash;8, default 4. SW 1&ndash;4 are the Looper mode's loop switches for loop tracks 1&ndash;4, and the same switches on the <a href="#shift">shift layer</a> for 5&ndash;8. A loop switch beyond the project's loop tracks does nothing: with three tracks, SW 4 is idle. For loops somewhere else, give any switch, shift gesture or footswitch jack the tap <em>Loop track 1&ndash;8</em> (see <a href="#custom">Your own layout</a>). FS 1 and the row actions run every loop track.</dd></div>
       <div><dt>Hold to record</dt><dd><em>Loop switch mode = Hold to record, release to close</em>: press and hold an empty loop to record, let go to close it, like a punch-in. Let go before recording started and it closes one quantization step after it starts. Loops that already exist keep tap and hold.</dd></div>
       <div><dt>Double-tap</dt><dd><em>Double-tap a loop switch</em>: stop, mute/unmute, clear or undo. <em>Clear</em> turns an accidental record into "never mind".</dd></div>
     </dl>
@@ -970,7 +1035,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
       <div><dt>Mute, don't stop</dt><dd><em>Tap on a playing loop = Mute/unmute</em> keeps the clip running silently, so it comes back exactly in time. <em>Mute/unmute all loops</em> makes a break; <em>Solo/unsolo selected loop</em> isolates a layer.</dd></div>
       <div><dt>Mute on the one</dt><dd><em>Mute timing = On the next beat / bar</em> holds a mute until the next beat or downbeat, even if your foot is early. A waiting mute blinks fast; tap again to cancel it.</dd></div>
       <div><dt>Count-in</dt><dd><em>Count-in from a stopped transport = 1 or 2 bars</em> starts the transport with the metronome, counts in and records on the next bar. Tap the same switch again to cancel.</dd></div>
-      <div><dt>Beat counter</dt><dd>In the Looper mode, while counting in or waiting to record (amber) and while recording (red), SW A&ndash;D show the beat of the bar: A = 1, B = 2, C = 3, D = 4. It runs on the Looper whether the custom layout changed it or not, and on a custom mode of its own once it has loop switches &mdash; never over a loop switch on the top row.</dd></div>
+      <div><dt>Beat counter</dt><dd>In the Looper mode, while counting in or waiting to record (amber) and while recording (red), SW A&ndash;D show the beat of the bar: A = 1, B = 2, C = 3, D = 4. With <em>While recording, SW A-D count = Bars since the recording started</em> they count bars instead once the recording runs &mdash; A = bar 1, B = bar 2 &hellip; and A again for bar 5; count-ins always count beats. It runs on the Looper whether the custom layout changed it or not, and on a custom mode of its own once it has loop switches &mdash; never over a loop switch on the top row.</dd></div>
       <div><dt>Match the first loop</dt><dd><em>Loop length = Match the first loop of the row</em>: the first loop of a row is free, and its length in bars becomes the length of every later loop in that row, which then close by themselves.</dd></div>
       <div><dt>Double and halve</dt><dd><em>Double selected loop</em> duplicates the clip's content (2 bars become 4 of the same material); <em>Halve</em> shortens the loop to its first half.</dd></div>
       <div><dt>Rows as song sections</dt><dd>Each scene row is a set of loops. Record the verse in row 1, tap SW B and record the chorus in row 2, launch rows with SW C. <em>Duplicate row</em> copies a row with its loops and moves there. With <em>Previous / next row while loops play = Move to it and play it</em>, moving to a row that has loops while the song plays launches it on the launch quantization, so a section change is one press; an empty row is left alone, so the old loops play on while you record the new section.</dd></div>
@@ -1000,29 +1065,31 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
       </table>
     </div>
     <p>Plus <em>Name on the display</em>: five characters; blank keeps the mode's own name, <code>CUST</code> for a mode of its own. Changing any of it repaints the Pacer at once while you are standing in the mode.</p>
+    <p><strong>The shift layer</strong> has its own category, <em>Custom layout: shift layer</em>: <em>SW n &middot; shift tap / shift double-tap / shift hold</em>, each starting at <em>As in the mode</em> &mdash; the mode's own <a href="#shift">shift layer</a>, which for most switches means "keeps its normal job". Set any of them and the switch does that while shift is up; its colour then comes from the action, and it lights the same LED as normally. A switch whose shift gestures all do <em>Nothing</em> keeps its normal job.</p>
     <div class="aside">
       <span class="eyebrow">Example: tap tempo back on the Looper's SW D</span>
       <p><em>The custom layout changes = The Looper mode (changes it)</em>, <em>SW D &middot; tap = Tap tempo</em>, <em>SW D &middot; hold = Transport play/stop</em>. Everything else stays the Looper.</p>
     </div>
     <dl class="pairs">
-      <div><dt>Loops anywhere</dt><dd>Give a switch the tap <em>Loop track 1</em> &hellip; <em>Loop track 6</em> and it is a full loop switch for that track: the smart loop, <em>Hold a loop switch</em>, <em>Double-tap a loop switch</em>, hold to record and the loop LED all apply, and its own hold and double-tap settings are ignored. So loops can sit on the top row, and a footswitch jack set to <em>Loop track n</em> is a loop switch too.</dd></div>
-      <div><dt>A mute per loop</dt><dd><em>Mute/unmute loop track 1&ndash;6</em> gives each loop a mute switch of its own, looper-pedal style. It honours <em>Mute timing</em>, lights blue while the loop is muted and blinks while the mute waits for its beat.</dd></div>
+      <div><dt>Loops anywhere</dt><dd>Give a switch the tap <em>Loop track 1</em> &hellip; <em>Loop track 8</em> and it is a full loop switch for that track: the smart loop, <em>Hold a loop switch</em>, <em>Double-tap a loop switch</em>, hold to record and the loop LED all apply, and its own hold and double-tap settings are ignored. So loops can sit on the top row, on the shift layer, and a footswitch jack set to <em>Loop track n</em> is a loop switch too.</dd></div>
+      <div><dt>A mute per loop</dt><dd><em>Mute/unmute loop track 1&ndash;8</em> gives each loop a mute switch of its own, looper-pedal style. It honours <em>Mute timing</em>, lights blue while the loop is muted and blinks while the mute waits for its beat.</dd></div>
     </dl>
   </div>
 
   <div class="sub" id="actions">
     <h4>Actions you can assign</h4>
-    <p>These actions are available as tap, double-tap and hold in the <a href="#custom">custom layout</a> and on the footswitch jacks.</p>
+    <p>These actions are available as tap, double-tap and hold in the <a href="#custom">custom layout</a> (its shift layer included) and on the footswitch jacks, and any of them can be SW 6's double-tap.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Group</th><th>Actions</th></tr></thead>
         <tbody>
-          <tr><td>Loops</td><td class="wrap">Loop track 1&ndash;6 (as a tap: makes the switch or jack a loop switch) &middot; mute/unmute loop track 1&ndash;6 &middot; one-button looper &middot; clear the last recorded loop &middot; smart loop, stop, mute, solo or clear the selected track &middot; input monitoring on/off &middot; double / halve the selected loop &middot; select previous / next loop track</td></tr>
+          <tr><td>Loops</td><td class="wrap">Loop track 1&ndash;8 (as a tap: makes the switch or jack a loop switch) &middot; mute/unmute loop track 1&ndash;8 &middot; one-button looper &middot; clear the last recorded loop &middot; smart loop, stop, mute, solo or clear the selected track &middot; input monitoring on/off &middot; double / halve the selected loop &middot; select previous / next loop track</td></tr>
           <tr><td>Row</td><td class="wrap">Play row / stop all &middot; stop all &middot; play row &middot; clear row &middot; mute/unmute all loops &middot; fade out and stop &middot; fade in the row &middot; reset the looper</td></tr>
           <tr><td>Navigation</td><td class="wrap">Previous / next row &middot; duplicate row &middot; move loop tracks left / right &middot; loop tracks start at the selected track</td></tr>
           <tr><td>Transport</td><td class="wrap">Undo &middot; redo &middot; launcher overdub &middot; metronome &middot; tap tempo &middot; transport play/stop &middot; show looper status &middot; test the LEDs</td></tr>
           <tr><td>FX</td><td class="wrap">FX 1&ndash;6 on/off &middot; focus instrument A&ndash;D &middot; focus next / previous instrument &middot; mute/unmute instrument A&ndash;D or the focused one &middot; assign the selected track to instrument A&ndash;D &middot; next snapshot &middot; back to snapshot 1 &middot; store the snapshot</td></tr>
-          <tr><td>Modes</td><td class="wrap">Next mode &middot; previous mode (toggle) &middot; go to the Looper, FX, Mixer or Song mode</td></tr>
+          <tr><td>Modes</td><td class="wrap">Next mode &middot; previous mode (toggle) &middot; go to the Looper, FX, Mixer, Song or Custom mode (the Custom one goes to the mode the custom layout changes, if it changes one)</td></tr>
+          <tr><td>Shift</td><td class="wrap">Shift layer on/off &middot; shift layer for the next press &middot; shift layer while held (see <a href="#shift">The shift layer</a>)</td></tr>
           <tr><td>Hold only</td><td class="wrap"><em>Momentary: tap again on release</em> turns any on/off tap into a momentary switch</td></tr>
         </tbody>
       </table>
@@ -1049,7 +1116,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
       <li>
         <p><strong>Optional: add a remote controls page named Pacer</strong> to each track and map</p>
         <ul>
-          <li>slots 1&ndash;4 to what SW A&ndash;D switch (FX 1&ndash;4), such as an effect's mix or a chain's volume. The mapping's range is what the switch toggles between, so <em>delay mix 0&ndash;35 %</em> is set up in Bitwig. Slots 5&ndash;6 are FX 5 and FX 6, reached from a footswitch jack;</li>
+          <li>slots 1&ndash;4 to what SW A&ndash;D switch (FX 1&ndash;4), such as an effect's mix or a chain's volume. The mapping's range is what the switch toggles between, so <em>delay mix 0&ndash;35 %</em> is set up in Bitwig. Slots 5&ndash;6 are FX 5 and FX 6, on the shift layer's SW A and SW B;</li>
           <li>slots 7&ndash;8 to what EXP 1 and EXP 2 move: wah frequency, delay feedback, reverb size.</li>
         </ul>
         <p>Save the track as a preset (<em>Guitar rig</em>, <em>Bass rig</em>, <em>Vocal chain</em>) to bring it to any project.</p>
@@ -1066,7 +1133,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
         <tbody>
           <tr><td><span class="sw">SW 1</span>&ndash;<span class="sw">SW 4</span></td><td class="wrap">Focus instrument A&ndash;D</td><td class="wrap">Mute/unmute that instrument</td><td class="wrap">Assign the track selected in Bitwig</td></tr>
           <tr><td><span class="sw">SW 5</span></td><td class="wrap">Next snapshot</td><td class="wrap">Back to snapshot 1</td><td class="wrap">Store the current sound</td></tr>
-          <tr><td><span class="sw">SW 6</span></td><td class="wrap">Previous mode</td><td class="wrap">&ndash;</td><td class="wrap">The mode menu</td></tr>
+          <tr><td><span class="sw">SW 6</span></td><td class="wrap">Previous mode</td><td class="wrap">Shift layer on/off (setting <em>SW 6 double-tap</em>)</td><td class="wrap">The mode menu</td></tr>
           <tr><td><span class="sw">SW A</span>&ndash;<span class="sw">SW D</span></td><td class="wrap">FX 1&ndash;4 on/off</td><td class="wrap">&ndash;</td><td class="wrap">On only while held</td></tr>
           <tr><td><span class="sw">FS 1</span>, <span class="sw">FS 2</span></td><td class="wrap" colspan="3">Same as in the Looper mode: one-button looper and play/stop all, so you can keep looping</td></tr>
           <tr><td><span class="sw">FS 3</span>, <span class="sw">FS 4</span></td><td class="wrap" colspan="3">Focus the next instrument &middot; next snapshot</td></tr>
@@ -1074,7 +1141,17 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
         </tbody>
       </table>
     </div>
-    <p>To change this layout, point the custom layout at the FX mode (see <a href="#custom">Your own layout</a>). FX 5 and FX 6 can go on a switch there, or on a footswitch jack, which keeps its own settings in every mode.</p>
+    <p>The <a href="#shift">shift layer</a> (double-tap SW 6; SW 6 turns gold) reaches the rest. SW 1&ndash;5 keep their jobs.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Shifted</th><th>Tap</th><th>Hold</th></tr></thead>
+        <tbody>
+          <tr><td><span class="sw">SW A</span>, <span class="sw">SW B</span></td><td class="wrap">FX 5, FX 6 on/off</td><td class="wrap">On only while held</td></tr>
+          <tr><td><span class="sw">SW C</span>, <span class="sw">SW D</span></td><td class="wrap">Focus the previous / next instrument</td><td class="wrap">&ndash;</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>To change this layout, point the custom layout at the FX mode (see <a href="#custom">Your own layout</a>), shift layer included. FX 5 and FX 6 can also go on a footswitch jack, which keeps its own settings in every mode.</p>
   </div>
 
   <div class="sub">
@@ -1099,7 +1176,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
     <dl class="pairs">
       <div><dt>What is stored</dt><dd>The state of FX 1&ndash;6 for the focused instrument: each device on or off, or each remote control's exact value, so a delay mix set to 35 % with a knob comes back at 35 %. Remote controls 7&ndash;8 stay with the pedals.</dd></div>
       <div><dt>How many</dt><dd><em>Snapshots per instrument</em>: 2 by default (an A/B pair such as rhythm and lead), up to 4. Saved per project.</dd></div>
-      <div><dt>Using them</dt><dd>Tap SW 5 for the next snapshot, double-tap to go back to the first, hold to store the current sound in the snapshot you are on. An empty snapshot changes nothing until you store into it.</dd></div>
+      <div><dt>Using them</dt><dd>Tap SW 5 for the next snapshot, double-tap to go back to the first, hold to store the current sound in the snapshot you are on. An empty snapshot changes nothing until you store into it. The display shows <code>SNAP2</code> for a moment when snapshot 2 is recalled, <code>SAVE2</code> when it is stored.</dd></div>
       <div><dt>Changed since</dt><dd>SW 5 blinks when you have switched something since the snapshot was recalled or stored.</dd></div>
     </dl>
   </div>
@@ -1148,6 +1225,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
       <tbody>
         <tr><td>Bitwig parameters</td><td class="wrap">Selected track volume, pan, send 1, send 2 &middot; master volume &middot; selected device remote controls 1&ndash;2 &middot; project remote controls 1&ndash;2</td></tr>
         <tr><td>Focused instrument</td><td class="wrap">Remote controls 1&ndash;8 of its Pacer page (FX mode defaults: 7 and 8)</td></tr>
+        <tr><td>Loops</td><td class="wrap">Loop track 1&ndash;8: volume (follows the loop track window) &middot; the loop being recorded, else the one recorded last in the row, else the selected loop track: volume &middot; all loop tracks: volume, keeping their balance</td></tr>
         <tr><td>Per mode</td><td class="wrap">Each mode has its own target for each pedal &mdash; ten settings, <em>EXP 1 &middot; Looper</em> through <em>EXP 2 &middot; Custom</em>. Defaults, EXP 1 / EXP 2: Looper selected track volume / master volume &middot; FX focused instrument remote control 7 / 8 &middot; Mixer selected track volume / send 1 &middot; Song master volume / project remote control 1 &middot; Custom nothing. A custom layout that changes a built-in mode keeps that mode's pedals. Response curve and heel/toe are shared.</td></tr>
         <tr><td>MIDI</td><td class="wrap">Mod wheel (CC 1) &middot; breath (CC 2) &middot; channel volume (CC 7) &middot; expression (CC 11) &middot; brightness / MPE timbre (CC 74) &middot; channel pressure &middot; pitch bend up (heel centre, toe full up)</td></tr>
       </tbody>
@@ -1187,7 +1265,12 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
     </div>
     <figcaption class="explorer-note" id="curve-caption">Slow start gives fine control near the heel, good for volume swells; fast start near the toe. Heel and toe set the range, e.g. 20&ndash;70 % keeps a filter in its sweet spot; a heel above the toe reverses the pedal.</figcaption>
   </figure>
-  <p>A parameter target with a linear response and the full range is bound directly, so Bitwig's own pickup behaviour applies. Every other combination is calculated by the extension, and the first move after switching jumps the target to the pedal position.</p>
+  <p>A parameter target with a linear response and the full range is bound directly, so Bitwig's own pickup behaviour applies. Every other combination is calculated by the extension.</p>
+  <dl class="pairs">
+    <div><dt>Pedal takeover</dt><dd>What the first move does after a pedal got its target: a mode change, a new target in the settings, startup. <em>Jump</em> (the default) sets the target to where the pedal is. <em>Pick up</em> leaves the target where it is until the pedal reaches it, or passes it between two moves, and follows from then on: switch from the Looper (master volume) to the FX mode and back with the pedal at the heel, and the master stays put until you bring the pedal up to it. MIDI targets pick up from the last value the pedal sent them. With pick-up every target is calculated by the extension, none is bound directly.</dd></div>
+    <div><dt>All loop tracks</dt><dd>One fader over the loops that keeps their balance: at the toe every loop track is at its own level, at the heel all are silent, in between each is its level times the pedal. The levels are taken from the tracks the first time the pedal moves, and again whenever the pedal leaves the toe, so set the balance in Bitwig with the pedal at the toe.</dd></div>
+    <div><dt>The loop being recorded</dt><dd>Follows the recording from track to track; with nothing recording, the loop recorded last in the row, else the selected loop track. With pick-up, a new recording is picked up again.</dd></div>
+  </dl>
 </section>
 
 <section class="chapter" id="leds">
@@ -1219,12 +1302,13 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
         </tbody>
       </table>
     </div>
-    <p>A switch whose tap is <em>Loop track 1&ndash;6</em> lights the same way. The four loop colours can be changed in <em>Pacer LEDs</em>. Every switch rests at its mode's colour, dimmed, and lights in the colour of whatever it is doing, so the board reads even when nothing is playing. Colours are written to the Pacer as SysEx, which flashes <code>LOAD SYS</code> on its display for a moment; the extension only writes one when a colour really changes.</p>
+    <p>A switch whose tap is <em>Loop track 1&ndash;8</em> lights the same way; the Looper's shifted loop switches (loop tracks 5&ndash;8) rest in cyan instead of the mode colour. The four loop colours can be changed in <em>Pacer LEDs</em>. Every switch rests at its mode's colour, dimmed, and lights in the colour of whatever it is doing, so the board reads even when nothing is playing. Colours are written to the Pacer as SysEx, which flashes <code>LOAD SYS</code> on its display for a moment; the extension only writes one when a colour really changes.</p>
   </div>
 
   <div class="sub">
     <h4>Other switches</h4>
-    <p>A switch lights when its tap action has something to do: undo or redo possible, loops playing (play/stop all is green while playing, amber when loops are loaded), another row to go to (next row shows blue when it would add a scene), overdub on (red), metronome on, transport running (green), a loop muted (blue), the selected loop soloed (amber), input monitoring on (green), something to reset (purple). The one-button looper shows the loop it is busy with; fade actions blink while a fade runs; <em>Mute/unmute loop track n</em> is blue while that loop is muted and blinks while its mute waits for the beat. In the Looper mode, and in a custom mode of its own with loop switches, the beat counter takes over SW A&ndash;D while counting in and recording, except a top-row switch that is a loop switch itself.</p>
+    <p>A switch lights when its tap action has something to do: undo or redo possible, loops playing (play/stop all is green while playing, amber when loops are loaded), another row to go to (next row shows blue when it would add a scene), overdub on (red), metronome on, transport running (green), a loop muted (blue), the selected loop soloed (amber), input monitoring on (green), something to reset (purple). The one-button looper shows the loop it is busy with; fade actions blink while a fade runs; <em>Mute/unmute loop track n</em> is blue while that loop is muted and blinks while its mute waits for the beat. In the Looper mode, and in a custom mode of its own with loop switches, the beat counter takes over SW A&ndash;D while counting in and recording (beats, or bars with <em>While recording, SW A-D count = Bars</em>), except a top-row switch that is a loop switch itself.</p>
+    <p><span class="sw">SW 6</span> is <span class="led" data-c="white"></span> white, <span class="led" data-c="amber"></span> gold while the <a href="#shift">shift layer</a> is up, and <span class="led" data-c="amber" data-p="medium"></span> blinking gold while it is up for the next press only. A switch whose tap raises the shift layer lights gold the same way.</p>
   </div>
 
   <div class="sub">
@@ -1258,7 +1342,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
   </div>
   <dl class="pairs">
     <div><dt>Channel 16 is the looper's</dt><dd>PACER Looper only reacts to MIDI channel 16 on port 1. Everything else the Pacer sends reaches Bitwig through the note input <em>PACER</em>: pick it or <em>All ins</em> as a track input to play instruments, or use it for MIDI mapping. Keep other presets off channel 16, where CC 102&ndash;119 belong to the looper.</dd></div>
-    <div><dt>Going to another preset and back</dt><dd>Selecting any preset on the Pacer throws away the extension's live edits &mdash; that is what makes them free. Coming back to D1 makes the preset announce itself, and the extension writes the whole board again, in the mode you were in.</dd></div>
+    <div><dt>Going to another preset and back</dt><dd>Selecting any preset on the Pacer throws away the extension's live edits &mdash; that is what makes them free. While another preset is loaded the extension leaves it alone (the <a href="#display">preset check</a>). Coming back to D1 makes the preset announce itself, and the extension writes the whole board again, in the mode you were in.</dd></div>
     <div><dt>When Bitwig lets go</dt><dd>Switching the extension off, or closing Bitwig, darkens the board and writes <code>OFF</code> on the display, so a Pacer nobody drives does not look live. Selecting any preset brings its own colours back.</dd></div>
   </dl>
 
@@ -1303,7 +1387,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
       <tbody>
         <tr class="cat-row"><th colspan="2">Looper</th></tr>
         <tr><td class="wrap">Looper MIDI channel (must match the Pacer preset)</td><td class="wrap">1&ndash;16, default 16. Changing it restarts the extension.</td></tr>
-        <tr><td class="wrap">Loop tracks</td><td class="wrap">1&ndash;6, default 4. A loop switch beyond them does nothing.</td></tr>
+        <tr><td class="wrap">Loop tracks</td><td class="wrap">1&ndash;8, default 4. Loop tracks 5&ndash;8 are on the Looper's shift layer. A loop switch beyond them does nothing.</td></tr>
         <tr><td class="wrap">Loop switch mode</td><td class="wrap">Tap to record, tap again to close &middot; Hold to record, release to close</td></tr>
         <tr><td class="wrap">Loop switch fires on press (off: on release)</td><td class="wrap">On &middot; Off</td></tr>
         <tr><td class="wrap">Tap on a playing loop</td><td class="wrap">Stop &middot; Mute/unmute &middot; Toggle launcher overdub (note clips) &middot; Nothing</td></tr>
@@ -1324,26 +1408,33 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
         <tr><td class="wrap">Mode at startup</td><td class="wrap">Whatever this project used last (default) &middot; Looper &middot; FX pedalboard &middot; Mixer &middot; Song &middot; Custom</td></tr>
         <tr><td class="wrap">Put the mode name back on the display after a press</td><td class="wrap">On &middot; Off. Each restore is one SysEx, which flashes <code>LOAD SYS</code>.</td></tr>
         <tr><td class="wrap">Show what the mode is doing on the display</td><td class="wrap">On &middot; Off. The FX mode names the focused instrument, the Looper and Song modes name the row (the scene's name, its name from <em>Names for new rows</em>, or <code>ROW 3</code>).</td></tr>
+        <tr><td class="wrap">Show events on the display (REC 2, 4 BAR, UNDO, SNAP2...)</td><td class="wrap">On (default) &middot; Off. Each event is two name writes. The words are listed under <a href="#display">The display</a>.</td></tr>
+        <tr><td class="wrap">SW 6 double-tap</td><td class="wrap">Any action, default <em>Shift layer on/off</em>. <em>Nothing</em> makes SW 6's tap instant again.</td></tr>
         <tr class="cat-row"><th colspan="2">Custom layout</th></tr>
         <tr><td class="wrap">The custom layout changes</td><td class="wrap">Its own mode (<code>CUST</code>, starts empty; default) &middot; The Looper / FX / Mixer / Song mode (changes it)</td></tr>
         <tr><td class="wrap">Name on the display (blank: the mode's own)</td><td class="wrap">5 characters; blank keeps the mode's own name, <code>CUST</code> for a mode of its own</td></tr>
-        <tr><td class="wrap">SW n &middot; tap / double-tap / hold (SW 1&ndash;5, SW A&ndash;D)</td><td class="wrap">As in the mode (default) &middot; any action, including <em>Loop track 1&ndash;6</em>, which makes it a loop switch &middot; <em>Nothing</em> empties the gesture</td></tr>
+        <tr><td class="wrap">SW n &middot; tap / double-tap / hold (SW 1&ndash;5, SW A&ndash;D)</td><td class="wrap">As in the mode (default) &middot; any action, including <em>Loop track 1&ndash;8</em>, which makes it a loop switch &middot; <em>Nothing</em> empties the gesture</td></tr>
         <tr><td class="wrap">SW n &middot; colour</td><td class="wrap">Automatic (as in the mode, or from the action; default) &middot; Off &middot; the Pacer's twelve colours</td></tr>
         <tr><td class="wrap">SW n &middot; LED</td><td class="wrap">As in the mode (default) &middot; Colour strip &middot; Icon row &middot; Word row (SW A&ndash;D have none and use the strip)</td></tr>
+        <tr class="cat-row"><th colspan="2">Custom layout: shift layer</th></tr>
+        <tr><td class="wrap">SW n &middot; shift tap / shift double-tap / shift hold (SW 1&ndash;5, SW A&ndash;D)</td><td class="wrap">As in the mode (default: the mode's own <a href="#shift">shift layer</a>) &middot; any action. A switch whose shift gestures all do <em>Nothing</em> keeps its normal job.</td></tr>
         <tr class="cat-row"><th colspan="2">FX mode</th></tr>
         <tr><td class="wrap">Snapshots per instrument</td><td class="wrap">2 &middot; 3 &middot; 4</td></tr>
         <tr><td class="wrap">Focusing an instrument selects its track in Bitwig</td><td class="wrap">Off &middot; On</td></tr>
         <tr><td class="wrap">Remote controls page name</td><td class="wrap">Text, default Pacer</td></tr>
         <tr class="cat-row"><th colspan="2">Footswitch jacks</th></tr>
-        <tr><td class="wrap">FS 1&ndash;4 tap / double-tap / hold</td><td class="wrap">Any action, including <em>Next mode</em> and <em>Go to the &hellip; mode</em>. A tap of <em>Loop track 1&ndash;6</em> makes the jack a loop switch. The same in every mode.</td></tr>
+        <tr><td class="wrap">FS 1&ndash;4 tap / double-tap / hold</td><td class="wrap">Any action, including <em>Next mode</em>, <em>Go to the &hellip; mode</em> and the shift layer actions. A tap of <em>Loop track 1&ndash;8</em> makes the jack a loop switch. The same in every mode.</td></tr>
         <tr class="cat-row"><th colspan="2">Expression pedals</th></tr>
         <tr><td class="wrap">EXP 1 &middot; Looper / FX pedalboard / Mixer / Song / Custom, and the same for EXP 2</td><td class="wrap">Any pedal target, one per mode: ten settings. Defaults under <a href="#pedals">Expression pedals</a>.</td></tr>
         <tr><td class="wrap">EXP 1, EXP 2 response</td><td class="wrap">Linear &middot; Inverted &middot; Slow start &middot; Fast start</td></tr>
         <tr><td class="wrap">EXP 1, EXP 2 heel (minimum) / toe (maximum)</td><td class="wrap">0&ndash;100 %</td></tr>
         <tr><td class="wrap">MIDI channel for pedal messages</td><td class="wrap">1&ndash;16, default 1</td></tr>
+        <tr><td class="wrap">Pedal takeover (after a mode change or a new target)</td><td class="wrap">Jump to the pedal (absolute, default) &middot; Pick up: wait until the pedal passes the current value</td></tr>
         <tr class="cat-row"><th colspan="2">Pacer LEDs</th></tr>
         <tr><td class="wrap">Blink in time with the transport</td><td class="wrap">On &middot; Off</td></tr>
         <tr><td class="wrap">Count beats on SW A-D (count-in and recording)</td><td class="wrap">On &middot; Off</td></tr>
+        <tr><td class="wrap">While recording, SW A-D count</td><td class="wrap">Beats of the bar (default) &middot; Bars since the recording started. Count-ins always count beats.</td></tr>
+        <tr><td class="wrap">Check the Pacer is on its preset</td><td class="wrap">Before painting, and every 5 s (default) &middot; Only before painting &middot; Off: paint whatever preset is loaded. See <a href="#display">The display</a>.</td></tr>
         <tr><td class="wrap">Loop colour: stopped / playing / recording / muted</td><td class="wrap">White &middot; Red &middot; Green &middot; Amber &middot; Blue &middot; Purple</td></tr>
         <tr><td class="wrap">Cycle every LED through all colours</td><td class="wrap">Button: Test the LEDs</td></tr>
         <tr class="cat-row"><th colspan="2">Clip launcher (pushed into the project)</th></tr>
@@ -1353,6 +1444,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
         <tr><td class="wrap">Serve the Track and Transport presets (replaces Nektar's script)</td><td class="wrap">Off &middot; On</td></tr>
         <tr class="cat-row"><th colspan="2">Feedback</th></tr>
         <tr><td class="wrap">Pop-up notifications</td><td class="wrap">All &middot; Only important ones &middot; Off. "Only important ones" keeps navigation, warnings, count-ins, loop lengths, resets and focus changes.</td></tr>
+        <tr><td class="wrap">Log to the controller console (for bug reports)</td><td class="wrap">Off (default) &middot; Presses, actions and modes &middot; Everything, with every SysEx message</td></tr>
         <tr class="cat-row"><th colspan="2">Project: PACER FX</th></tr>
         <tr><td class="wrap">Instrument A&ndash;D (track name)</td><td class="wrap">Text; holding SW 1&ndash;4 in the FX mode fills it in</td></tr>
         <tr><td class="wrap">Focused instrument</td><td class="wrap">A &middot; B &middot; C &middot; D</td></tr>
@@ -1407,7 +1499,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
         <tr><td class="wrap">The display says <code>LOAD SYS</code> and stays there</td><td class="wrap">Something is writing SysEx continuously. The extension only writes a colour when it really changes, so a stuck display means another tool is talking to the Pacer.</td></tr>
         <tr><td class="wrap">The display lost the mode name</td><td class="wrap">A switch press replaces it with that switch's CC readout; the extension writes the name (or the row, the instrument) back shortly after (<em>Put the mode name back on the display after a press</em>). Switching mode always rewrites it.</td></tr>
         <tr><td class="wrap">Loop switches control the wrong tracks</td><td class="wrap">Check <em>Loop tracks start at track</em> (one value for every project), or move the loop track window from the Pacer: hold SW A / SW B in the Looper mode, or tap SW A / SW B in the mode menu.</td></tr>
-        <tr><td class="wrap">A loop switch does nothing</td><td class="wrap">The project has fewer loop tracks than that switch: with <em>Loop tracks</em> = 3, SW 4 does nothing. Raise <em>Loop tracks</em>.</td></tr>
+        <tr><td class="wrap">A loop switch does nothing</td><td class="wrap">The project has fewer loop tracks than that switch: with <em>Loop tracks</em> = 3, SW 4 does nothing, and the shifted SW 1&ndash;4 need loop tracks 5&ndash;8. Raise <em>Loop tracks</em>.</td></tr>
         <tr><td class="wrap">I hear my input twice</td><td class="wrap">Several armed tracks with auto monitoring. Keep <em>Exclusive arm</em> on, or use a <a href="#project">dedicated input track</a>.</td></tr>
         <tr><td class="wrap">My Push jumps to the loop track</td><td class="wrap">The looper selects the track it records on. Pin the Push's track, or switch off <em>Select the track on press</em>.</td></tr>
         <tr><td class="wrap">Other presets do not reach instruments</td><td class="wrap">The track's input must be <em>PACER</em> or <em>All ins</em>, and the preset must not use channel 16.</td></tr>
@@ -1417,6 +1509,10 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
         <tr><td class="wrap">Track and Transport presets do nothing</td><td class="wrap">Switch on <em>Nektar DAW mode</em> and assign port 2 (<code>MIDIIN2 (PACER)</code> / <code>MIDIOUT2 (PACER)</code>).</td></tr>
         <tr><td class="wrap">I cannot find the project settings</td><td class="wrap">Bitwig 6 shows a controller's project settings nowhere in its panels (older versions listed them in the Studio I/O panel). They are still saved with the project; set them from the Pacer: in the FX mode, hold SW 1&ndash;4 to assign an instrument. The loop track position is not one of them: it is <em>Looper &rsaquo; Loop tracks start at track</em>.</td></tr>
         <tr><td class="wrap">A setting does not seem to apply</td><td class="wrap">Most apply immediately; <em>Looper MIDI channel</em> restarts the extension. Check Bitwig's controller console for errors.</td></tr>
+        <tr><td class="wrap">"The Pacer is on another preset" and the board stays as it is</td><td class="wrap">The extension leaves other presets alone. Select the Bitwig preset (D1) again. If D1 <em>is</em> loaded, its name may not be <code>PACER</code> (renamed?): select it again so it announces itself, or set <em>Check the Pacer is on its preset</em> to <em>Off</em>.</td></tr>
+        <tr><td class="wrap">The display flashes <code>LOAD SYS</code> every five seconds</td><td class="wrap">The preset check's regular question shows on the Pacer. Set <em>Check the Pacer is on its preset</em> to <em>Only before painting</em>.</td></tr>
+        <tr><td class="wrap">SW 6 takes a moment to change the mode</td><td class="wrap">It waits to see whether a double-tap follows. Set <em>SW 6 double-tap</em> to <em>Nothing</em> for an instant tap; the shift layer can go on a jack instead.</td></tr>
+        <tr><td class="wrap">"PACER Looper caught an error &hellip; and carried on"</td><td class="wrap">Something went wrong and was contained. Set <em>Log to the controller console</em> to <em>Presses, actions and modes</em>, do it again, and send the lines from Bitwig's controller console with the report.</td></tr>
       </tbody>
     </table>
   </div>
@@ -1502,8 +1598,26 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
       <div class="check"><label><input type="checkbox" id="c-cust6" data-k="cust6"><span class="n">6</span><span class="text">In the Looper, the display reads the row (ROW 1, or the scene's name) and changes with SW A / SW B.</span></label><textarea id="t-cust6" data-k="cust6" placeholder="Notes" aria-label="Notes for custom layout item 6"></textarea></div>
     </div>
 
+    <div class="group" data-group="Shift layer, pedals, display">
+      <div class="group-head"><h4>Shift layer, pedals, display</h4><span class="count">0/14</span></div>
+      <div class="check"><label><input type="checkbox" id="c-sh1" data-k="sh1"><span class="n">1</span><span class="text">Double-tap SW 6 in the Looper: SW 6 turns gold, the display shows SHIFT for a moment, SW 1&ndash;4 rest in cyan. Double-tap again: back to normal. A single tap still toggles the mode, a moment later.</span></label><textarea id="t-sh1" data-k="sh1" placeholder="Notes" aria-label="Notes for shift layer item 1"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-sh2" data-k="sh2"><span class="n">2</span><span class="text"><em>Loop tracks</em> = 8, shift up: SW 1 records on loop track 5, and its LED follows loop 5; shift down, SW 1 is loop 1 again.</span></label><textarea id="t-sh2" data-k="sh2" placeholder="Notes" aria-label="Notes for shift layer item 2"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-sh3" data-k="sh3"><span class="n">3</span><span class="text"><em>FS 1 tap = Shift layer while held</em>: hold FS 1 and tap SW D &mdash; the transport starts; let go of FS 1 and tap SW D &mdash; launcher overdub.</span></label><textarea id="t-sh3" data-k="sh3" placeholder="Notes" aria-label="Notes for shift layer item 3"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-sh4" data-k="sh4"><span class="n">4</span><span class="text"><em>FS 2 tap = Shift layer for the next press</em>: SW 6 blinks gold; the next switch runs its shifted job, then the layer is gone.</span></label><textarea id="t-sh4" data-k="sh4" placeholder="Notes" aria-label="Notes for shift layer item 4"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-sh5" data-k="sh5"><span class="n">5</span><span class="text"><em>SW 6 double-tap = Nothing</em>: SW 6's tap changes the mode instantly again.</span></label><textarea id="t-sh5" data-k="sh5" placeholder="Notes" aria-label="Notes for shift layer item 5"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-sh6" data-k="sh6"><span class="n">6</span><span class="text">Custom layout changes the Looper, <em>SW 5 &middot; shift tap = Tap tempo</em>: shifted, SW 5 taps the tempo; unshifted it still undoes.</span></label><textarea id="t-sh6" data-k="sh6" placeholder="Notes" aria-label="Notes for shift layer item 6"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-sh7" data-k="sh7"><span class="n">7</span><span class="text"><em>Pedal takeover = Pick up</em>, EXP 2 on master volume: go to the FX mode and back with the pedal at the heel &mdash; the master stays put until the pedal comes up to it, then follows.</span></label><textarea id="t-sh7" data-k="sh7" placeholder="Notes" aria-label="Notes for shift layer item 7"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-sh8" data-k="sh8"><span class="n">8</span><span class="text"><em>EXP 1 &middot; Looper = All loop tracks: volume</em>: with two loops at different levels, the heel silences both, the toe brings both back at their own levels.</span></label><textarea id="t-sh8" data-k="sh8" placeholder="Notes" aria-label="Notes for shift layer item 8"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-sh9" data-k="sh9"><span class="n">9</span><span class="text"><em>EXP 1 &middot; Looper = Loop being recorded</em>: while loop 2 records, the pedal rides loop 2's volume.</span></label><textarea id="t-sh9" data-k="sh9" placeholder="Notes" aria-label="Notes for shift layer item 9"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-sh10" data-k="sh10"><span class="n">10</span><span class="text">Recording shows REC 1, closing a 2-bar loop shows 2 BAR, undo shows UNDO; each goes back to the row name.</span></label><textarea id="t-sh10" data-k="sh10" placeholder="Notes" aria-label="Notes for shift layer item 10"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-sh11" data-k="sh11"><span class="n">11</span><span class="text"><em>While recording, SW A-D count = Bars</em>: while a loop records, the lit switch moves once per bar.</span></label><textarea id="t-sh11" data-k="sh11" placeholder="Notes" aria-label="Notes for shift layer item 11"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-sh12" data-k="sh12"><span class="n">12</span><span class="text">Loops playing, select another Pacer preset: its colours do not change and Bitwig says the Pacer is on another preset. Back on D1 everything is painted again. <strong>Also note whether the display flashes LOAD SYS every five seconds</strong> while nothing happens.</span></label><textarea id="t-sh12" data-k="sh12" placeholder="Notes" aria-label="Notes for shift layer item 12"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-sh13" data-k="sh13"><span class="n">13</span><span class="text">On D1, unplug the Pacer's USB and plug it back in: within a few seconds the board is painted again.</span></label><textarea id="t-sh13" data-k="sh13" placeholder="Notes" aria-label="Notes for shift layer item 13"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-sh14" data-k="sh14"><span class="n">14</span><span class="text"><em>Log to the controller console = Presses, actions and modes</em>: presses and actions appear in Bitwig's controller console.</span></label><textarea id="t-sh14" data-k="sh14" placeholder="Notes" aria-label="Notes for shift layer item 14"></textarea></div>
+    </div>
+
     <div class="group" data-group="FX mode">
-      <div class="group-head"><h4>FX mode</h4><span class="count">0/12</span></div>
+      <div class="group-head"><h4>FX mode</h4><span class="count">0/13</span></div>
       <div class="check"><label><input type="checkbox" id="c-f1" data-k="f1"><span class="n">1</span><span class="text">Hold SW 6 and tap SW 2: the display reads FX and the board repaints. Tap SW 6: back to the looper, which works as before and never stopped playing.</span></label><textarea id="t-f1" data-k="f1" placeholder="Notes" aria-label="Notes for FX item 1"></textarea></div>
       <div class="check"><label><input type="checkbox" id="c-f2" data-k="f2"><span class="n">2</span><span class="text">Select a track in Bitwig and hold SW 1: "Instrument A is now &hellip;", and SW 1 lights.</span></label><textarea id="t-f2" data-k="f2" placeholder="Notes" aria-label="Notes for FX item 2"></textarea></div>
       <div class="check"><label><input type="checkbox" id="c-f3" data-k="f3"><span class="n">3</span><span class="text">Assign a second instrument to SW 2. Tapping SW 1 / SW 2 switches the focus without changing Bitwig's selection or the Push's track.</span></label><textarea id="t-f3" data-k="f3" placeholder="Notes" aria-label="Notes for FX item 3"></textarea></div>
@@ -1516,6 +1630,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
       <div class="check"><label><input type="checkbox" id="c-f10" data-k="f10"><span class="n">10</span><span class="text">EXP 1 moves remote control 7 of the focused instrument's Pacer page.</span></label><textarea id="t-f10" data-k="f10" placeholder="Notes" aria-label="Notes for FX item 10"></textarea></div>
       <div class="check"><label><input type="checkbox" id="c-f11" data-k="f11"><span class="n">11</span><span class="text">FS 1 records loops while in the FX mode; FS 3 cycles through the instruments.</span></label><textarea id="t-f11" data-k="f11" placeholder="Notes" aria-label="Notes for FX item 11"></textarea></div>
       <div class="check"><label><input type="checkbox" id="c-f12" data-k="f12"><span class="n">12</span><span class="text">The extension picking the Pacer page does not change the page shown in Bitwig or on the Push.</span></label><textarea id="t-f12" data-k="f12" placeholder="Notes" aria-label="Notes for FX item 12"></textarea></div>
+      <div class="check"><label><input type="checkbox" id="c-f13" data-k="f13"><span class="n">13</span><span class="text">Double-tap SW 6: shifted, SW A toggles FX 5 (the fifth remote control or device), SW D focuses the next instrument; recalling a snapshot shows SNAP2 on the display for a moment.</span></label><textarea id="t-f13" data-k="f13" placeholder="Notes" aria-label="Notes for FX item 13"></textarea></div>
     </div>
   </div>
 </section>
@@ -1578,13 +1693,17 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
     var d = {};
     Object.keys(JACKS[id]).forEach(function (k) { d[k] = JACKS[id][k]; });
     Object.keys(extra || {}).forEach(function (k) { d[k] = extra[k]; });
-    d.note = "Plug a footswitch into the jack on the back. Every gesture can be reassigned under Footswitch jacks, and a tap of <em>Loop track 1–6</em> makes the jack a loop switch.";
+    d.note = "Plug a footswitch into the jack on the back. Every gesture can be reassigned under Footswitch jacks, a tap of <em>Loop track 1–8</em> makes the jack a loop switch, and <em>Shift layer while held</em> turns it into a shift pedal.";
     return d;
   }
 
   function custom_(id) {
-    return { role: "Unassigned", kind: "Custom layout · SW " + id, c: "off", tap: "Whatever you set in Settings › Custom layout › SW " + id + " · tap", hold: "Whatever you set", led: "Off until you give it an action", note: 'Tap, double-tap, hold, colour and LED are all settings. A tap of <em>Loop track 1–6</em> makes it a loop switch; colour <em>Automatic</em> picks one from the action. See <a href="#custom">Your own layout</a>.' };
+    return { role: "Unassigned", kind: "Custom layout · SW " + id, c: "off", tap: "Whatever you set in Settings › Custom layout › SW " + id + " · tap", hold: "Whatever you set", led: "Off until you give it an action", note: 'Tap, double-tap, hold, colour and LED are all settings, and so are its shift tap, shift double-tap and shift hold (<em>Custom layout: shift layer</em>). A tap of <em>Loop track 1–8</em> makes it a loop switch; colour <em>Automatic</em> picks one from the action. See <a href="#custom">Your own layout</a>.' };
   }
+
+  /* SW 6 is the same in every mode: tap toggles, hold opens the menu, double-tap runs a setting */
+  var SW6_DBL = "Shift layer on/off (setting SW 6 double-tap)";
+  var SW6_WAIT = " Its tap waits out the <em>Double-tap speed</em> window, so a double-tap never toggles the mode first; <em>SW 6 double-tap = Nothing</em> makes the tap instant. With the menu open, a tap closes it at once.";
 
   var PRESETS = {
     looper: {
@@ -1596,7 +1715,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
         "3": { role: "Loop 3", kind: "Loop switch · loop track 3", c: "off", tap: SMART, hold: "Delete that loop", led: "Empty: the mode colour, dimmed", note: LOOP_NOTE },
         "4": { role: "Loop 4", kind: "Loop switch · loop track 4", c: "off", tap: SMART, hold: "Delete that loop", led: "Empty: the mode colour, dimmed", note: LOOP_NOTE },
         "5": { role: "Undo", kind: "Mode switch", c: "white", tap: "Undo", hold: "Redo", led: "On while there is something to undo" },
-        "6": { role: "Mode", kind: "The mode switch", c: "white", tap: "Close the menu, or go back to the mode you were in before", hold: "Open the mode menu, which stays open when your foot comes off", led: "Always on: it is the way back to everything else", note: "SW 6 is the mode switch in every mode. It sits under the display and the encoder, apart from the rest of the bottom row. Hold it, take your foot off, then tap a mode \u2014 the whole gesture works with one foot." },
+        "6": { role: "Mode", kind: "The mode switch", c: "white", tap: "Close the menu, or go back to the mode you were in before", dbl: SW6_DBL, hold: "Open the mode menu, which stays open when your foot comes off", led: "White: it is the way back to everything else", note: "SW 6 is the mode switch in every mode. It sits under the display and the encoder, apart from the rest of the bottom row. Hold it, take your foot off, then tap a mode \u2014 the whole gesture works with one foot." + SW6_WAIT },
         A: { role: "Previous row", kind: "Mode switch", c: "off", tap: "Previous scene row", hold: "Move the loop track window left", led: "Dimmed: already on the first row", note: "While counting in or recording, SW A–D count the beats of the bar instead." },
         B: { role: "Next row", kind: "Mode switch", c: "white", tap: "Next scene row, adding one after the last", hold: "Move the loop track window right", led: "On: there is a row to move to (blue when it would add one)", note: "While counting in or recording, SW A–D count the beats of the bar instead." },
         C: { role: "Play / stop all", kind: "Mode switch", c: "green", tap: "Stop all loops, or play the whole row when nothing plays", hold: "Clear every loop in the row", led: "Green playing, amber loaded", note: "While counting in or recording, SW A–D count the beats of the bar instead." },
@@ -1615,11 +1734,11 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
         "3": { role: "Vocal", kind: "Instrument C", c: "white", p: "blip", tap: "Focus instrument C", dbl: "Mute/unmute its track", hold: "Assign the track selected in Bitwig", led: "Flash on the downbeat: assigned, not focused" },
         "4": { role: "Instrument D", kind: "Instrument D", c: "off", tap: "Focus instrument D", dbl: "Mute/unmute its track", hold: "Assign the track selected in Bitwig", led: "Dimmed: the slot is empty" },
         "5": { role: "Snapshot 2", kind: "Snapshots · focused instrument", c: "red", tap: "Next snapshot", dbl: "Back to snapshot 1", hold: "Store the current sound in this snapshot", led: "Snapshot 2 is red; it blinks after a change" },
-        "6": { role: "Mode", kind: "The mode switch", c: "white", tap: "Go back to the mode you were in before", hold: "Open the mode menu: SW 1\u20135 pick a mode, SW A\u2013D navigate", led: "Always on: it is the way back to everything else", note: "SW 6 is the mode switch in every mode. It sits under the display and the encoder, apart from the rest of the bottom row." },
+        "6": { role: "Mode", kind: "The mode switch", c: "white", tap: "Go back to the mode you were in before", dbl: SW6_DBL, hold: "Open the mode menu: SW 1\u20135 pick a mode, SW A\u2013D navigate", led: "White: it is the way back to everything else", note: "SW 6 is the mode switch in every mode. It sits under the display and the encoder, apart from the rest of the bottom row." + SW6_WAIT },
         A: { role: "FX 1", kind: "FX switch · focused instrument", c: "green", tap: "FX 1 on/off: remote control 1 of the Pacer page, or the first device", hold: "On only while held", led: "On: the effect is on", note: "Tap latches, hold is momentary, on the same switch." },
         B: { role: "FX 2", kind: "FX switch · focused instrument", c: "off", tap: "FX 2 on/off: remote control 2, or the second device", hold: "On only while held", led: "Dimmed: the effect is off", note: "Tap latches, hold is momentary, on the same switch." },
         C: { role: "FX 3", kind: "FX switch · focused instrument", c: "green", tap: "FX 3 on/off: remote control 3, or the third device", hold: "On only while held", led: "On: the effect is on", note: "Tap latches, hold is momentary, on the same switch." },
-        D: { role: "FX 4", kind: "FX switch · focused instrument", c: "off", tap: "FX 4 on/off: remote control 4, or the fourth device", hold: "On only while held", led: "Dimmed: the effect is off", note: "FX 5 and 6 are reachable by putting them on a footswitch jack, or on a switch in the custom layout." },
+        D: { role: "FX 4", kind: "FX switch · focused instrument", c: "off", tap: "FX 4 on/off: remote control 4, or the fourth device", hold: "On only while held", led: "Dimmed: the effect is off", note: "Tap latches, hold is momentary, on the same switch. FX 5 and 6 are on the shift layer (SW A and SW B), and fit on a footswitch jack too." },
         FS1: jack("FS1"), FS2: jack("FS2"), FS3: jack("FS3"), FS4: jack("FS4"),
         EXP1: { kind: "Expression pedal", move: "Remote control 7 of the focused instrument's Pacer page", note: 'Set per mode under <a href="#pedals">Expression pedals</a>: <em>EXP 1 · FX pedalboard</em>.' },
         EXP2: { kind: "Expression pedal", move: "Remote control 8 of the focused instrument's Pacer page", note: 'Set per mode under <a href="#pedals">Expression pedals</a>: <em>EXP 2 · FX pedalboard</em>.' }
@@ -1634,7 +1753,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
         "3": { role: "Rec Arm", kind: "Lights the printed words Rec Arm", c: "off", tap: "Input monitoring on/off for the selected track", led: "The words Rec Arm light while monitoring is on" },
         "4": { role: "Click", kind: "Lights the printed word Click", c: "white", tap: "Metronome on/off", led: "The word Click lights while the metronome is on" },
         "5": { role: "Next loop", kind: "Mode switch", c: "white", tap: "Select the next loop track", hold: "Select the previous one", led: "Always on" },
-        "6": { role: "Mode", kind: "The mode switch", c: "white", tap: "Go back to the mode you were in before", hold: "Open the mode menu: SW 1\u20135 pick a mode, SW A\u2013D navigate", led: "Always on: it is the way back to everything else", note: "SW 6 is the mode switch in every mode. It sits under the display and the encoder, apart from the rest of the bottom row." },
+        "6": { role: "Mode", kind: "The mode switch", c: "white", tap: "Go back to the mode you were in before", dbl: SW6_DBL, hold: "Open the mode menu: SW 1\u20135 pick a mode, SW A\u2013D navigate", led: "White: it is the way back to everything else", note: "SW 6 is the mode switch in every mode. It sits under the display and the encoder, apart from the rest of the bottom row." + SW6_WAIT },
         A: { role: "Mute all", kind: "Mode switch", c: "blue", tap: "Mute/unmute every loop", hold: "Reset the looper: stop, unmute, unsolo, disarm", led: "Blue while any loop is muted" },
         B: { role: "Fade out", kind: "Mode switch", c: "white", tap: "Fade out and stop all loops", hold: "Fade the row in", led: "On while loops play; blinks while a fade runs" },
         C: { role: "Stop all", kind: "Mode switch", c: "white", tap: "Stop all loops", hold: "Play the row", led: "On while loops play" },
@@ -1653,7 +1772,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
         "3": { role: "Next row", kind: "Lights the printed \u25b6\u25b6 icon", c: "white", tap: "Next scene row, adding one after the last", led: "On: there is a row to move to" },
         "4": { role: "Stop all", kind: "Lights the printed \u25a0 icon", c: "white", tap: "Stop all loops", hold: "Fade out and stop", led: "The stop icon lights while loops play" },
         "5": { role: "Transport", kind: "Lights the printed \u25b6 icon", c: "green", tap: "Transport play/stop", hold: "Tap tempo", led: "Green while the transport runs" },
-        "6": { role: "Mode", kind: "The mode switch", c: "white", tap: "Go back to the mode you were in before", hold: "Open the mode menu: SW 1\u20135 pick a mode, SW A\u2013D navigate", led: "Always on: it is the way back to everything else", note: "SW 6 is the mode switch in every mode. It sits under the display and the encoder, apart from the rest of the bottom row." },
+        "6": { role: "Mode", kind: "The mode switch", c: "white", tap: "Go back to the mode you were in before", dbl: SW6_DBL, hold: "Open the mode menu: SW 1\u20135 pick a mode, SW A\u2013D navigate", led: "White: it is the way back to everything else", note: "SW 6 is the mode switch in every mode. It sits under the display and the encoder, apart from the rest of the bottom row." + SW6_WAIT },
         A: { role: "Duplicate row", kind: "Mode switch", c: "white", tap: "Duplicate the row with all its loops and move to the copy", hold: "Clear every loop in the row", led: "On while the row has loops" },
         B: { role: "Tracks here", kind: "Mode switch", c: "white", tap: "Start the loop tracks at the track selected in Bitwig", led: "On while a track is selected in Bitwig" },
         C: { role: "Undo", kind: "Mode switch", c: "white", tap: "Undo", hold: "Redo", led: "On while there is something to undo" },
@@ -1668,7 +1787,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
       note: "The custom layout as a mode of its own, CUST. Every switch here is laid out in Settings › Custom layout — tap, double-tap, hold, colour and which of its LEDs lights. It starts empty. Point it at the Looper, FX, Mixer or Song mode instead and the same settings change that mode, while this slot goes dark.",
       controls: {
         "1": custom_(1), "2": custom_(2), "3": custom_(3), "4": custom_(4), "5": custom_(5),
-        "6": { role: "Mode", kind: "The mode switch", c: "white", tap: "Close the menu, or go back to the mode you were in before", hold: "Open the mode menu, which stays open when your foot comes off", led: "Always on: it is the way back to everything else", note: "SW 6 is the mode switch in every mode, including this one, so it is the one switch you cannot lay out." },
+        "6": { role: "Mode", kind: "The mode switch", c: "white", tap: "Close the menu, or go back to the mode you were in before", dbl: SW6_DBL, hold: "Open the mode menu, which stays open when your foot comes off", led: "White: it is the way back to everything else", note: "SW 6 is the mode switch in every mode, including this one, so it is the one switch you cannot lay out; its double-tap is the setting <em>SW 6 double-tap</em>." + SW6_WAIT },
         A: custom_("A"), B: custom_("B"), C: custom_("C"), D: custom_("D"),
         FS1: jack("FS1"), FS2: jack("FS2"), FS3: jack("FS3"), FS4: jack("FS4"),
         EXP1: { kind: "Expression pedal", move: "Nothing until you pick a target", note: 'Set per mode under <a href="#pedals">Expression pedals</a>: <em>EXP 1 · Custom</em>.' },
@@ -1677,11 +1796,67 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
     }
   };
 
+  /* The shift layer: per mode, what changes while it is up. Switches missing here keep their normal data;
+     a field set to "" clears the normal one. SW 6 turns gold in every mode (SHIFT_SW6). */
+  var SHIFT_LOOP_NOTE = 'The Looper\'s shift layer is where loop tracks 5–8 live: set <em>Loop tracks</em> to 8 to use them. Loop switches fire on press. See <a href="#shift">The shift layer</a>.';
+  function shiftLoop(n) {
+    return { role: "Loop " + n, kind: "Loop switch · loop track " + n + " (set Loop tracks to 8)", c: "off", p: "", tap: SMART, dbl: "", hold: "Delete that loop", led: "Empty: resting in cyan, dimmed, so loops 5–8 look different from loops 1–4", note: SHIFT_LOOP_NOTE };
+  }
+  var SHIFT_SW6 = { c: "amber", p: "", led: "Gold while the shift layer is up; blinking gold while it is up for the next press only", note: 'The shift layer is up: every switch with something on its shift layer does that instead. Double-tap SW 6 again to go back; changing mode drops it too. See <a href="#shift">The shift layer</a>.' };
+  var SHIFT = {
+    looper: {
+      note: "The Looper's shift layer (double-tap SW 6): SW 6 turns gold, the display says SHIFT for a moment, loop tracks 5–8 take SW 1–4, and the rest of the board gets the looper's other jobs. Double-tap SW 6 again to go back.",
+      controls: {
+        "1": shiftLoop(5), "2": shiftLoop(6), "3": shiftLoop(7), "4": shiftLoop(8),
+        "5": { role: "Mute all", kind: "Shift layer", c: "off", tap: "Mute/unmute every loop", hold: "Reset the looper: stop, unmute, unsolo, disarm", led: "Blue while any loop is muted; dimmed here", note: "" },
+        A: { role: "Duplicate row", kind: "Shift layer", c: "white", tap: "Duplicate the row with all its loops and move to the copy", hold: "", led: "On while the row has loops", note: "" },
+        B: { role: "Status", kind: "Shift layer", c: "white", tap: "Show the looper status", hold: "", led: "Always on", note: "" },
+        C: { role: "Fade out", kind: "Shift layer", c: "white", tap: "Fade out and stop all loops", hold: "Fade the row in", led: "On while loops play; blinks while a fade runs", note: "" },
+        D: { role: "Transport", kind: "Shift layer", c: "green", tap: "Transport play/stop", hold: "Tap tempo", led: "Green while the transport runs", note: "Tap tempo and transport play/stop live here, and on the Song mode's SW 5." }
+      }
+    },
+    fx: {
+      note: "The FX mode's shift layer (double-tap SW 6): FX 5 and FX 6 on SW A and SW B, previous / next instrument on SW C and SW D. SW 1–5 keep their jobs, and SW 6 turns gold.",
+      controls: {
+        A: { role: "FX 5", kind: "Shift layer · FX switch", c: "off", tap: "FX 5 on/off: remote control 5 of the Pacer page, or the fifth device", hold: "On only while held", led: "Dimmed: the effect is off", note: "Tap latches, hold is momentary, on the same switch." },
+        B: { role: "FX 6", kind: "Shift layer · FX switch", c: "off", tap: "FX 6 on/off: remote control 6 of the Pacer page, or the sixth device", hold: "On only while held", led: "Dimmed: the effect is off", note: "Tap latches, hold is momentary, on the same switch." },
+        C: { role: "Previous instr.", kind: "Shift layer", c: "white", tap: "Focus the previous instrument", hold: "", led: "On while more than one instrument is assigned", note: "" },
+        D: { role: "Next instr.", kind: "Shift layer", c: "white", tap: "Focus the next instrument", hold: "", led: "On while more than one instrument is assigned", note: "" }
+      }
+    },
+    mix: {
+      note: "The Mixer mode has no shift layer yet: shifted, its switches keep their jobs and only SW 6 turns gold. The custom layout can give it one (Settings › Custom layout: shift layer)."
+    },
+    song: {
+      note: "The Song mode has no shift layer yet: shifted, its switches keep their jobs and only SW 6 turns gold. The custom layout can give it one (Settings › Custom layout: shift layer)."
+    },
+    custom: {
+      note: "The custom mode's shift layer is laid out in Settings › Custom layout: shift layer — SW n · shift tap, shift double-tap and shift hold. Until you set them, shifted switches keep their jobs; SW 6 turns gold."
+    }
+  };
+
   var currentPreset = "looper";
+  var shifted = false;
   var selectedControl = "1";
+
+  function merged(base, over) {
+    var d = {};
+    Object.keys(base).forEach(function (k) { d[k] = base[k]; });
+    Object.keys(over || {}).forEach(function (k) { d[k] = over[k]; });
+    return d;
+  }
+
+  function controlData(id) {
+    var base = PRESETS[currentPreset].controls[id];
+    if (!shifted) return base;
+    if (id === "6") return merged(base, SHIFT_SW6);
+    var layer = SHIFT[currentPreset].controls || {};
+    return layer[id] ? merged(base, layer[id]) : base;
+  }
   var stomps = Array.prototype.slice.call(document.querySelectorAll(".stomp"));
   var jacks = Array.prototype.slice.call(document.querySelectorAll(".jack"));
   var gestureRows = document.querySelectorAll("#detail .gesture");
+  var shiftButton = document.getElementById("show-shift");
 
   function setGesture(index, label, text) {
     var row = gestureRows[index];
@@ -1694,7 +1869,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
   }
 
   function renderDetail() {
-    var d = PRESETS[currentPreset].controls[selectedControl];
+    var d = controlData(selectedControl);
     document.getElementById("detail-name").textContent = NAMES[selectedControl];
     document.getElementById("detail-kind").textContent = d.kind;
     if (d.move) {
@@ -1724,10 +1899,11 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
 
   function renderPreset() {
     var preset = PRESETS[currentPreset];
-    document.getElementById("readout").textContent = preset.readout;
-    document.getElementById("explorer-note").textContent = preset.note;
+    document.getElementById("readout").textContent = shifted ? "SHIFT" : preset.readout;
+    document.getElementById("explorer-note").textContent = shifted ? SHIFT[currentPreset].note : preset.note;
+    shiftButton.setAttribute("aria-pressed", String(shifted));
     stomps.forEach(function (el) {
-      var d = preset.controls[el.dataset.id];
+      var d = controlData(el.dataset.id);
       el.setAttribute("data-c", d.c || "off");
       var ring = el.querySelector(".stomp-ring");
       if (d.p) ring.setAttribute("data-p", d.p); else ring.removeAttribute("data-p");
@@ -1750,6 +1926,7 @@ node pacer-send.mjs ../presets/bitwig-pacer-D1.syx --confirm D1</code></pre>
     var el = document.getElementById("show-" + id);
     if (el) el.addEventListener("click", function () { currentPreset = id; renderPreset(); });
   });
+  shiftButton.addEventListener("click", function () { shifted = !shifted; renderPreset(); });
 
   /* ---------------------------------------------------------------- contents rail */
   var railLinks = Array.prototype.slice.call(document.querySelectorAll(".rail a"));

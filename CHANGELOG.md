@@ -25,7 +25,8 @@ touched and nothing wears the EEPROM. See [docs/LIVE-COLOURS-AND-MODES.md](docs/
   own (`CUST`, starting empty) or **changes a built-in mode in place** — *The custom layout changes = The Looper
   mode* starts from the Looper's board, every switch setting defaults to *As in the mode*, and the Looper keeps its
   slot, name, pedals and beat counter. Tap tempo back on SW D is one setting. Editing it repaints the Pacer straight
-  away.
+  away. A custom mode laid out with an earlier 0.3.0 build (*Settings > Custom mode*) does not carry over:
+  the settings were renamed, so set it up again.
 - **Loops anywhere:** *Loop track 1–8* as a tap makes any switch or footswitch jack a full loop switch for that track
   (hold, double-tap and hold to record included), so loops can sit on the top row or a jack. *Mute/unmute loop
   track 1–8* gives each loop a mute switch of its own. *Loop tracks* goes up to 8.

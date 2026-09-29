@@ -339,6 +339,38 @@ class PacerControllerTest
 
 
     @Test
+    void goingBackToACustomModeThatNowChangesFxGoesToFx ()
+    {
+        // Custom (its own mode), then the Looper from the menu: SW 6 would go back to Custom
+        this.openMenu ();
+        this.tap (4);
+        assertEquals (Mode.CUSTOM, this.controller.getMode ());
+        this.controller.perform (Action.MODE_LOOP);
+        assertEquals (Mode.LOOP, this.controller.getMode ());
+
+        final var custom = this.configuration.getCustomBoard ();
+        custom.setTarget (dev.pacer4bitwig.pacer.mode.CustomTarget.FX);
+        custom.rebuild ();
+        this.controller.customLayoutChanged ();
+
+        this.controller.perform (Action.MODE_TOGGLE);
+        assertEquals (Mode.FX, this.controller.getMode (), "the custom layout lives in FX now, and a toggle back finds it there");
+    }
+
+
+    @Test
+    void startingInACustomModeThatChangesFxStartsInFx ()
+    {
+        final var custom = this.configuration.getCustomBoard ();
+        custom.setTarget (dev.pacer4bitwig.pacer.mode.CustomTarget.FX);
+        custom.rebuild ();
+        this.setField ("projectMode", Mode.CUSTOM);
+        this.controller.applyStartupMode ();
+        assertEquals (Mode.FX, this.controller.getMode ());
+    }
+
+
+    @Test
     void pointingTheCustomLayoutAtABuiltInModeLeavesTheCustomMode ()
     {
         this.openMenu ();

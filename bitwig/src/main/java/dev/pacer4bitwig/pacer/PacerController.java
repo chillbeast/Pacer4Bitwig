@@ -131,6 +131,8 @@ public class PacerController
         Arrays.fill (this.targetKeys, Long.MIN_VALUE);
         // While the custom layout changes a built-in mode, the custom mode's own menu slot has nothing to show
         this.modes.setOffered (mode -> mode != Mode.CUSTOM || this.configuration.getCustomBoard ().getTarget () == CustomTarget.OWN);
+        // ... and the custom mode is then the built-in mode it changes (a toggle back to it, starting in it)
+        this.modes.setStandIn (mode -> mode == Mode.CUSTOM ? this.configuration.getCustomBoard ().getTarget ().getMode () : mode);
     }
 
 

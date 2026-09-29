@@ -3,6 +3,7 @@
 package dev.pacer4bitwig.pacer.mode;
 
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 
 
 /**
@@ -22,6 +23,8 @@ public final class ModeState
     private boolean         menuOpen;
     /** The modes the menu offers: the custom mode's slot goes dark while its settings change a built-in mode. */
     private Predicate<Mode> offered = mode -> true;
+    /** Where a mode the menu does not offer lives now: the custom mode's layout, in the built-in mode it changes. */
+    private UnaryOperator<Mode> standIn = mode -> mode;
 
 
     /**
@@ -42,6 +45,15 @@ public final class ModeState
     public void setOffered (final Predicate<Mode> offered)
     {
         this.offered = offered == null ? mode -> true : offered;
+    }
+
+
+    /**
+     * @param standIn For a mode the menu does not offer, the mode to go to instead (the same mode if none)
+     */
+    public void setStandIn (final UnaryOperator<Mode> standIn)
+    {
+        this.standIn = standIn == null ? mode -> mode : standIn;
     }
 
 
@@ -167,12 +179,14 @@ public final class ModeState
     /**
      * Go to a mode, remembering the one being left so a tap of SW 6 comes back to it.
      *
-     * @param mode The mode
+     * @param requested The mode
      * @return True if the active mode changed
      */
-    public boolean activate (final Mode mode)
+    public boolean activate (final Mode requested)
     {
-        // A mode the menu does not offer cannot be reached any other way either - a toggle back, the startup mode
+        // A mode the menu does not offer is reached through its stand-in - a toggle back to the custom mode, or
+        // starting in it, while its layout changes a built-in mode goes to that mode - or not at all
+        final Mode mode = requested == null || this.isOffered (requested) ? requested : this.standIn.apply (requested);
         if (mode == null || mode == this.active || !this.isOffered (mode))
             return false;
         this.previous = this.active;

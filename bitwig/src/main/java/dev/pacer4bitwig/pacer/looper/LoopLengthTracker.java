@@ -32,7 +32,8 @@ public final class LoopLengthTracker
      * @param index The loop track
      * @param state Its state
      * @param clockRunning True while the transport plays
-     * @param beats The play position in quarter notes
+     * @param beats Beats played so far ({@link ElapsedBeats}), in quarter notes - not the play position, which the
+     *            arranger loop wraps
      * @param beatsPerBar Bar length in quarter notes
      * @return The length in bars of a loop that has just been closed, 0 otherwise
      */
@@ -50,7 +51,7 @@ public final class LoopLengthTracker
             return 0;
         this.recordingSince[index] = Double.NaN;
 
-        // Deleted, aborted, transport stopped, or the arranger loop jumped back: nothing to measure
+        // Deleted, aborted or transport stopped: nothing to measure
         if (!clockRunning || state == LoopState.EMPTY || state == LoopState.RECORD_QUEUED || beats <= start)
             return 0;
 

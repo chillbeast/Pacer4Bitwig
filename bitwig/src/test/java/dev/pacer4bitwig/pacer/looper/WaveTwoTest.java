@@ -75,4 +75,22 @@ class WaveTwoTest
         tracker.update (3, R, true, 40, 4);
         assertEquals (1, tracker.update (3, S, true, 41, 4));
     }
+
+
+    @Test
+    void aRecordingAcrossTheArrangerLoopWrapIsMeasuredInBeatsPlayed ()
+    {
+        // An 8-bar arranger loop (32 beats); 9 bars recorded from beat 4, so it closes at beat 8 after one wrap
+        final LoopLengthTracker tracker = new LoopLengthTracker (1);
+        final ElapsedBeats elapsed = new ElapsedBeats ();
+        double position = 4;
+        tracker.update (0, R, true, elapsed.update (position), 4);
+        for (int beat = 0; beat < 36; beat++)
+        {
+            position = position + 1 >= 32 ? position + 1 - 32 : position + 1;
+            tracker.update (0, R, true, elapsed.update (position), 4);
+        }
+        assertEquals (8.0, position);
+        assertEquals (9, tracker.update (0, P, true, elapsed.update (position), 4));
+    }
 }

@@ -347,10 +347,11 @@ public class LooperController
     }
 
 
-    /** Bars since the recording started, 0-based; -1 if not known (the arranger loop jumped back, say). */
+    /** Bars since the recording started, 0-based; -1 if nothing is recording. */
     private int getRecordingBar ()
     {
-        final double position = this.clock.getPositionInBeats ();
+        // Beats played, like the recording start: the arranger loop wrapping must not restart the count
+        final double position = this.elapsed.update (this.clock.getPositionInBeats ());
         final double beatsPerBar = this.clock.getBeatsPerBar () > 0 ? this.clock.getBeatsPerBar () : BEATS_PER_BAR_4_4;
         for (int i = 0; i < this.getLoopCount (); i++)
         {
@@ -832,7 +833,9 @@ public class LooperController
     {
         final ITrackBank trackBank = this.getTrackBank ();
         final boolean running = this.clock.isPlaying ();
-        final double position = this.clock.getPositionInBeats ();
+        // Beats played, not the play position: a recording across the arranger loop's wrap measured its length
+        // from the wrong end, and with "Match the first loop" that length then locked the whole row
+        final double position = this.elapsed.update (this.clock.getPositionInBeats ());
         final double beatsPerBar = this.clock.getBeatsPerBar ();
         final boolean matching = this.configuration.getLoopLength () == LoopLength.MATCH_FIRST;
 

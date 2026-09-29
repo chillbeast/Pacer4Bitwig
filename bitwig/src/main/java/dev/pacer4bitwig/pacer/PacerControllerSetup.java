@@ -250,6 +250,8 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
                 return;
             // MIDI bindings and note input filters are fixed at init
             this.host.showNotification ("PACER Looper restarts to use MIDI channel " + (this.configuration.getLooperMidiChannel () + 1));
+            // Nothing promises exit () runs on a restart, and releasing twice is harmless
+            this.controller.releasePedals ();
             this.host.restart ();
         });
     }
@@ -387,7 +389,9 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     public void exit ()
     {
         this.running = false;
-        // Hand back anything the looper was holding (fade volumes, queued mutes) before the tick stops for good
+        // Hand back anything held outside Bitwig and in the project before the tick stops for good. The pedals
+        // are the only thing here that reaches outside Bitwig, so they go back first.
+        this.failSoft.run ("pedal release", this.controller::releasePedals);
         this.failSoft.run ("looper shutdown", this.looper::shutdown);
         // A board nobody is driving should not look live - but only when the Bitwig preset is known to be loaded:
         // "OFF" written into another preset's RAM would make the next session take that preset for ours
@@ -477,6 +481,9 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
 
     private void bindPedal (final int index)
     {
+        // A pedal that was driving a MIDI controller hands it back before it addresses something else, or whatever
+        // it last sent stays on the instrument for good. A no-op during init: nothing is held yet.
+        this.controller.repointPedal (index);
         this.controller.pedalRetargeted (index);
         final IHwFader pedal = this.pedals[index];
         if (pedal != null)

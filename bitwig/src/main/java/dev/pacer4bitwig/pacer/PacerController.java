@@ -14,6 +14,7 @@ import dev.pacer4bitwig.pacer.live.LiveBoard;
 import dev.pacer4bitwig.pacer.live.PacerColour;
 import dev.pacer4bitwig.pacer.looper.Action;
 import dev.pacer4bitwig.pacer.looper.ExpressionTarget;
+import dev.pacer4bitwig.pacer.looper.PedalHold;
 import dev.pacer4bitwig.pacer.looper.PedalPickup;
 import dev.pacer4bitwig.pacer.looper.PedalResponse;
 import dev.pacer4bitwig.pacer.looper.PedalTakeover;
@@ -68,6 +69,11 @@ public class PacerController
      */
     private final PacerColour []     switchColours         = new PacerColour [PacerMap.NUM_SWITCHES];
     private RawMidiSender            midiSender            = RawMidiSender.NONE;
+    /** What each expression pedal is holding on a receiver, so it can be handed back. */
+    private final PedalHold []       holds                 = {
+        new PedalHold (),
+        new PedalHold ()
+    };
     /** Called when the active mode changed, so the setup can re-bind the pedals. */
     private Runnable                 modeListener;
     /** The tap action a momentary hold runs again on release, null if none. */
@@ -706,6 +712,60 @@ public class PacerController
 
 
     /**
+     * Hand back a pedal's controller if it is stale, then state where the pedal physically is under whatever it
+     * drives now. Called whenever a pedal is re-bound: the active mode changed or a pedal setting was edited.
+     * <p>
+     * Both halves matter. Without the release the old controller stays parked on the instrument for good; without
+     * the re-assert the receiver sits at neutral while the foot is still on the toe, and the next nudge jumps. With
+     * <i>Pedal takeover = Pick up</i> there is no re-assert: the pedal has to reach the receiver's value first.
+     *
+     * @param index 0-1
+     */
+    public void repointPedal (final int index)
+    {
+        final ExpressionTarget target = this.getExpressionTarget (index);
+        final int channel = this.configuration.getPedalMidiChannel ();
+        final PedalHold hold = this.holds[index];
+        if (hold.isStale (target, channel))
+            this.release (hold);
+        if (this.isPickup ())
+            return;
+        final PedalResponse response = this.configuration.getPedalResponse (index);
+        this.send (hold.reassert (target, channel, response::map));
+    }
+
+
+    /**
+     * Hand back whatever both pedals are holding. For teardown - exit, or a restart - where nothing will be driving
+     * those controllers any more. Idempotent.
+     */
+    public void releasePedals ()
+    {
+        for (final PedalHold hold: this.holds)
+            this.release (hold);
+    }
+
+
+    /** Hand back what a pedal holds; a pick-up then starts from the resting value the receiver was left at. */
+    private void release (final PedalHold hold)
+    {
+        final ExpressionTarget target = hold.getTarget ();
+        final int [] message = hold.release ();
+        if (message == null)
+            return;
+        this.send (message);
+        this.midiSent.put (target, Integer.valueOf (target.restingValue ()));
+    }
+
+
+    private void send (final int [] message)
+    {
+        if (message != null)
+            this.midiSender.send (message[0], message[1], message[2]);
+    }
+
+
+    /**
      * An expression pedal moved and is not bound directly to a parameter.
      *
      * @param index 0-1
@@ -736,9 +796,9 @@ public class PacerController
                 final Integer last = this.midiSent.get (target);
                 if (!this.pickUp (index, mapped / 127.0, last == null ? mapped / 127.0 : last.intValue () / 127.0))
                     return;
-                final int [] message = target.toMidi (mapped, this.configuration.getPedalMidiChannel ());
-                if (message != null)
-                    this.midiSender.send (message[0], message[1], message[2]);
+                // Recorded as well as sent: whatever goes out here stays on the instrument until something hands
+                // it back
+                this.send (this.holds[index].press (target, this.configuration.getPedalMidiChannel (), value, mapped));
                 this.midiSent.put (target, Integer.valueOf (mapped));
             }
             case FX_REMOTE -> {

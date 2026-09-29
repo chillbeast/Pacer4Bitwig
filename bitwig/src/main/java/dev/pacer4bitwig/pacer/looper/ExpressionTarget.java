@@ -87,6 +87,10 @@ public enum ExpressionTarget implements Labelled
     MIDI_PITCH_BEND_UP ("MIDI: pitch bend up", Kind.PITCH_BEND_UP, 0);
 
 
+    /** {@link #restingValue()} for a target that must not be handed back at all. */
+    public static final int NO_REST = -1;
+
+
     /** How the target is driven. */
     public enum Kind
     {
@@ -163,6 +167,32 @@ public enum ExpressionTarget implements Labelled
     public int getRemoteIndex ()
     {
         return this.controller;
+    }
+
+
+    /**
+     * The value a receiver should be left holding once this pedal stops driving it - the controller's documented
+     * neutral, which is not always zero.
+     * <p>
+     * CC 11 is an attenuator: handing it back at 0 silences the instrument, which would be worse than the parked
+     * value this exists to undo. Channel volume and brightness have no neutral at all - on a non-MPE synth CC 74
+     * <em>is</em> the filter cutoff, so any value is an override rather than a release, and CC 7 is an absolute
+     * level only the player knows. Those two are the targets whose effect is audible and obvious, so a player will
+     * simply sweep the pedal back; the ones with a real neutral are the invisible mod-matrix sources that cause the
+     * bug in the first place.
+     *
+     * @return The resting value 0-127, or {@link #NO_REST} if this target must not be handed back
+     */
+    public int restingValue ()
+    {
+        return switch (this)
+        {
+            case MIDI_EXPRESSION -> 127;
+            case MIDI_VOLUME, MIDI_BRIGHTNESS -> NO_REST;
+            // toMidi (0) is already 8192 for the bend, so the centre falls out of the normal path
+            case MIDI_MOD_WHEEL, MIDI_BREATH, MIDI_CHANNEL_PRESSURE, MIDI_PITCH_BEND_UP -> 0;
+            default -> NO_REST;
+        };
     }
 
 

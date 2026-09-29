@@ -100,6 +100,8 @@ extension when the file changes (so `install` restarts it under a user who is te
   on DOWN, which latches the switch's role and board; tap-on-press is decided once, at DOWN. Hold, release and
   double-tap use the latch, so a press that changes the mode (a menu slot does, on press) never runs the new mode's
   hold or release. LEDs (`getLedCode`) always read the board on show, never the latch.
+  A press that latches another role or board than the switch's previous press never finishes that press's
+  double-tap (`TapHoldCommand.withSameTarget`, `PacerController.isSamePressTarget`); SW 6 is exempt.
 - DrivenByMoss calls **every setting observer once at the end of `init`** (`notifyAllObservers`): an observer that
   *does* something (starts the LED test, touches the transport) must check `running`.
 - Count-ins, waiting mutes and fades compare against `looper/ElapsedBeats` (beats played), never the raw play
@@ -181,6 +183,9 @@ extension when the file changes (so `install` restarts it under a user who is te
   (`PacerController.pedalMoved`). Changing the active mode re-binds both pedals, and every re-bind resets the
   pedal's `looper/PedalPickup` (`pedalRetargeted`). MIDI targets pick up from `midiSent`, the loop fader from
   `looper/LoopsLevel.getGain`.
+  Every re-bind also runs `PacerController.repointPedal`: `looper/PedalHold` hands a stale MIDI controller back at
+  its neutral (`ExpressionTarget.restingValue`, none for CC 7 / CC 74) and re-states the pedal's position under the
+  new target (not with *Pick up*). Exit and the looper-channel restart release both pedals.
 - **The shift layer** (`mode/ShiftLayer`, `mode/ShiftedBoard`): `PacerController.getBoard ()` returns the active
   board seen through its shift layer while it is up (never while the menu is open) - so roles, loop switches,
   colours and the press latch work unchanged; `getBaseBoard ()` is for identity checks. A switch whose shift layout
@@ -201,9 +206,13 @@ extension when the file changes (so `install` restarts it under a user who is te
   compared as `PresetGuard.key` (padded, upper case), and `PacerSysex.pad` reduces every display text to printable
   ASCII so what is read back is what was written. A Pacer that never answers is treated as before. Not verified on
   hardware yet (does it answer a GET of the name alone, does a GET flash `LOAD SYS`).
+  The blackout on exit needs the Bitwig preset confirmed within 10 s (`isConfirmedWithin`), or the check off.
 - **Errors are contained** (`util/FailSoft`): every entry point the setup registers - switch and jack commands and
   their scheduled holds, lights, pedals, SysEx, CC 119, settings observers, the tick - runs through `failSoft`, and
-  the tick reschedules itself in `finally`. New entry points go through it too. `util/Diagnostics` logs presses,
+  the tick reschedules itself in `finally`. New entry points go through it too.
+  Settings observers are registered through the setup's `observe`, `startup ()` runs each step through it and
+  `exit ()` releases the pedals and calls `LooperController.shutdown` (fade volumes, queued mutes) through it.
+  `LiveBoard` caches a write only when its sender says it went out. `util/Diagnostics` logs presses,
   actions, modes, shift and the preset check to the console (setting), SysEx at the highest level.
 - **LED flushes:** the tick requests a flush only while `PacerController.isAnimating ()` (a blink, the beat counter,
   the LED test) or within a second of `eventHappened ()` in the setup; Bitwig flushes on its own state changes.

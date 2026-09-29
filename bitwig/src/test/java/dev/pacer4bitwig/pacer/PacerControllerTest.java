@@ -43,6 +43,7 @@ class PacerControllerTest
     private final List<Runnable>     later  = new ArrayList<> ();
     private final List<String>       sysex  = new ArrayList<> ();
     private boolean                  loopTapOnPress;
+    private boolean                  loopDoubleTap;
     private PacerConfiguration       configuration;
     private PacerController          controller;
 
@@ -79,7 +80,15 @@ class PacerControllerTest
             @Override
             public boolean isLoopSwitchDoubleTapEnabled ()
             {
-                return false;
+                return PacerControllerTest.this.loopDoubleTap;
+            }
+
+
+            /** {@inheritDoc} */
+            @Override
+            public void loopSwitchDoubleTap (final int switchIndex)
+            {
+                PacerControllerTest.this.ran.add ("loop double-tap " + (switchIndex + 1));
             }
 
 
@@ -412,6 +421,27 @@ class PacerControllerTest
 
 
     @Test
+    void aDoubleTapNeverSpansTwoBoards ()
+    {
+        this.setField ("loopTrackCount", Integer.valueOf (8));
+        this.loopTapOnPress = true;
+        this.loopDoubleTap = true;
+        final TapHoldCommand sw1 = this.command (SW_1);
+        // The layer for one press: the first tap is loop 5, and uses it up
+        this.controller.perform (Action.SHIFT_ONCE);
+        tap (sw1);
+        // The second is loop 1 - never "double-tap loop 1", which would clear a loop nobody touched
+        tap (sw1);
+        assertEquals (List.of ("loop tap 5", "loop release 5", "loop tap 1", "loop release 1"), this.ran);
+
+        // On the same board a double-tap still works
+        this.ran.clear ();
+        tap (sw1);
+        assertEquals (List.of ("loop double-tap 1", "loop release 1"), this.ran);
+    }
+
+
+    @Test
     void aShiftedLoopSwitchBeyondTheProjectsLoopTracksDoesNothing ()
     {
         // Loop tracks defaults to 4
@@ -701,7 +731,7 @@ class PacerControllerTest
     private TapHoldCommand command (final int index)
     {
         final PacerController c = this.controller;
-        return new TapHoldCommand ( () -> c.isTapOnPress (index), () -> c.tap (index), () -> c.hold (index), () -> c.release (index), null, () -> c.getExtraHoldMillis (index), (task, delay) -> this.later.add (task)).withPress ( () -> c.press (index)).withDoubleTap ( () -> c.doubleTap (index), () -> c.isDoubleTapEnabled (index), () -> 350, System::currentTimeMillis).withDelayedTap ( () -> Mode.isModeSwitch (index));
+        return new TapHoldCommand ( () -> c.isTapOnPress (index), () -> c.tap (index), () -> c.hold (index), () -> c.release (index), null, () -> c.getExtraHoldMillis (index), (task, delay) -> this.later.add (task)).withPress ( () -> c.press (index)).withSameTarget ( () -> c.isSamePressTarget (index)).withDoubleTap ( () -> c.doubleTap (index), () -> c.isDoubleTapEnabled (index), () -> 350, System::currentTimeMillis).withDelayedTap ( () -> Mode.isModeSwitch (index));
     }
 
 

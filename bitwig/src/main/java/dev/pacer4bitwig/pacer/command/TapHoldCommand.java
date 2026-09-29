@@ -54,6 +54,7 @@ public class TapHoldCommand implements TriggerCommand
     private LongSupplier          doubleTapWindow  = () -> 0;
     private LongSupplier          clock            = System::currentTimeMillis;
     private BooleanSupplier       delayTap         = () -> false;
+    private BooleanSupplier       sameTarget       = () -> true;
 
     private boolean               holdSeen;
     private boolean               pressed;
@@ -136,6 +137,21 @@ public class TapHoldCommand implements TriggerCommand
 
 
     /**
+     * Ask, on every press right after the press action, whether this press is for the same thing as the one before.
+     * If not - the shift layer or the mode changed in between - it starts a double-tap of its own instead of
+     * finishing the last one, which belonged to another board.
+     *
+     * @param same True if the press latched what the previous press did
+     * @return This command
+     */
+    public TapHoldCommand withSameTarget (final BooleanSupplier same)
+    {
+        this.sameTarget = same;
+        return this;
+    }
+
+
+    /**
      * Let the tap wait for the double-tap window, so a double-tap runs only the double-tap action. Only while a
      * double-tap is enabled; costs the tap the length of the window.
      *
@@ -160,6 +176,12 @@ public class TapHoldCommand implements TriggerCommand
             this.holdSeen = false;
             if (this.press != null)
                 this.press.run ();
+            // A press for something else than the last one cannot be the second half of its double-tap
+            if (!this.sameTarget.getAsBoolean ())
+            {
+                this.lastTapAt = NO_TAP;
+                this.runWaitingTap ();
+            }
             this.tapFiredOnPress = this.tapOnPress.getAsBoolean ();
             if (this.tapFiredOnPress)
                 this.fireTap ();

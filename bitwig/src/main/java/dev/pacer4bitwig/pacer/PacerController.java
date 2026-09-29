@@ -86,6 +86,8 @@ public class PacerController
      */
     private final SwitchRole []      pressRoles            = new SwitchRole [PacerMap.NUM_SWITCHES];
     private final ModeBoard []       pressBoards           = new ModeBoard [PacerMap.NUM_SWITCHES];
+    /** True if a switch's latest press latched the same role and board as the one before it. */
+    private final boolean []         pressSame             = new boolean [PacerMap.NUM_SWITCHES];
     private final Action []          momentaryFootswitches = new Action [PacerMap.NUM_FOOTSWITCHES];
     private final ShiftLayer         shift                 = new ShiftLayer ();
     /** The active board's shift layer, kept while the board stays the same. */
@@ -353,13 +355,28 @@ public class PacerController
     public void press (final int switchIndex)
     {
         this.controlDown[switchIndex] = true;
-        this.pressRoles[switchIndex] = this.role (switchIndex);
-        this.pressBoards[switchIndex] = this.getBoard ();
+        final SwitchRole role = this.role (switchIndex);
+        final ModeBoard board = this.getBoard ();
+        // SW 6 is the mode switch on every board
+        this.pressSame[switchIndex] = Mode.isModeSwitch (switchIndex) || role == this.pressRoles[switchIndex] && board == this.pressBoards[switchIndex];
+        this.pressRoles[switchIndex] = role;
+        this.pressBoards[switchIndex] = board;
         this.log ( () -> PacerMap.SWITCH_NAMES[switchIndex] + " down: " + this.pressRoles[switchIndex] + " on " + this.pressBoards[switchIndex].getDisplayName () + (this.shift.isOn () ? " (shift " + this.shift.getState () + ")" : "") + (this.modes.isMenuOpen () ? " (menu)" : ""));
         // A layer raised for one press is used up by it - the press keeps the shifted board it latched. A switch
         // that raises the layer itself does not use it up: pressing it again takes the layer down instead.
         if (!Mode.isModeSwitch (switchIndex) && !this.modes.isMenuOpen () && !this.getSwitchTap (switchIndex).isShift () && this.shift.usedByPress ())
             this.shiftChanged ();
+    }
+
+
+    /**
+     * @param switchIndex 0-9
+     * @return True if the switch's latest press latched the same role and board as the press before it, so it may
+     *         finish that press's double-tap
+     */
+    public boolean isSamePressTarget (final int switchIndex)
+    {
+        return this.pressSame[switchIndex];
     }
 
 

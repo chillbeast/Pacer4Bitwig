@@ -61,6 +61,8 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     private static final long          NAME_RESTORE_MS          = 400;
     /** After a press or an announcement, flush the LEDs every tick for this long even if nothing blinks. */
     private static final long          FLUSH_AFTER_EVENT_MS     = 1000;
+    /** The exit blackout needs the Bitwig preset confirmed this recently (a press or an answer). */
+    private static final long          EXIT_CONFIRM_MILLIS      = 10_000;
     /** A name restore the preset check holds back is tried again on every tick, for this long. */
     private static final long          NAME_RESTORE_GIVE_UP_MS  = 3000;
     /** The row on the display when the scene has no name: "ROW 3", "ROW12", "R128" (as preset check keys). */
@@ -208,7 +210,7 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
         super.createObservers ();
 
         // The framework calls every observer once at the end of init; the test must only run when it is clicked
-        this.configuration.addSettingObserver (PacerConfiguration.LED_TEST, () -> {
+        this.observe (PacerConfiguration.LED_TEST, "LED test", () -> {
             if (this.running)
             {
                 this.looper.startLedTest ();
@@ -216,40 +218,47 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
                 this.eventHappened ();
             }
         });
-        this.configuration.addSettingObserver (PacerConfiguration.CUSTOM_MODE, () -> {
+        this.observe (PacerConfiguration.CUSTOM_MODE, "custom layout", () -> {
             // Laying out the custom layout while standing in the mode it changes should show up straight away
             if (this.running)
             {
-                this.failSoft.run ("custom layout", this.controller::customLayoutChanged);
+                this.controller.customLayoutChanged ();
                 this.eventHappened ();
                 this.getSurface ().forceFlush ();
             }
         });
-        this.configuration.addSettingObserver (PacerConfiguration.LAUNCH_QUANTIZATION, () -> {
+        this.observe (PacerConfiguration.LAUNCH_QUANTIZATION, "launch quantization", () -> {
             if (this.running)
                 this.looper.applyLaunchQuantization ();
         });
-        this.configuration.addSettingObserver (PacerConfiguration.LOOP_LENGTH, () -> {
+        this.observe (PacerConfiguration.LOOP_LENGTH, "loop length", () -> {
             if (this.running)
                 this.looper.applyLoopLength ();
         });
-        this.configuration.addSettingObserver (PacerConfiguration.EXPRESSION_1, () -> this.bindPedal (0));
-        this.configuration.addSettingObserver (PacerConfiguration.EXPRESSION_2, () -> this.bindPedal (1));
-        this.configuration.addSettingObserver (PacerConfiguration.DAW_MODE, () -> {
+        this.observe (PacerConfiguration.EXPRESSION_1, "EXP 1 target", () -> this.bindPedal (0));
+        this.observe (PacerConfiguration.EXPRESSION_2, "EXP 2 target", () -> this.bindPedal (1));
+        this.observe (PacerConfiguration.DAW_MODE, "DAW mode", () -> {
             if (this.running)
                 this.dawMode.update ();
         });
-        this.configuration.addSettingObserver (PacerConfiguration.LOOP_TRACK_START, () -> {
+        this.observe (PacerConfiguration.LOOP_TRACK_START, "loop track start", () -> {
             if (this.running)
                 this.looper.applyLoopTrackStart ();
         });
-        this.configuration.addSettingObserver (PacerConfiguration.LOOPER_CHANNEL, () -> {
+        this.observe (PacerConfiguration.LOOPER_CHANNEL, "looper channel", () -> {
             if (!this.running || this.configuration.getLooperMidiChannel () == this.midiChannel)
                 return;
             // MIDI bindings and note input filters are fixed at init
             this.host.showNotification ("PACER Looper restarts to use MIDI channel " + (this.configuration.getLooperMidiChannel () + 1));
             this.host.restart ();
         });
+    }
+
+
+    /** A settings observer that reports what it throws instead of passing it on to Bitwig. */
+    private void observe (final Integer setting, final String name, final Runnable observer)
+    {
+        this.configuration.addSettingObserver (setting, this.failSoft.wrap (name, observer)::run);
     }
 
 
@@ -349,18 +358,20 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     public void startup ()
     {
         this.running = true;
-        this.looper.applyLaunchQuantization ();
-        this.looper.applyLoopLength ();
-        this.looper.applyLoopTrackStart ();
+        // Bitwig runs startup from a scheduled task and catches nothing: each step on its own, so one that throws
+        // cannot leave the extension loaded but inert - no heartbeat, no LEDs, no explanation
+        this.failSoft.run ("startup: launch quantization", this.looper::applyLaunchQuantization);
+        this.failSoft.run ("startup: loop length", this.looper::applyLoopLength);
+        this.failSoft.run ("startup: loop track start", this.looper::applyLoopTrackStart);
         for (final long delay: TRACK_START_RETRIES_MS)
-            this.host.scheduleTask ( () -> {
+            this.host.scheduleTask (this.failSoft.wrap ("loop track start", () -> {
                 if (this.running)
                     this.looper.applyLoopTrackStart ();
-            }, delay);
-        this.dawMode.update ();
+            }), delay);
+        this.failSoft.run ("startup: DAW mode", this.dawMode::update);
         // The Pacer may be showing whatever its stored preset says, so write the whole board
-        this.controller.applyStartupMode ();
-        this.getSurface ().forceFlush ();
+        this.failSoft.run ("startup: mode", this.controller::applyStartupMode);
+        this.failSoft.run ("startup: flush", () -> this.getSurface ().forceFlush ());
         this.tick ();
 
         if (this.configuration.getNotificationLevel ().shows (true))
@@ -376,14 +387,23 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     public void exit ()
     {
         this.running = false;
-        // A board nobody is driving should not look live - unless the Pacer is on someone else's preset
-        if (this.configuration.getPresetCheck () == PresetCheck.OFF || !this.presetGuard.isElsewhere ())
+        // Hand back anything the looper was holding (fade volumes, queued mutes) before the tick stops for good
+        this.failSoft.run ("looper shutdown", this.looper::shutdown);
+        // A board nobody is driving should not look live - but only when the Bitwig preset is known to be loaded:
+        // "OFF" written into another preset's RAM would make the next session take that preset for ours
+        if (this.configuration.getPresetCheck () == PresetCheck.OFF || this.presetGuard.isConfirmedWithin (System.currentTimeMillis (), EXIT_CONFIRM_MILLIS))
             this.failSoft.run ("exit", this.controller::blackout);
-        this.dawMode.shutdown ();
+        this.failSoft.run ("DAW mode shutdown", this.dawMode::shutdown);
         super.exit ();
     }
 
 
+    /**
+     * The 40 ms heartbeat. Nothing above this catches: DrivenByMoss' {@code HostImpl.scheduleTask} is a bare
+     * delegate, so before the try/finally a single exception anywhere below stopped the loop for good - LEDs frozen
+     * mid-blink, count-ins never firing, a fade parked mid-ramp with the volumes never restored - while switch
+     * presses carried on working, because those are MIDI bindings. The re-arm has to survive a bad frame.
+     */
     private void tick ()
     {
         if (!this.running)
@@ -472,11 +492,18 @@ public class PacerControllerSetup extends AbstractControllerSetup<PacerControlSu
     }
 
 
-    private void sendSysex (final String hex)
+    /**
+     * @param hex The message
+     * @return True if it was handed to the port. Bitwig drops a message into a dead port without telling us, so a
+     *         true here means "sent", not "arrived" - it is only as honest as the API allows.
+     */
+    private boolean sendSysex (final String hex)
     {
         this.diagnostics.log (Diagnostics.Level.ALL, () -> "SysEx out: " + hex);
-        if (this.sysexOutput != null)
-            this.sysexOutput.sendSysex (hex);
+        if (this.sysexOutput == null)
+            return false;
+        this.sysexOutput.sendSysex (hex);
+        return true;
     }
 
 

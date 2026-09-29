@@ -75,6 +75,8 @@ public class LooperController
     private static final long             CURSOR_CLIP_FOLLOW_MS = 150;
     /** Restore volumes even if the loops never report stopped. */
     private static final long             FADE_STOP_TIMEOUT_MS  = 20000;
+    /** A fade-in whose loops never start within this gives the volumes back rather than leaving the rig silent. */
+    private static final long             FADE_START_TIMEOUT_MS = 10000;
     /** A released hold-to-record that never started recording is forgotten after this. */
     private static final long             CLOSE_WAIT_MS         = 1000;
     private static final long             LED_TEST_STEP_MS      = 1000;
@@ -101,6 +103,10 @@ public class LooperController
     private PendingCountIn                pendingCountIn;
     private VolumeFade                    fade;
     private long                          fadeStopRequestedAt   = -1;
+    /** When the fade was armed. A fade-in silences the tracks first, so one that never starts must not sit there. */
+    private long                          fadeArmedAt;
+    /** True once the transport played while the fade was armed. */
+    private boolean                       fadeSawPlaying;
     private long                          ledTestStartedAt      = -1;
     /** Loop switches whose current press started a hold-to-record. */
     private final boolean []              holdRecording         = new boolean [PacerMap.MAX_LOOP_TRACKS];
@@ -1068,6 +1074,8 @@ public class LooperController
         final int bars = this.configuration.getFadeLength ().getBars ();
         this.fade = new VolumeFade (direction, bars * this.clock.getBeatsPerBar (), volumes);
         this.fadeStopRequestedAt = -1;
+        this.fadeArmedAt = System.currentTimeMillis ();
+        this.fadeSawPlaying = false;
 
         if (direction == VolumeFade.Direction.IN)
         {
@@ -1098,12 +1106,25 @@ public class LooperController
 
         if (!this.clock.isPlaying ())
         {
-            if (current.isStarted ())
+            // A fade-in silenced the tracks before the ramp existed, so it owes them back even unstarted - once the
+            // transport ran and stopped again, or it never got going. Launching the row from a stopped transport
+            // takes a moment to start it, so a stopped transport right after arming is no reason to give up.
+            if (current.isStarted () || current.getDirection () == VolumeFade.Direction.IN && (this.fadeSawPlaying || System.currentTimeMillis () - this.fadeArmedAt > FADE_START_TIMEOUT_MS))
                 this.restoreFadeVolumes ();
             return;
         }
+        this.fadeSawPlaying = true;
         if (current.getDirection () == VolumeFade.Direction.IN && !this.anyLoop (true))
+        {
+            // Transport running but nothing playing - a stop inside the launch quantization window gets here, and
+            // the tracks are already at zero. Wait a little for the loops, then give the mix back.
+            if (System.currentTimeMillis () - this.fadeArmedAt > FADE_START_TIMEOUT_MS)
+            {
+                this.restoreFadeVolumes ();
+                this.notifyImportant ("Fade in cancelled - no loop started");
+            }
             return;
+        }
 
         // Beats played rather than the play position, so an arranger loop wrapping mid-fade does not restart it
         final double position = this.elapsed.update (this.clock.getPositionInBeats ());
@@ -1125,6 +1146,18 @@ public class LooperController
         }
         else
             this.fade = null;
+    }
+
+
+    /**
+     * Give the project back whatever the looper was holding. Called from {@code exit ()}: a fade owns the only copy
+     * of the pre-fade volumes and lives in the tick, so without this a reload, a project close or a hot-reload
+     * mid-fade left the loop tracks silent - and saving the project then made that permanent.
+     */
+    public void shutdown ()
+    {
+        this.restoreFadeVolumes ();
+        this.applyPendingMutes (entry -> true);
     }
 
 

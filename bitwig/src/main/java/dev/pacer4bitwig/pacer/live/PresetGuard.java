@@ -178,6 +178,18 @@ public final class PresetGuard
 
 
     /**
+     * @param now Milliseconds
+     * @param millis How fresh the confirmation has to be
+     * @return True if the extension's preset was confirmed loaded within that time, or the Pacer never answers (then
+     *         writes go out as without the guard)
+     */
+    public boolean isConfirmedWithin (final long now, final long millis)
+    {
+        return this.state == State.UNANSWERED || this.state == State.OURS && now - this.confirmedAt <= millis;
+    }
+
+
+    /**
      * Should a question go out now?
      *
      * @param now Milliseconds

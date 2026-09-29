@@ -27,8 +27,9 @@ public final class LiveBoard
     {
         /**
          * @param hex The message
+         * @return True if the message went out; false leaves the board's cache alone so the next paint retries
          */
-        void send (String hex);
+        boolean send (String hex);
     }
 
 
@@ -107,8 +108,11 @@ public final class LiveBoard
         final int key = (on.getValue (onDimmed) << 16) | (off.getValue (offDimmed) << 8) | row.getNumber ();
         if (key == this.lastLed[switchIndex] || !this.mayWrite ())
             return false;
+        // Cache only what actually went out. Caching first meant a dropped send left this claiming the Pacer shows
+        // a colour it never received, and nothing re-asserts it - the switch stayed wrong until its state changed.
+        if (!this.send (PacerSysex.led (switchIndex, on, onDimmed, off, offDimmed, row)))
+            return false;
         this.lastLed[switchIndex] = key;
-        this.send (PacerSysex.led (switchIndex, on, onDimmed, off, offDimmed, row));
         return true;
     }
 
@@ -125,8 +129,9 @@ public final class LiveBoard
         final String padded = PacerSysex.pad (name);
         if (padded.equals (this.lastName) || !this.mayWriteName ())
             return false;
+        if (!this.send (PacerSysex.name (padded)))
+            return false;
         this.lastName = padded;
-        this.send (PacerSysex.name (padded));
         this.gate.nameWritten (padded);
         return true;
     }
@@ -141,7 +146,8 @@ public final class LiveBoard
     {
         if (this.lastName == null || !this.mayWriteName ())
             return false;
-        this.send (PacerSysex.name (this.lastName));
+        if (!this.send (PacerSysex.name (this.lastName)))
+            return false;
         this.gate.nameWritten (this.lastName);
         return true;
     }
@@ -209,9 +215,11 @@ public final class LiveBoard
     }
 
 
-    private void send (final String message)
+    private boolean send (final String message)
     {
+        if (!this.sender.send (message))
+            return false;
         this.written++;
-        this.sender.send (message);
+        return true;
     }
 }
